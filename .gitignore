@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+vector_store/
+.env
+*.log
+*.tmp
+conversation_history.json
