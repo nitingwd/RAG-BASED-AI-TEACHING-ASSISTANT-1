@@ -1,5 +1,5 @@
 import streamlit as st
-from rag_utils import process_files, ask_question, load_conversation_history, ask_with_voice, get_api_key, generate_quiz, generate_summary, predict_important_questions
+from rag_utils import process_files, ask_question, load_conversation_history, get_api_key, generate_quiz, generate_summary, predict_important_questions, text_to_speech
 
 st.set_page_config(page_title="Advance RAG", layout="wide")
 
@@ -11,7 +11,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("RAG Based AI Teaching Assistant")
-st.caption("Upload PDF/CSV/TXT → Ask → Quiz → Summary → Important Questions")
+st.caption("Upload PDF/CSV/TXT → Ask (Text + Audio) → Quiz → Summary → Important Questions")
 
 st.sidebar.header("Configuration")
 uploaded_files = st.sidebar.file_uploader("Upload documents (PDF, CSV, TXT)", type=["pdf", "csv", "txt"], accept_multiple_files=True)
@@ -29,43 +29,29 @@ if st.sidebar.button("Submit & Process"):
 
 st.subheader("💬 Study Dashboard")
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["⌨️ Text me pucho", "🎤 Bol ke pucho", "📝 Quiz", "📄 Summary", "⭐ Important Qs"])
+tab1, tab2, tab3, tab4 = st.tabs(["⌨️ Ask (Text + Audio)", "📝 Quiz", "📄 Summary", "⭐ Important Qs"])
 
 with tab1:
-    query = st.text_input("Enter your question here")
+    query = st.text_input("Apna question likho")
     if st.button("Ask"):
         if query:
-            with st.spinner("🤔 Finding answer..."):
+            with st.spinner("🤔 Answer nikal rahe hain..."):
                 answer, sources = ask_question(query, top_k)
-            st.markdown(f"**Answer:** {answer}")
+            st.markdown(f"**Answer (Text):** {answer}")
+            with st.spinner("🔊 Audio bana rahe hain..."):
+                audio_path = text_to_speech(answer)
+            if audio_path:
+                st.markdown("**Answer (Audio):**")
+                st.audio(audio_path)
             if sources:
                 st.write("### 📚 Sources")
                 for src in sources:
                     with st.expander(f"📄 {src.get('source','?')} | Page: {src.get('page','?')}"):
                         st.json(src)
         else:
-            st.warning("⚠️ Please enter a question.")
+            st.warning("⚠️ Pehle question likho.")
 
 with tab2:
-    st.write("Mic dabao aur apna sawal bolo (Hindi/English)")
-    audio = st.audio_input("Record karo")
-    if audio:
-        with st.spinner("🎧 Voice samajh rahe hain..."):
-            result, err = ask_with_voice(audio.getvalue())
-        if err:
-            st.error(err)
-        else:
-            st.success(f"**Tumne bola:** {result['question']}")
-            st.markdown(f"**Answer:** {result['answer']}")
-            if result['audio_path']:
-                st.audio(result['audio_path'])
-            if result['sources']:
-                st.write("### 📚 Sources")
-                for src in result['sources']:
-                    with st.expander(f"📄 {src.get('source','?')} | Page: {src.get('page','?')}"):
-                        st.json(src)
-
-with tab3:
     st.subheader("📝 Auto Quiz Generator")
     st.write("Tumhare PDF se MCQ banayega")
     num_q = st.number_input("Kitne questions?", min_value=3, max_value=10, value=5)
@@ -77,7 +63,7 @@ with tab3:
         else:
             st.markdown(q_text)
 
-with tab4:
+with tab3:
     st.subheader("📄 Smart Summary")
     st.write("Poore document ka 1-page Hinglish summary")
     if st.button("Summary Banao"):
@@ -85,7 +71,7 @@ with tab4:
             s = generate_summary()
         st.markdown(s)
 
-with tab5:
+with tab4:
     st.subheader("⭐ Exam Predictor")
     st.write("Exam me aane wale most important questions")
     if st.button("Important Questions Dekho"):
