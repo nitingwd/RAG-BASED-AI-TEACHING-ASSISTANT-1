@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 import tempfile
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -12,11 +12,11 @@ load_dotenv()
 
 def get_api_key():
     try:
-        if "GOOGLE_API_KEY" in st.secrets:
-            return st.secrets["GOOGLE_API_KEY"]
+        if "GROQ_API_KEY" in st.secrets:
+            return st.secrets["GROQ_API_KEY"]
     except:
         pass
-    return os.getenv("GOOGLE_API_KEY")
+    return os.getenv("GROQ_API_KEY")
 
 @st.cache_resource
 def get_embeddings():
@@ -66,10 +66,10 @@ def process_files(files, chunk_size=1000, chunk_overlap=100):
 
     splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     chunks = splitter.split_documents(docs)
-    
+
     # khaali chunks hatao - yehi line pehle error de rahi thi
     chunks = [c for c in chunks if c.page_content and c.page_content.strip()]
-    
+
     if not chunks:
         st.error("Text bahut chota hai, chunk_size kam karo (500 try karo).")
         return
@@ -82,9 +82,9 @@ def process_files(files, chunk_size=1000, chunk_overlap=100):
             if not test_vec or len(test_vec) == 0:
                 st.error("Embedding model load nahi hua. App reboot karo.")
                 return
-            
+
             vectordb = Chroma.from_documents(chunks, embeddings)
-            
+
     except Exception as e:
         st.error(f"Embedding/Chroma error: {str(e)}")
         st.info("Fix: Streamlit Cloud > Manage app > Reboot karo. Requirements me sentence-transformers hona chahiye.")
@@ -97,7 +97,7 @@ def process_files(files, chunk_size=1000, chunk_overlap=100):
 def ask_question(query, k=3):
     api_key = get_api_key()
     if not api_key:
-        return "GOOGLE_API_KEY nahi mili. Streamlit Secrets me add karo.", []
+        return "GROQ_API_KEY nahi mili. Streamlit Secrets me add karo.", []
     vectordb = st.session_state.get("vectordb")
     if not vectordb:
         return "Pehle documents upload karke 'Submit & Process' dabao.", []
@@ -106,12 +106,12 @@ def ask_question(query, k=3):
         docs = vectordb.similarity_search(query, k=k)
     except Exception as e:
         return f"Search me error: {e}", []
-        
+
     if not docs:
         return "Iska jawab uploaded documents me nahi mila.", []
 
     context = "\n\n".join([f"[Source: {d.metadata.get('source','?')} Page: {d.metadata.get('page','?')}] {d.page_content}" for d in docs])
-    llm = ChatGoogleGenerativeAI(model="gemini-3.6-flash", google_api_key=api_key, temperature=0)
+    llm = ChatGroq(model="llama-3.3-70b-versatile", groq_api_key=api_key, temperature=0)
     prompt = f"""You are a B.Tech/M.Tech teaching assistant. Answer ONLY from context.
 If not in context, say 'Ye aapke uploaded syllabus me nahi hai.'
 Always cite page number.
@@ -125,8 +125,8 @@ Answer in simple Hinglish:"""
     try:
         answer = llm.invoke(prompt).content
     except Exception as e:
-        return f"Gemini API error: {e}", []
-        
+        return f"Groq API error: {e}", []
+
     sources = [doc.metadata for doc in docs]
     if "history" not in st.session_state:
         st.session_state.history = []
