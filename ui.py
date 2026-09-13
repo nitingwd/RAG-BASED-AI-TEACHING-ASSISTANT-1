@@ -1,9 +1,8 @@
 import streamlit as st
-from rag_utils import process_files, ask_question, load_conversation_history, ask_with_voice, get_api_key
+from rag_utils import process_files, ask_question, load_conversation_history, ask_with_voice, get_api_key, create_explainer_video
 
 st.set_page_config(page_title="Advance RAG", layout="wide")
 
-# Developer Badge
 st.markdown("""
 <style>
 .dev-corner {position: fixed; bottom: 20px; right: 20px; background: linear-gradient(135deg, #3f51b5, #9c27b0, #e91e63); padding: 10px 20px; border-radius: 20px; box-shadow: 0px 4px 8px rgba(0,0,0,0.3); color: white; font-size: 14px; font-weight: bold; z-index: 999;}
@@ -30,8 +29,21 @@ if st.sidebar.button("Submit & Process"):
 
 st.subheader("💬 Ask a Question")
 
-# Tabs for Text vs Voice
 tab1, tab2 = st.tabs(["⌨️ Text me pucho", "🎤 Bol ke pucho"])
+
+def show_video_explainer(answer, key_prefix):
+    if st.button("🎬 AI Video me Samjhao", key=f"video_{key_prefix}"):
+        with st.spinner("AI video bana rahe hain..."):
+            slides, audio_path, points = create_explainer_video(answer)
+        if slides:
+            st.success("Video ready! Ye raha AI explainer:")
+            for s in slides:
+                st.image(s, use_container_width=True)
+            if audio_path:
+                st.audio(audio_path)
+            st.caption("AI ne tumhare answer se ye explainer banaya hai")
+        else:
+            st.error("Video nahi ban paya")
 
 with tab1:
     query = st.text_input("Enter your question here")
@@ -45,6 +57,8 @@ with tab1:
                 for src in sources:
                     with st.expander(f"📄 {src.get('source','?')} | Page: {src.get('page','?')}"):
                         st.json(src)
+            if answer and "nahi" not in answer.lower()[:30]:
+                show_video_explainer(answer, "text")
         else:
             st.warning("⚠️ Please enter a question.")
 
@@ -66,6 +80,7 @@ with tab2:
                 for src in result['sources']:
                     with st.expander(f"📄 {src.get('source','?')} | Page: {src.get('page','?')}"):
                         st.json(src)
+            show_video_explainer(result['answer'], "voice")
 
 with st.expander("🕘 Conversation History"):
     history = load_conversation_history()
