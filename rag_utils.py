@@ -157,17 +157,21 @@ def ask_with_voice(audio_bytes):
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
 
-def generate_quiz(num_q=5):
+def generate_quiz(topic, num_q=5):
     api_key = get_api_key()
     if not api_key:
         return None, "GROQ_API_KEY nahi mili"
     vectordb = st.session_state.get("vectordb")
     if not vectordb:
         return None, "Pehle documents upload karke 'Submit & Process' dabao."
-    docs = vectordb.similarity_search("important concepts definitions formulas", k=5)
+    if not topic or not topic.strip():
+        return None, "Pehle topic likho, jaise 'Photosynthesis'"
+    docs = vectordb.similarity_search(topic, k=5)
     context = "\n\n".join([d.page_content[:1000] for d in docs])
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0.5)
-    prompt = f"""Context se {num_q} MCQ banao. Format strictly follow karo:
+    prompt = f"""Topic: {topic}
+Neeche ke context se {num_q} MCQ banao, sirf is topic se related.
+Format:
 Q1. question?
 a) ...
 b) ...
@@ -182,17 +186,21 @@ Context:
     except Exception as e:
         return None, f"Groq error: {e}"
 
-def generate_summary():
+def generate_summary(topic):
     api_key = get_api_key()
     if not api_key:
         return "GROQ_API_KEY nahi mili"
     vectordb = st.session_state.get("vectordb")
     if not vectordb:
         return "Pehle documents upload karke 'Submit & Process' dabao."
-    docs = vectordb.similarity_search("summary overview main topics", k=8)
+    if not topic or not topic.strip():
+        return "Pehle topic likho, jaise 'Thermodynamics'"
+    docs = vectordb.similarity_search(topic, k=8)
     context = "\n\n".join([d.page_content[:800] for d in docs])
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0)
-    prompt = f"""Neeche ke context ka 1-page Hinglish summary do. Headings rakho:
+    prompt = f"""Topic: {topic}
+Is topic ka Hinglish me 1-page summary do, sirf context se.
+Headings:
 ## Important Topics
 ## Key Definitions
 ## Formulas / Points
