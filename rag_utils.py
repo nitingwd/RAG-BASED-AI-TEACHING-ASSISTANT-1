@@ -157,38 +157,69 @@ def ask_with_voice(audio_bytes):
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
 
-def create_explainer_video(answer_text):
-    """Answer ko video slides + voice me badlo"""
+def generate_quiz(num_q=5):
+    api_key = get_api_key()
+    if not api_key:
+        return None, "GROQ_API_KEY nahi mili"
+    vectordb = st.session_state.get("vectordb")
+    if not vectordb:
+        return None, "Pehle documents upload karke 'Submit & Process' dabao."
+    docs = vectordb.similarity_search("important concepts definitions formulas", k=5)
+    context = "\n\n".join([d.page_content[:1000] for d in docs])
+    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0.5)
+    prompt = f"""Context se {num_q} MCQ banao. Format strictly follow karo:
+Q1. question?
+a) ...
+b) ...
+c) ...
+d) ...
+Answer: b)
+
+Context:
+{context}"""
     try:
-        from gtts import gTTS
-        from PIL import Image, ImageDraw
-        import textwrap
-        api_key = get_api_key()
-        llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0.3)
-        pts = llm.invoke(f"Is answer ko 3 short points me todo, har point 20 words max:\n{answer_text}").content
-        points = [p.strip("-• ").strip() for p in pts.split("\n") if p.strip()][:3]
-        if not points:
-            points = [answer_text[:100]]
-
-        tts = gTTS(text=answer_text[:400], lang='hi')
-        audio_path = "/tmp/voice_explain.mp3"
-        tts.save(audio_path)
-
-        slide_paths = []
-        for i, pt in enumerate(points):
-            img = Image.new('RGB', (1280, 720), color=(25, 25, 60))
-            d = ImageDraw.Draw(img)
-            wrapped = "\n".join(textwrap.wrap(pt, width=45))
-            d.text((80, 80), f"Point {i+1}", fill=(255, 200, 0))
-            d.text((80, 200), wrapped, fill=(255, 255, 255))
-            p = f"/tmp/slide_{i}.png"
-            img.save(p)
-            slide_paths.append(p)
-
-        return slide_paths, audio_path, points
+        return llm.invoke(prompt).content, None
     except Exception as e:
-        st.error(f"Video banane me error: {e}")
-        return [], None, []
+        return None, f"Groq error: {e}"
+
+def generate_summary():
+    api_key = get_api_key()
+    if not api_key:
+        return "GROQ_API_KEY nahi mili"
+    vectordb = st.session_state.get("vectordb")
+    if not vectordb:
+        return "Pehle documents upload karke 'Submit & Process' dabao."
+    docs = vectordb.similarity_search("summary overview main topics", k=8)
+    context = "\n\n".join([d.page_content[:800] for d in docs])
+    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0)
+    prompt = f"""Neeche ke context ka 1-page Hinglish summary do. Headings rakho:
+## Important Topics
+## Key Definitions
+## Formulas / Points
+Context:
+{context}"""
+    try:
+        return llm.invoke(prompt).content
+    except Exception as e:
+        return f"Groq error: {e}"
+
+def predict_important_questions():
+    api_key = get_api_key()
+    if not api_key:
+        return "GROQ_API_KEY nahi mili"
+    vectordb = st.session_state.get("vectordb")
+    if not vectordb:
+        return "Pehle documents upload karke 'Submit & Process' dabao."
+    docs = vectordb.similarity_search("exam important questions", k=6)
+    context = "\n\n".join([d.page_content[:800] for d in docs])
+    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0.3)
+    prompt = f"""Is syllabus se exam me aane wale 10 Most Important Questions predict karo. Har question ke sath marks likho (2-mark / 5-mark / 10-mark). Simple Hinglish me.
+Context:
+{context}"""
+    try:
+        return llm.invoke(prompt).content
+    except Exception as e:
+        return f"Groq error: {e}"
 
 def load_conversation_history():
     return st.session_state.get("history", [])
