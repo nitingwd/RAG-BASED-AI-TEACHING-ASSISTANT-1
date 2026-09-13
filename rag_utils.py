@@ -1,8 +1,7 @@
 import os
 import streamlit as st
 import tempfile
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader, CSVLoader, TextLoader
@@ -19,8 +18,8 @@ def get_api_key():
     return os.getenv("GOOGLE_API_KEY")
 
 def get_embeddings():
-    # Local free embeddings - koi API error nahi
-    return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    api_key = get_api_key()
+    return GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key=api_key)
 
 def process_files(files, chunk_size=1000, chunk_overlap=100):
     docs = []
