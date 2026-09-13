@@ -28,7 +28,6 @@ def get_embeddings():
     )
 
 def transcribe_audio(api_key, audio_path):
-    """Voice ko text me badlo - Groq Whisper"""
     try:
         client = Groq(api_key=api_key)
         with open(audio_path, "rb") as f:
@@ -43,7 +42,6 @@ def transcribe_audio(api_key, audio_path):
         return None
 
 def text_to_speech(text):
-    """Jawab ko voice me badlo"""
     try:
         from gtts import gTTS
         tts = gTTS(text=text[:500], lang='hi')
@@ -127,12 +125,9 @@ def ask_question(query, k=3):
     prompt = f"""You are a B.Tech/M.Tech teaching assistant. Answer ONLY from context.
 If not in context, say 'Ye aapke uploaded syllabus me nahi hai.'
 Always cite page number.
-
 Context:
 {context}
-
 Question: {query}
-
 Answer in simple Hinglish:"""
     try:
         answer = llm.invoke(prompt).content
@@ -145,7 +140,6 @@ Answer in simple Hinglish:"""
     return answer, sources
 
 def ask_with_voice(audio_bytes):
-    """Voice Q&A ka full flow"""
     api_key = get_api_key()
     if not api_key:
         return None, "GROQ_API_KEY nahi mili"
@@ -162,6 +156,39 @@ def ask_with_voice(audio_bytes):
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+def create_explainer_video(answer_text):
+    """Answer ko video slides + voice me badlo"""
+    try:
+        from gtts import gTTS
+        from PIL import Image, ImageDraw
+        import textwrap
+        api_key = get_api_key()
+        llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0.3)
+        pts = llm.invoke(f"Is answer ko 3 short points me todo, har point 20 words max:\n{answer_text}").content
+        points = [p.strip("-• ").strip() for p in pts.split("\n") if p.strip()][:3]
+        if not points:
+            points = [answer_text[:100]]
+
+        tts = gTTS(text=answer_text[:400], lang='hi')
+        audio_path = "/tmp/voice_explain.mp3"
+        tts.save(audio_path)
+
+        slide_paths = []
+        for i, pt in enumerate(points):
+            img = Image.new('RGB', (1280, 720), color=(25, 25, 60))
+            d = ImageDraw.Draw(img)
+            wrapped = "\n".join(textwrap.wrap(pt, width=45))
+            d.text((80, 80), f"Point {i+1}", fill=(255, 200, 0))
+            d.text((80, 200), wrapped, fill=(255, 255, 255))
+            p = f"/tmp/slide_{i}.png"
+            img.save(p)
+            slide_paths.append(p)
+
+        return slide_paths, audio_path, points
+    except Exception as e:
+        st.error(f"Video banane me error: {e}")
+        return [], None, []
 
 def load_conversation_history():
     return st.session_state.get("history", [])
