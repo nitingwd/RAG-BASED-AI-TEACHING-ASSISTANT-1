@@ -1,5 +1,5 @@
 import streamlit as st
-from rag_utils import process_files, ask_question, load_conversation_history
+from rag_utils import process_files, ask_question, load_conversation_history, ask_with_voice, get_api_key
 
 st.set_page_config(page_title="Advance RAG", layout="wide")
 
@@ -12,6 +12,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("RAG Based AI Teaching Assistant")
+st.caption("Upload PDF/CSV/TXT → Ask by Text or Voice → Get answer with sources")
 
 st.sidebar.header("Configuration")
 uploaded_files = st.sidebar.file_uploader("Upload documents (PDF, CSV, TXT)", type=["pdf", "csv", "txt"], accept_multiple_files=True)
@@ -28,19 +29,50 @@ if st.sidebar.button("Submit & Process"):
         st.warning("⚠️ Please upload at least one document.")
 
 st.subheader("💬 Ask a Question")
-query = st.text_input("Enter your question here")
 
-if st.button("Ask"):
-    if query:
-        with st.spinner("🤔 Finding answer..."):
-            answer, sources = ask_question(query, top_k)
-        st.markdown(f"**Answer:** {answer}")
-        st.write("### 📚 Sources")
-        for src in sources:
-            st.write(f"- {src.get('source','?')} | Page: {src.get('page','?')}")
-    else:
-        st.warning("⚠️ Please enter a question.")
+# Tabs for Text vs Voice
+tab1, tab2 = st.tabs(["⌨️ Text me pucho", "🎤 Bol ke pucho"])
+
+with tab1:
+    query = st.text_input("Enter your question here")
+    if st.button("Ask"):
+        if query:
+            with st.spinner("🤔 Finding answer..."):
+                answer, sources = ask_question(query, top_k)
+            st.markdown(f"**Answer:** {answer}")
+            if sources:
+                st.write("### 📚 Sources")
+                for src in sources:
+                    with st.expander(f"📄 {src.get('source','?')} | Page: {src.get('page','?')}"):
+                        st.json(src)
+        else:
+            st.warning("⚠️ Please enter a question.")
+
+with tab2:
+    st.write("Mic dabao aur apna sawal bolo (Hindi/English)")
+    audio = st.audio_input("Record karo")
+    if audio:
+        with st.spinner("🎧 Voice samajh rahe hain..."):
+            result, err = ask_with_voice(audio.getvalue())
+        if err:
+            st.error(err)
+        else:
+            st.success(f"**Tumne bola:** {result['question']}")
+            st.markdown(f"**Answer:** {result['answer']}")
+            if result['audio_path']:
+                st.audio(result['audio_path'])
+            if result['sources']:
+                st.write("### 📚 Sources")
+                for src in result['sources']:
+                    with st.expander(f"📄 {src.get('source','?')} | Page: {src.get('page','?')}"):
+                        st.json(src)
 
 with st.expander("🕘 Conversation History"):
     history = load_conversation_history()
-    st.json(history)
+    if history:
+        for i, h in enumerate(reversed(history), 1):
+            st.markdown(f"**Q{i}:** {h['query']}")
+            st.markdown(f"**A{i}:** {h['answer']}")
+            st.divider()
+    else:
+        st.write("Abhi koi history nahi hai.")
