@@ -18,11 +18,20 @@ def get_api_key():
         pass
     return os.getenv("GOOGLE_API_KEY")
 
+@st.cache_resource
 def get_embeddings():
-    # Local free embeddings - koi API error nahi
-    return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    # cache_resource se dobara download nahi hoga, Cloud par crash nahi hoga
+    return HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        model_kwargs={'device': 'cpu'},
+        encode_kwargs={'normalize_embeddings': False}
+    )
 
 def process_files(files, chunk_size=1000, chunk_overlap=100):
+    if not files:
+        st.warning("Pehle koi file upload karo.")
+        return
+
     docs = []
     for file in files:
         file_ext = os.path.splitext(file.name)[-1].lower()
@@ -37,33 +46,72 @@ def process_files(files, chunk_size=1000, chunk_overlap=100):
             elif file_ext == ".txt":
                 loader = TextLoader(tmp_path)
             else:
+                st.warning(f"{file.name} skip kiya - sirf PDF/CSV/TXT allowed hai")
                 continue
             loaded = loader.load()
+            # khaali pages hatao
+            loaded = [d for d in loaded if d.page_content and d.page_content.strip()]
             for d in loaded:
                 d.metadata["source"] = file.name
             docs.extend(loaded)
+        except Exception as e:
+            st.error(f"{file.name} padhne me error: {e}")
         finally:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
 
+    if not docs:
+        st.error("Koi file se text nahi nikla. Scanned PDF hai to text wali PDF upload karo.")
+        return
+
     splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     chunks = splitter.split_documents(docs)
     
-    vectordb = Chroma.from_documents(chunks, get_embeddings())
+    # khaali chunks hatao - yehi line pehle error de rahi thi
+    chunks = [c for c in chunks if c.page_content and c.page_content.strip()]
+    
+    if not chunks:
+        st.error("Text bahut chota hai, chunk_size kam karo (500 try karo).")
+        return
+
+    try:
+        with st.spinner(f"{len(chunks)} chunks ke embeddings ban rahe hain..."):
+            embeddings = get_embeddings()
+            # pehle test karo
+            test_vec = embeddings.embed_query("hello")
+            if not test_vec or len(test_vec) == 0:
+                st.error("Embedding model load nahi hua. App reboot karo.")
+                return
+            
+            vectordb = Chroma.from_documents(chunks, embeddings)
+            
+    except Exception as e:
+        st.error(f"Embedding/Chroma error: {str(e)}")
+        st.info("Fix: Streamlit Cloud > Manage app > Reboot karo. Requirements me sentence-transformers hona chahiye.")
+        return
+
     st.session_state.vectordb = vectordb
     st.session_state.history = []
+    st.success(f"Ho gaya! {len(chunks)} chunks process hue.")
 
 def ask_question(query, k=3):
     api_key = get_api_key()
     if not api_key:
-        return "GOOGLE_API_KEY nahi mili.", []
+        return "GOOGLE_API_KEY nahi mili. Streamlit Secrets me add karo.", []
     vectordb = st.session_state.get("vectordb")
     if not vectordb:
         return "Pehle documents upload karke 'Submit & Process' dabao.", []
 
-    docs = vectordb.similarity_search(query, k=k)
+    try:
+        docs = vectordb.similarity_search(query, k=k)
+    except Exception as e:
+        return f"Search me error: {e}", []
+        
+    if not docs:
+        return "Iska jawab uploaded documents me nahi mila.", []
+
     context = "\n\n".join([f"[Source: {d.metadata.get('source','?')} Page: {d.metadata.get('page','?')}] {d.page_content}" for d in docs])
-    llm = ChatGoogleGenerativeAI(model="gemini-3.8-flash", google_api_key=api_key, temperature=0)
+    llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key=api_key, temperature=0)
     prompt = f"""You are a B.Tech/M.Tech teaching assistant. Answer ONLY from context.
 If not in context, say 'Ye aapke uploaded syllabus me nahi hai.'
 Always cite page number.
@@ -74,7 +122,11 @@ Context:
 Question: {query}
 
 Answer in simple Hinglish:"""
-    answer = llm.invoke(prompt).content
+    try:
+        answer = llm.invoke(prompt).content
+    except Exception as e:
+        return f"Gemini API error: {e}", []
+        
     sources = [doc.metadata for doc in docs]
     if "history" not in st.session_state:
         st.session_state.history = []
