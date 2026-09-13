@@ -19,7 +19,11 @@ def get_api_key():
 
 def get_embeddings():
     api_key = get_api_key()
-    return GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key=api_key)
+    return GoogleGenerativeAIEmbeddings(
+        model="models/embedding-001",
+        google_api_key=api_key,
+        transport="rest"
+    )
 
 def process_files(files, chunk_size=1000, chunk_overlap=100):
     docs = []
