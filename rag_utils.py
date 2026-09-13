@@ -7,6 +7,7 @@ from langchain_community.vectorstores import Chroma
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader, CSVLoader, TextLoader
 from dotenv import load_dotenv
+from groq import Groq
 
 load_dotenv()
 
@@ -20,18 +21,43 @@ def get_api_key():
 
 @st.cache_resource
 def get_embeddings():
-    # cache_resource se dobara download nahi hoga, Cloud par crash nahi hoga
     return HuggingFaceEmbeddings(
         model_name="sentence-transformers/all-MiniLM-L6-v2",
         model_kwargs={'device': 'cpu'},
         encode_kwargs={'normalize_embeddings': False}
     )
 
+def transcribe_audio(api_key, audio_path):
+    """Voice ko text me badlo - Groq Whisper"""
+    try:
+        client = Groq(api_key=api_key)
+        with open(audio_path, "rb") as f:
+            tr = client.audio.transcriptions.create(
+                file=(os.path.basename(audio_path), f.read()),
+                model="whisper-large-v3-turbo",
+                language="hi"
+            )
+        return tr.text
+    except Exception as e:
+        st.error(f"Voice transcribe error: {e}")
+        return None
+
+def text_to_speech(text):
+    """Jawab ko voice me badlo"""
+    try:
+        from gtts import gTTS
+        tts = gTTS(text=text[:500], lang='hi')
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+        tts.save(tmp.name)
+        return tmp.name
+    except Exception as e:
+        st.error(f"TTS error: {e}")
+        return None
+
 def process_files(files, chunk_size=1000, chunk_overlap=100):
     if not files:
         st.warning("Pehle koi file upload karo.")
         return
-
     docs = []
     for file in files:
         file_ext = os.path.splitext(file.name)[-1].lower()
@@ -49,7 +75,6 @@ def process_files(files, chunk_size=1000, chunk_overlap=100):
                 st.warning(f"{file.name} skip kiya - sirf PDF/CSV/TXT allowed hai")
                 continue
             loaded = loader.load()
-            # khaali pages hatao
             loaded = [d for d in loaded if d.page_content and d.page_content.strip()]
             for d in loaded:
                 d.metadata["source"] = file.name
@@ -59,37 +84,27 @@ def process_files(files, chunk_size=1000, chunk_overlap=100):
         finally:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
-
     if not docs:
         st.error("Koi file se text nahi nikla. Scanned PDF hai to text wali PDF upload karo.")
         return
-
     splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     chunks = splitter.split_documents(docs)
-
-    # khaali chunks hatao - yehi line pehle error de rahi thi
     chunks = [c for c in chunks if c.page_content and c.page_content.strip()]
-
     if not chunks:
         st.error("Text bahut chota hai, chunk_size kam karo (500 try karo).")
         return
-
     try:
         with st.spinner(f"{len(chunks)} chunks ke embeddings ban rahe hain..."):
             embeddings = get_embeddings()
-            # pehle test karo
             test_vec = embeddings.embed_query("hello")
             if not test_vec or len(test_vec) == 0:
                 st.error("Embedding model load nahi hua. App reboot karo.")
                 return
-
             vectordb = Chroma.from_documents(chunks, embeddings)
-
     except Exception as e:
         st.error(f"Embedding/Chroma error: {str(e)}")
-        st.info("Fix: Streamlit Cloud > Manage app > Reboot karo. Requirements me sentence-transformers hona chahiye.")
+        st.info("Fix: Streamlit Cloud > Manage app > Reboot karo.")
         return
-
     st.session_state.vectordb = vectordb
     st.session_state.history = []
     st.success(f"Ho gaya! {len(chunks)} chunks process hue.")
@@ -101,15 +116,12 @@ def ask_question(query, k=3):
     vectordb = st.session_state.get("vectordb")
     if not vectordb:
         return "Pehle documents upload karke 'Submit & Process' dabao.", []
-
     try:
         docs = vectordb.similarity_search(query, k=k)
     except Exception as e:
         return f"Search me error: {e}", []
-
     if not docs:
         return "Iska jawab uploaded documents me nahi mila.", []
-
     context = "\n\n".join([f"[Source: {d.metadata.get('source','?')} Page: {d.metadata.get('page','?')}] {d.page_content}" for d in docs])
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0)
     prompt = f"""You are a B.Tech/M.Tech teaching assistant. Answer ONLY from context.
@@ -126,12 +138,30 @@ Answer in simple Hinglish:"""
         answer = llm.invoke(prompt).content
     except Exception as e:
         return f"Groq API error: {e}", []
-
     sources = [doc.metadata for doc in docs]
     if "history" not in st.session_state:
         st.session_state.history = []
     st.session_state.history.append({"query": query, "answer": answer, "sources": sources})
     return answer, sources
+
+def ask_with_voice(audio_bytes):
+    """Voice Q&A ka full flow"""
+    api_key = get_api_key()
+    if not api_key:
+        return None, "GROQ_API_KEY nahi mili"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+        tmp.write(audio_bytes)
+        tmp_path = tmp.name
+    try:
+        q_text = transcribe_audio(api_key, tmp_path)
+        if not q_text:
+            return None, "Voice samajh nahi aayi"
+        answer, sources = ask_question(q_text)
+        mp3_path = text_to_speech(answer)
+        return {"question": q_text, "answer": answer, "sources": sources, "audio_path": mp3_path}, None
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
 
 def load_conversation_history():
     return st.session_state.get("history", [])
