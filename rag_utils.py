@@ -111,7 +111,7 @@ def ask_question(query, k=3):
         return "Iska jawab uploaded documents me nahi mila.", []
 
     context = "\n\n".join([f"[Source: {d.metadata.get('source','?')} Page: {d.metadata.get('page','?')}] {d.page_content}" for d in docs])
-    llm = ChatGroq(model="llama-3.1-8b-instant", groq_api_key=api_key, temperature=0)
+    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0)
     prompt = f"""You are a B.Tech/M.Tech teaching assistant. Answer ONLY from context.
 If not in context, say 'Ye aapke uploaded syllabus me nahi hai.'
 Always cite page number.
