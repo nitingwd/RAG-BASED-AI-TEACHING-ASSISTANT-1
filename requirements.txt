@@ -3,8 +3,6 @@ langchain==0.3.27
 langchain-community==0.3.27
 langchain-core==0.3.74
 langchain-google-genai==2.1.9
-langchain-huggingface
-sentence-transformers
 chromadb==1.1.0
 python-dotenv==1.1.1
 pypdf==5.9.0
