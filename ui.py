@@ -1,5 +1,5 @@
 import streamlit as st
-from rag_utils import process_files, ask_question, load_conversation_history, ask_with_voice, get_api_key, create_explainer_video
+from rag_utils import process_files, ask_question, load_conversation_history, ask_with_voice, get_api_key, generate_quiz, generate_summary, predict_important_questions
 
 st.set_page_config(page_title="Advance RAG", layout="wide")
 
@@ -11,7 +11,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("RAG Based AI Teaching Assistant")
-st.caption("Upload PDF/CSV/TXT → Ask by Text or Voice → Get answer with sources")
+st.caption("Upload PDF/CSV/TXT → Ask → Quiz → Summary → Important Questions")
 
 st.sidebar.header("Configuration")
 uploaded_files = st.sidebar.file_uploader("Upload documents (PDF, CSV, TXT)", type=["pdf", "csv", "txt"], accept_multiple_files=True)
@@ -27,23 +27,9 @@ if st.sidebar.button("Submit & Process"):
     else:
         st.warning("⚠️ Please upload at least one document.")
 
-st.subheader("💬 Ask a Question")
+st.subheader("💬 Study Dashboard")
 
-tab1, tab2 = st.tabs(["⌨️ Text me pucho", "🎤 Bol ke pucho"])
-
-def show_video_explainer(answer, key_prefix):
-    if st.button("🎬 AI Video me Samjhao", key=f"video_{key_prefix}"):
-        with st.spinner("AI video bana rahe hain..."):
-            slides, audio_path, points = create_explainer_video(answer)
-        if slides:
-            st.success("Video ready! Ye raha AI explainer:")
-            for s in slides:
-                st.image(s, use_container_width=True)
-            if audio_path:
-                st.audio(audio_path)
-            st.caption("AI ne tumhare answer se ye explainer banaya hai")
-        else:
-            st.error("Video nahi ban paya")
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["⌨️ Text me pucho", "🎤 Bol ke pucho", "📝 Quiz", "📄 Summary", "⭐ Important Qs"])
 
 with tab1:
     query = st.text_input("Enter your question here")
@@ -57,8 +43,6 @@ with tab1:
                 for src in sources:
                     with st.expander(f"📄 {src.get('source','?')} | Page: {src.get('page','?')}"):
                         st.json(src)
-            if answer and "nahi" not in answer.lower()[:30]:
-                show_video_explainer(answer, "text")
         else:
             st.warning("⚠️ Please enter a question.")
 
@@ -80,7 +64,34 @@ with tab2:
                 for src in result['sources']:
                     with st.expander(f"📄 {src.get('source','?')} | Page: {src.get('page','?')}"):
                         st.json(src)
-            show_video_explainer(result['answer'], "voice")
+
+with tab3:
+    st.subheader("📝 Auto Quiz Generator")
+    st.write("Tumhare PDF se MCQ banayega")
+    num_q = st.number_input("Kitne questions?", min_value=3, max_value=10, value=5)
+    if st.button("Quiz Banao"):
+        with st.spinner("Quiz ban raha hai..."):
+            q_text, err = generate_quiz(num_q)
+        if err:
+            st.error(err)
+        else:
+            st.markdown(q_text)
+
+with tab4:
+    st.subheader("📄 Smart Summary")
+    st.write("Poore document ka 1-page Hinglish summary")
+    if st.button("Summary Banao"):
+        with st.spinner("Summary ban raha hai..."):
+            s = generate_summary()
+        st.markdown(s)
+
+with tab5:
+    st.subheader("⭐ Exam Predictor")
+    st.write("Exam me aane wale most important questions")
+    if st.button("Important Questions Dekho"):
+        with st.spinner("Predict kar rahe hain..."):
+            imp = predict_important_questions()
+        st.markdown(imp)
 
 with st.expander("🕘 Conversation History"):
     history = load_conversation_history()
