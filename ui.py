@@ -1,6 +1,4 @@
 import streamlit as st
-import matplotlib.pyplot as plt
-import re
 from rag_utils import process_files, ask_question, load_conversation_history, get_api_key, generate_quiz, generate_summary, predict_important_questions, text_to_speech
 
 st.set_page_config(page_title="Advance RAG", layout="wide")
@@ -33,52 +31,15 @@ st.subheader("💬 Study Dashboard")
 
 tab1, tab2, tab3, tab4 = st.tabs(["⌨️ Ask (Text + Audio)", "📝 Quiz", "📄 Summary", "⭐ Important Qs"])
 
-def display_answer_with_graph(llm_answer):
-    # TEXT: aur CODE: ko alag karo
-    if "CODE:" in llm_answer:
-        parts = llm_answer.split("CODE:")
-        text_part = parts[0].replace("TEXT:", "").strip()
-        code_part = parts[1].strip()
-
-        st.markdown(f"**Answer (Text):** {text_part}")
-
-        # ```python.... ``` ko saaf karo
-        clean_code = re.sub(r'```python|```', '', code_part).strip()
-
-        st.write("### 📊 Visualization")
-        try:
-            fig, ax = plt.subplots()
-            # ax ko code me available karate hain
-            exec(clean_code, {"plt": plt, "fig": fig, "ax": ax})
-            st.pyplot(fig)
-        except Exception as e:
-            st.error(f"Graph banane me error aaya: {e}")
-            st.code(clean_code)
-    else:
-        clean_text = llm_answer.replace("TEXT:", "").strip()
-        st.markdown(f"**Answer (Text):** {clean_text}")
-
 with tab1:
-    query = st.text_input("Apna question likho (graph ke liye 'graph banao' likho)")
+    query = st.text_input("Apna question likho")
     if st.button("Ask"):
         if query:
-            # Agar user ne graph manga hai to query me instruction add kardo
-            graph_keywords = ["graph", "plot", "chart", "visualize", "diagram", "bar", "pie"]
-            enhanced_query = query
-            if any(k in query.lower() for k in graph_keywords):
-                enhanced_query = query + "\n\nInstruction: Pehle TEXT: me samjhao, phir CODE: me sirf matplotlib ka python code do. Code me fig, ax pehle se bane hue hain, unhi ka use karo. plt.show() mat likhna."
-            else:
-                enhanced_query = query + "\n\nInstruction: Sirf TEXT: me jawab do."
-
             with st.spinner("🤔 Answer nikal rahe hain..."):
-                answer, sources = ask_question(enhanced_query, top_k)
-
-            display_answer_with_graph(answer)
-
+                answer, sources = ask_question(query, top_k)
+            st.markdown(f"**Answer (Text):** {answer}")
             with st.spinner("🔊 Audio bana rahe hain..."):
-                # Audio ke liye sirf text wala hissa bhejo
-                audio_text = answer.split("CODE:")[0].replace("TEXT:", "").strip()
-                audio_path = text_to_speech(audio_text)
+                audio_path = text_to_speech(answer)
             if audio_path:
                 st.markdown("**Answer (Audio):**")
                 st.audio(audio_path)
