@@ -222,4 +222,4 @@ Context:
         return f"Groq error: {e}"
 
 def load_conversation_history():
-    return st.session_state.get("history", []) yeh lo kar do
+    return st.session_state.get("history", [])
