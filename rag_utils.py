@@ -221,36 +221,5 @@ Context:
     except Exception as e:
         return f"Groq error: {e}"
 
-def check_handwritten_answer(image_file, question):
-    api_key = get_api_key()
-    if not api_key:
-        return "GROQ_API_KEY nahi mili"
-    vectordb = st.session_state.get("vectordb")
-    if not vectordb:
-        return "Pehle documents upload karke 'Submit & Process' dabao."
-    correct_answer, _ = ask_question(question, k=3)
-    try:
-        import base64
-        img_b64 = base64.b64encode(image_file.getvalue()).decode()
-        llm = ChatGroq(model="meta-llama/llama-4-scout-17b-16e-instruct", groq_api_key=api_key, temperature=0)
-        prompt = f"""Tum ek strict examiner ho.
-Sahi Answer (syllabus se): {correct_answer}
-Question: {question}
-Student ne photo me jo likha hai usko padho aur check karo.
-Simple Hinglish me do:
-1. Marks /10
-2. Sahi points (green tick)
-3. Kya chhoota hai syllabus ke page number ke sath
-4. Improve karne ke liye 1 tip"""
-        messages = [
-            {"role": "user", "content": [
-                {"type": "text", "text": prompt},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}
-            ]}
-        ]
-        return llm.invoke(messages).content
-    except Exception as e:
-        return f"Copy check me error: {e}"
-
 def load_conversation_history():
-    return st.session_state.get("history", [])
+    return st.session_state.get("history", []) yeh lo kar do
