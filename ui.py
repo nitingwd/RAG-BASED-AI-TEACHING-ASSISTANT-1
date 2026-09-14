@@ -87,4 +87,4 @@ with st.expander("🕘 Conversation History"):
             st.markdown(f"**A{i}:** {h['answer']}")
             st.divider()
     else:
-        st.write("Abhi koi history nahi hai.") yeh lo kar do
+        st.write("Abhi koi history nahi hai.")
