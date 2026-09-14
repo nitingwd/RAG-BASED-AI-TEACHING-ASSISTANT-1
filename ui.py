@@ -1,5 +1,5 @@
 import streamlit as st
-from rag_utils import process_files, ask_question, load_conversation_history, get_api_key, generate_quiz, generate_summary, predict_important_questions, text_to_speech, check_handwritten_answer
+from rag_utils import process_files, ask_question, load_conversation_history, get_api_key, generate_quiz, generate_summary, predict_important_questions, text_to_speech
 
 st.set_page_config(page_title="Advance RAG", layout="wide")
 
@@ -29,7 +29,7 @@ if st.sidebar.button("Submit & Process"):
 
 st.subheader("💬 Study Dashboard")
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["⌨️ Ask (Text + Audio)", "📝 Quiz", "📄 Summary", "⭐ Important Qs", "✍️ Copy Check"])
+tab1, tab2, tab3, tab4 = st.tabs(["⌨️ Ask (Text + Audio)", "📝 Quiz", "📄 Summary", "⭐ Important Qs"])
 
 with tab1:
     query = st.text_input("Apna question likho")
@@ -69,28 +69,7 @@ with tab3:
     if st.button("Summary Banao"):
         with st.spinner("Summary ban raha hai..."):
             s = generate_summary()
-        st.session_state['last_summary'] = s
         st.markdown(s)
-
-    if 'last_summary' in st.session_state:
-        from fpdf import FPDF
-        def create_pdf(text):
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_auto_page_break(auto=True, margin=15)
-            pdf.set_font("Arial", size=12)
-            clean_text = text.encode('latin-1', 'replace').decode('latin-1')
-            for line in clean_text.split('\n'):
-                pdf.multi_cell(0, 10, line)
-            return pdf.output(dest='S').encode('latin-1')
-        
-        pdf_bytes = create_pdf(st.session_state['last_summary'])
-        st.download_button(
-            label="📥 Summary PDF Download Karo",
-            data=pdf_bytes,
-            file_name="smart_summary.pdf",
-            mime="application/pdf"
-        )
 
 with tab4:
     st.subheader("⭐ Exam Predictor")
@@ -100,19 +79,6 @@ with tab4:
             imp = predict_important_questions()
         st.markdown(imp)
 
-with tab5:
-    st.subheader("✍️ Teacher's Red Pen - Copy Check")
-    st.write("Apne haath se likhe answer ki photo upload karo, AI syllabus se check karega")
-    q_for_check = st.text_input("Yeh answer kis question ka hai?", key="check_q")
-    img_file = st.file_uploader("Answer ki photo upload karo", type=["jpg", "jpeg", "png"], key="check_img")
-    if st.button("Copy Check Karo"):
-        if q_for_check and img_file:
-            with st.spinner("🧐 Teacher check kar raha hai..."):
-                result = check_handwritten_answer(img_file, q_for_check)
-            st.markdown(result)
-        else:
-            st.warning("⚠️ Question aur photo dono do.")
-
 with st.expander("🕘 Conversation History"):
     history = load_conversation_history()
     if history:
@@ -121,4 +87,4 @@ with st.expander("🕘 Conversation History"):
             st.markdown(f"**A{i}:** {h['answer']}")
             st.divider()
     else:
-        st.write("Abhi koi history nahi hai.")
+        st.write("Abhi koi history nahi hai.") yeh lo kar do
