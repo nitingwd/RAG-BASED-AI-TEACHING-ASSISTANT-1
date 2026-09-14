@@ -125,15 +125,101 @@ def ask_question(query, k=3):
     prompt = f"""You are a B.Tech/M.Tech teaching assistant. Answer ONLY from context.
 If not in context, say 'Ye aapke uploaded syllabus me nahi hai.'
 Always cite page number.
+Context:
+{context}
+Question: {query}
+Answer in simple Hinglish:"""
+    try:
+        answer = llm.invoke(prompt).content
+    except Exception as e:
+        return f"Groq API error: {e}", []
+    sources = [doc.metadata for doc in docs]
+    if "history" not in st.session_state:
+        st.session_state.history = []
+    st.session_state.history.append({"query": query, "answer": answer, "sources": sources})
+    return answer, sources
 
-IMPORTANT OUTPUT FORMAT RULE:
-- User ke question me jo Instruction hai usko strictly follow karo.
-- Agar Instruction me TEXT: aur CODE: manga hai, to aisa jawab do:
-TEXT:
-<yahan simple Hinglish me explanation, page number citation ke sath>
+def ask_with_voice(audio_bytes):
+    api_key = get_api_key()
+    if not api_key:
+        return None, "GROQ_API_KEY nahi mili"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+        tmp.write(audio_bytes)
+        tmp_path = tmp.name
+    try:
+        q_text = transcribe_audio(api_key, tmp_path)
+        if not q_text:
+            return None, "Voice samajh nahi aayi"
+        answer, sources = ask_question(q_text)
+        mp3_path = text_to_speech(answer)
+        return {"question": q_text, "answer": answer, "sources": sources, "audio_path": mp3_path}, None
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
 
-CODE:
-```python
-# yahan sirf matplotlib code. fig, ax pehle se bane hue hain, unhi ka use karo.
-# Example: ax.bar([1,2,3], [4,5,6]); ax.set_title("title")
-# plt.show() mat likhna.
+def generate_quiz(num_q=5):
+    api_key = get_api_key()
+    if not api_key:
+        return None, "GROQ_API_KEY nahi mili"
+    vectordb = st.session_state.get("vectordb")
+    if not vectordb:
+        return None, "Pehle documents upload karke 'Submit & Process' dabao."
+    docs = vectordb.similarity_search("important concepts definitions formulas", k=5)
+    context = "\n\n".join([d.page_content[:1000] for d in docs])
+    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0.5)
+    prompt = f"""Context se {num_q} MCQ banao. Format strictly follow karo:
+Q1. question?
+a) ...
+b) ...
+c) ...
+d) ...
+Answer: b)
+
+Context:
+{context}"""
+    try:
+        return llm.invoke(prompt).content, None
+    except Exception as e:
+        return None, f"Groq error: {e}"
+
+def generate_summary():
+    api_key = get_api_key()
+    if not api_key:
+        return "GROQ_API_KEY nahi mili"
+    vectordb = st.session_state.get("vectordb")
+    if not vectordb:
+        return "Pehle documents upload karke 'Submit & Process' dabao."
+    docs = vectordb.similarity_search("summary overview main topics", k=8)
+    context = "\n\n".join([d.page_content[:800] for d in docs])
+    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0)
+    prompt = f"""Neeche ke context ka 1-page Hinglish summary do. Headings rakho:
+## Important Topics
+## Key Definitions
+## Formulas / Points
+Context:
+{context}"""
+    try:
+        return llm.invoke(prompt).content
+    except Exception as e:
+        return f"Groq error: {e}"
+
+def predict_important_questions():
+    api_key = get_api_key()
+    if not api_key:
+        return "GROQ_API_KEY nahi mili"
+    vectordb = st.session_state.get("vectordb")
+    if not vectordb:
+        return "Pehle documents upload karke 'Submit & Process' dabao."
+    docs = vectordb.similarity_search("exam important questions", k=6)
+    context = "\n\n".join([d.page_content[:800] for d in docs])
+    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0.3)
+    prompt = f"""Is syllabus se exam me aane wale 10 Most Important Questions predict karo. Har question ke sath marks likho (2-mark / 5-mark / 10-mark). Simple Hinglish me.
+Context:
+{context}"""
+    try:
+        return llm.invoke(prompt).content
+    except Exception as e:
+        return f"Groq error: {e}"
+
+def load_conversation_history():
+    return st.session_state.get("history", [])
