@@ -9,6 +9,18 @@ from langchain_community.document_loaders import PyPDFLoader, CSVLoader, TextLoa
 from dotenv import load_dotenv
 from groq import Groq
 
+# NEW: Reranker ke liye
+try:
+    from sentence_transformers import CrossEncoder
+    _reranker = None
+    def get_reranker():
+        global _reranker
+        if _reranker is None:
+            _reranker = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2', device='cpu')
+        return _reranker
+except:
+    def get_reranker(): return None
+
 load_dotenv()
 
 def get_api_key():
@@ -21,10 +33,11 @@ def get_api_key():
 
 @st.cache_resource
 def get_embeddings():
+    # UPGRADED: Multilingual for Hindi/Hinglish
     return HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        model_name="intfloat/multilingual-e5-large",
         model_kwargs={'device': 'cpu'},
-        encode_kwargs={'normalize_embeddings': False}
+        encode_kwargs={'normalize_embeddings': True}
     )
 
 def transcribe_audio(api_key, audio_path):
@@ -52,7 +65,7 @@ def text_to_speech(text):
         st.error(f"TTS error: {e}")
         return None
 
-def process_files(files, chunk_size=1000, chunk_overlap=100):
+def process_files(files, chunk_size=800, chunk_overlap=150):
     if not files:
         st.warning("Pehle koi file upload karo.")
         return
@@ -76,6 +89,8 @@ def process_files(files, chunk_size=1000, chunk_overlap=100):
             loaded = [d for d in loaded if d.page_content and d.page_content.strip()]
             for d in loaded:
                 d.metadata["source"] = file.name
+                # E5 ke liye query/passage prefix helpful hota hai
+                d.page_content = f"passage: {d.page_content}"
             docs.extend(loaded)
         except Exception as e:
             st.error(f"{file.name} padhne me error: {e}")
@@ -94,20 +109,32 @@ def process_files(files, chunk_size=1000, chunk_overlap=100):
     try:
         with st.spinner(f"{len(chunks)} chunks ke embeddings ban rahe hain..."):
             embeddings = get_embeddings()
-            test_vec = embeddings.embed_query("hello")
-            if not test_vec or len(test_vec) == 0:
-                st.error("Embedding model load nahi hua. App reboot karo.")
-                return
             vectordb = Chroma.from_documents(chunks, embeddings)
     except Exception as e:
         st.error(f"Embedding/Chroma error: {str(e)}")
-        st.info("Fix: Streamlit Cloud > Manage app > Reboot karo.")
         return
     st.session_state.vectordb = vectordb
     st.session_state.history = []
+    st.session_state.weak_topics = {} # NEW
     st.success(f"Ho gaya! {len(chunks)} chunks process hue.")
 
-def ask_question(query, k=3):
+def hybrid_search(query, k=3):
+    """Top 10 lao, fir rerank karke top k do - NotebookLM se better"""
+    vectordb = st.session_state.get("vectordb")
+    # E5 query prefix
+    e5_query = f"query: {query}"
+    docs = vectordb.similarity_search(e5_query, k=10)
+    reranker = get_reranker()
+    if reranker and docs:
+        pairs = [[query, d.page_content] for d in docs]
+        scores = reranker.predict(pairs)
+        scored = sorted(zip(docs, scores), key=lambda x: x[1], reverse=True)
+        docs = [d for d,_ in scored[:k]]
+    else:
+        docs = docs[:k]
+    return docs
+
+def ask_question(query, k=3, mode="normal"):
     api_key = get_api_key()
     if not api_key:
         return "GROQ_API_KEY nahi mili. Streamlit Secrets me add karo.", []
@@ -115,16 +142,24 @@ def ask_question(query, k=3):
     if not vectordb:
         return "Pehle documents upload karke 'Submit & Process' dabao.", []
     try:
-        docs = vectordb.similarity_search(query, k=k)
+        docs = hybrid_search(query, k=k)
     except Exception as e:
         return f"Search me error: {e}", []
     if not docs:
         return "Iska jawab uploaded documents me nahi mila.", []
     context = "\n\n".join([f"[Source: {d.metadata.get('source','?')} Page: {d.metadata.get('page','?')}] {d.page_content}" for d in docs])
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0)
-    prompt = f"""You are a B.Tech/M.Tech teaching assistant. Answer ONLY from context.
+
+    if mode == "socratic":
+        system = """You are a Socratic teaching assistant. Seedha answer MAT do.
+        Pehle student se 2-3 guiding sawal pucho taaki wo khud soche.
+        Last me hint do. Hinglish me baat karo."""
+    else:
+        system = """You are a B.Tech/M.Tech teaching assistant. Answer ONLY from context.
 If not in context, say 'Ye aapke uploaded syllabus me nahi hai.'
-Always cite page number.
+Always cite like [Page X, filename]."""
+
+    prompt = f"""{system}
 Context:
 {context}
 Question: {query}
@@ -136,8 +171,10 @@ Answer in simple Hinglish:"""
     sources = [doc.metadata for doc in docs]
     if "history" not in st.session_state:
         st.session_state.history = []
-    st.session_state.history.append({"query": query, "answer": answer, "sources": sources})
+    st.session_state.history.append({"query": query, "answer": answer, "sources": sources, "mode": mode})
     return answer, sources
+
+# baaki functions: ask_with_voice, generate_quiz, generate_summary, predict_important_questions same rahenge
 
 def ask_with_voice(audio_bytes):
     api_key = get_api_key()
@@ -164,15 +201,15 @@ def generate_quiz(num_q=5):
     vectordb = st.session_state.get("vectordb")
     if not vectordb:
         return None, "Pehle documents upload karke 'Submit & Process' dabao."
-    docs = vectordb.similarity_search("important concepts definitions formulas", k=5)
+    docs = hybrid_search("important concepts definitions formulas", k=5)
     context = "\n\n".join([d.page_content[:1000] for d in docs])
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0.5)
     prompt = f"""Context se {num_q} MCQ banao. Format strictly follow karo:
 Q1. question?
-a) ...
-b) ...
-c) ...
-d) ...
+a)...
+b)...
+c)...
+d)...
 Answer: b)
 
 Context:
@@ -182,6 +219,24 @@ Context:
     except Exception as e:
         return None, f"Groq error: {e}"
 
+def check_quiz_answer(question, user_answer, correct_answer, topic="general"):
+    """NEW: Weak Topic Tracker"""
+    api_key = get_api_key()
+    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0)
+    is_correct = user_answer.strip().lower() == correct_answer.strip().lower()
+    if not is_correct:
+        wt = st.session_state.get("weak_topics", {})
+        wt[topic] = wt.get(topic, 0) + 1
+        st.session_state.weak_topics = wt
+        feedback = llm.invoke(f"Student ne '{question}' ka galat jawab '{user_answer}' diya. Sahi '{correct_answer}' hai. 2 line me Hinglish me samjhao kyun galat hai.").content
+    else:
+        feedback = "Bilkul sahi! Bahut badhiya."
+    return is_correct, feedback
+
+def get_weak_topics():
+    """NEW"""
+    return st.session_state.get("weak_topics", {})
+
 def generate_summary():
     api_key = get_api_key()
     if not api_key:
@@ -189,7 +244,7 @@ def generate_summary():
     vectordb = st.session_state.get("vectordb")
     if not vectordb:
         return "Pehle documents upload karke 'Submit & Process' dabao."
-    docs = vectordb.similarity_search("summary overview main topics", k=8)
+    docs = hybrid_search("summary overview main topics", k=8)
     context = "\n\n".join([d.page_content[:800] for d in docs])
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0)
     prompt = f"""Neeche ke context ka 1-page Hinglish summary do. Headings rakho:
@@ -210,7 +265,7 @@ def predict_important_questions():
     vectordb = st.session_state.get("vectordb")
     if not vectordb:
         return "Pehle documents upload karke 'Submit & Process' dabao."
-    docs = vectordb.similarity_search("exam important questions", k=6)
+    docs = hybrid_search("exam important questions", k=6)
     context = "\n\n".join([d.page_content[:800] for d in docs])
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0.3)
     prompt = f"""Is syllabus se exam me aane wale 10 Most Important Questions predict karo. Har question ke sath marks likho (2-mark / 5-mark / 10-mark). Simple Hinglish me.
