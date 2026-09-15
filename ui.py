@@ -15,8 +15,8 @@ st.caption("Upload PDF/CSV/TXT → Ask (Text + Audio) → Quiz → Summary → I
 
 st.sidebar.header("Configuration")
 uploaded_files = st.sidebar.file_uploader("Upload documents (PDF, CSV, TXT)", type=["pdf", "csv", "txt"], accept_multiple_files=True)
-chunk_size = st.sidebar.number_input("Chunk Size", min_value=200, max_value=2000, value=800, step=100)
-chunk_overlap = st.sidebar.number_input("Chunk Overlap", min_value=0, max_value=500, value=150, step=10)
+chunk_size = st.sidebar.number_input("Chunk Size", min_value=200, max_value=2000, value=1000, step=100)
+chunk_overlap = st.sidebar.number_input("Chunk Overlap", min_value=0, max_value=500, value=100, step=10)
 top_k = st.sidebar.number_input("Documents to Retrieve", min_value=1, max_value=10, value=3)
 
 if st.sidebar.button("Submit & Process"):
@@ -27,7 +27,6 @@ if st.sidebar.button("Submit & Process"):
     else:
         st.warning("⚠️ Please upload at least one document.")
 
-# NEW: Weak Topics Dashboard
 st.sidebar.divider()
 st.sidebar.subheader("📊 Weak Topics")
 weak = get_weak_topics()
@@ -38,16 +37,13 @@ else:
     st.sidebar.info("Abhi koi weak topic nahi. Quiz do!")
 
 st.subheader("💬 Study Dashboard")
-
 tab1, tab2, tab3, tab4 = st.tabs(["⌨️ Ask (Text + Audio)", "📝 Quiz", "📄 Summary", "⭐ Important Qs"])
 
 with tab1:
-    # NEW: Socratic Mode
     mode = st.radio("Mode chuno:", ["Normal", "Socratic (Khud se socho)"], horizontal=True)
     sel_mode = "socratic" if "Socratic" in mode else "normal"
     if sel_mode == "socratic":
         st.info("🧠 Socratic Mode ON: AI seedha answer nahi dega, tumse sawal puchega.")
-
     query = st.text_input("Apna question likho")
     if st.button("Ask"):
         if query:
@@ -69,7 +65,6 @@ with tab1:
 
 with tab2:
     st.subheader("📝 Auto Quiz Generator")
-    st.write("Tumhare PDF se MCQ banayega")
     num_q = st.number_input("Kitne questions?", min_value=3, max_value=10, value=5)
     if st.button("Quiz Banao"):
         with st.spinner("Quiz ban raha hai..."):
@@ -77,10 +72,7 @@ with tab2:
         if err:
             st.error(err)
         else:
-            st.session_state.last_quiz = q_text
             st.markdown(q_text)
-
-    # NEW: Quiz Auto-Check
     st.divider()
     st.subheader("✅ Answer Check Karo")
     with st.form("quiz_check"):
@@ -99,7 +91,6 @@ with tab2:
 
 with tab3:
     st.subheader("📄 Smart Summary")
-    st.write("Poore document ka 1-page Hinglish summary")
     if st.button("Summary Banao"):
         with st.spinner("Summary ban raha hai..."):
             s = generate_summary()
@@ -107,7 +98,6 @@ with tab3:
 
 with tab4:
     st.subheader("⭐ Exam Predictor")
-    st.write("Exam me aane wale most important questions")
     if st.button("Important Questions Dekho"):
         with st.spinner("Predict kar rahe hain..."):
             imp = predict_important_questions()
