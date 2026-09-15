@@ -249,3 +249,93 @@ Context:
 
 def load_conversation_history():
     return st.session_state.get("history", [])
+
+# ===== BIG UNIQUE FEATURES =====
+
+def analyze_pyq(files):
+    api_key = get_api_key()
+    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0)
+    text = ""
+    for f in files:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+            tmp.write(f.getvalue())
+            path = tmp.name
+        try:
+            docs = PyPDFLoader(path).load()
+            text += "\n".join([d.page_content[:2000] for d in docs[:3]])
+        finally:
+            if os.path.exists(path):
+                os.remove(path)
+    prompt = f"""PYQ ka analysis karo:
+1. Topic-wise weightage table (Topic | Kitni baar | Marks)
+2. Top 5 repeating questions
+3. 2026 prediction
+Text: {text[:8000]}"""
+    return llm.invoke(prompt).content
+
+def generate_flashcards(num=10):
+    api_key = get_api_key()
+    docs = hybrid_search("important definitions formulas", k=5)
+    context = "\n".join([d.page_content[:800] for d in docs])
+    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0.5)
+    prompt = f"""Context se {num} flashcards banao. Format:
+Front:...
+Back:...
+---
+Context: {context}"""
+    return llm.invoke(prompt).content
+
+def make_study_plan(exam_date, hours_per_day):
+    api_key = get_api_key()
+    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0.3)
+    prompt = f"""Exam: {exam_date}, Daily: {hours_per_day} hours.
+Day-wise study plan with revision slots do. Hinglish me practical plan."""
+    return llm.invoke(prompt).content
+
+def viva_simulator(topic):
+    api_key = get_api_key()
+    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0.7)
+    docs = hybrid_search(topic, k=3)
+    context = "\n".join([d.page_content[:800] for d in docs])
+    prompt = f"""Tum strict Viva professor ho. Topic: {topic}
+Context: {context}
+Student se pehla tough viva question pucho (Hinglish me). Answer mat do, sirf question pucho."""
+    return llm.invoke(prompt).content
+
+def viva_followup(last_q, student_ans):
+    api_key = get_api_key()
+    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0.7)
+    prompt = f"""Viva chal raha hai.
+Sawal: {last_q}
+Jawab: {student_ans}
+Pehle 2 line feedback do, phir agla tough cross-question pucho. Hinglish me."""
+    return llm.invoke(prompt).content
+
+def real_life_example(concept):
+    api_key = get_api_key()
+    docs = hybrid_search(concept, k=2)
+    context = "\n".join([d.page_content[:600] for d in docs])
+    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0.6)
+    prompt = f"""Concept: {concept}
+Context: {context}
+Isko 2 desi real-life examples (chai dukaan, cricket, train) se simple Hinglish me samjhao."""
+    return llm.invoke(prompt).content
+
+def get_mentor_report():
+    api_key = get_api_key()
+    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0.3)
+    weak = st.session_state.get("weak_topics", {})
+    history = st.session_state.get("history", [])
+    if not weak and not history:
+        return "Pehle 2-3 Quiz do, tabhi Mentor tumhara plan bana payega."
+    weak_str = "\n".join([f"- {t}: {c} baar galat" for t,c in weak.items()])
+    prompt = f"""Tum IIT professor mentor ho.
+Total attempted: {len(history)}
+Weak topics: {weak_str}
+Do:
+1. Performance Analysis (2 line, motivate karo)
+2. Top 3 Weak Areas
+3. 7-Din ka Adaptive Plan (Day-wise)
+4. 1 Exam Strategy Tip
+Hinglish me personal mentor jaise likho."""
+    return llm.invoke(prompt).content
