@@ -355,3 +355,25 @@ Isko ek Bollywood movie story me badal do. Characters banao, hero-villain banao,
         return llm.invoke(prompt).content
     except Exception as e:
         return f"Groq error: {e}"
+
+def build_project_guide(project_idea, budget="low"):
+    api_key = get_api_key()
+    if not api_key:
+        return "GROQ_API_KEY nahi mili"
+    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0.4)
+    prompt = f"""Project Idea: {project_idea}
+Budget: {budget}
+Ek complete Real-Life Problem Solving Project Guide banao Hinglish me:
+## 1. 🎯 Problem Statement
+## 2. 📈 Market Need & Scope (India me demand kyun hai)
+## 3. 🛒 Components List with Price (Table: Component | Qty | Price INR | Kahan se le)
+## 4. 🔌 Circuit Connection (pin-to-pin simple words me)
+## 5. 💻 Full Code (copy-paste with comments)
+## 6. 🛠️ Building Steps (1-10)
+## 7. 🖼️ Image Prompt (diagram ke liye English prompt)
+## 8. 🚀 Future Upgrade (AI kaise add kare)
+Beginner friendly, practical, low-cost focus."""
+    try:
+        return llm.invoke(prompt).content
+    except Exception as e:
+        return f"Groq error: {e}"
