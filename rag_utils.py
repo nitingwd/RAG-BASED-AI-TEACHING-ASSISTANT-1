@@ -250,8 +250,6 @@ Context:
 def load_conversation_history():
     return st.session_state.get("history", [])
 
-# ===== BIG UNIQUE FEATURES =====
-
 def analyze_pyq(files):
     api_key = get_api_key()
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0)
@@ -339,3 +337,21 @@ Do:
 4. 1 Exam Strategy Tip
 Hinglish me personal mentor jaise likho."""
     return llm.invoke(prompt).content
+
+def story_mode_learning(topic):
+    api_key = get_api_key()
+    if not api_key:
+        return "GROQ_API_KEY nahi mili"
+    vectordb = st.session_state.get("vectordb")
+    if not vectordb:
+        return "Pehle documents upload karke 'Submit & Process' dabao."
+    docs = hybrid_search(topic, k=4)
+    context = "\n".join([d.page_content[:800] for d in docs])
+    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0.8)
+    prompt = f"""Topic: {topic}
+Context: {context}
+Isko ek Bollywood movie story me badal do. Characters banao, hero-villain banao, interval-twist rakho. Har concept story ka part ho. End me 'Moral of Story = Formula' do. Full Hinglish, mazedaar, yaad rehne wala."""
+    try:
+        return llm.invoke(prompt).content
+    except Exception as e:
+        return f"Groq error: {e}"
