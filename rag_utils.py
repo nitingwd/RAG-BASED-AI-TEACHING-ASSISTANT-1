@@ -9,18 +9,6 @@ from langchain_community.document_loaders import PyPDFLoader, CSVLoader, TextLoa
 from dotenv import load_dotenv
 from groq import Groq
 
-# NEW: Reranker ke liye
-try:
-    from sentence_transformers import CrossEncoder
-    _reranker = None
-    def get_reranker():
-        global _reranker
-        if _reranker is None:
-            _reranker = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2', device='cpu')
-        return _reranker
-except:
-    def get_reranker(): return None
-
 load_dotenv()
 
 def get_api_key():
@@ -33,12 +21,14 @@ def get_api_key():
 
 @st.cache_resource
 def get_embeddings():
-    # UPGRADED: Multilingual for Hindi/Hinglish
     return HuggingFaceEmbeddings(
-        model_name="intfloat/multilingual-e5-large",
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
         model_kwargs={'device': 'cpu'},
-        encode_kwargs={'normalize_embeddings': True}
+        encode_kwargs={'normalize_embeddings': False}
     )
+
+def get_reranker():
+    return None
 
 def transcribe_audio(api_key, audio_path):
     try:
@@ -65,7 +55,7 @@ def text_to_speech(text):
         st.error(f"TTS error: {e}")
         return None
 
-def process_files(files, chunk_size=800, chunk_overlap=150):
+def process_files(files, chunk_size=1000, chunk_overlap=100):
     if not files:
         st.warning("Pehle koi file upload karo.")
         return
@@ -89,8 +79,6 @@ def process_files(files, chunk_size=800, chunk_overlap=150):
             loaded = [d for d in loaded if d.page_content and d.page_content.strip()]
             for d in loaded:
                 d.metadata["source"] = file.name
-                # E5 ke liye query/passage prefix helpful hota hai
-                d.page_content = f"passage: {d.page_content}"
             docs.extend(loaded)
         except Exception as e:
             st.error(f"{file.name} padhne me error: {e}")
@@ -115,23 +103,13 @@ def process_files(files, chunk_size=800, chunk_overlap=150):
         return
     st.session_state.vectordb = vectordb
     st.session_state.history = []
-    st.session_state.weak_topics = {} # NEW
+    if "weak_topics" not in st.session_state:
+        st.session_state.weak_topics = {}
     st.success(f"Ho gaya! {len(chunks)} chunks process hue.")
 
 def hybrid_search(query, k=3):
-    """Top 10 lao, fir rerank karke top k do - NotebookLM se better"""
     vectordb = st.session_state.get("vectordb")
-    # E5 query prefix
-    e5_query = f"query: {query}"
-    docs = vectordb.similarity_search(e5_query, k=10)
-    reranker = get_reranker()
-    if reranker and docs:
-        pairs = [[query, d.page_content] for d in docs]
-        scores = reranker.predict(pairs)
-        scored = sorted(zip(docs, scores), key=lambda x: x[1], reverse=True)
-        docs = [d for d,_ in scored[:k]]
-    else:
-        docs = docs[:k]
+    docs = vectordb.similarity_search(query, k=k)
     return docs
 
 def ask_question(query, k=3, mode="normal"):
@@ -149,16 +127,14 @@ def ask_question(query, k=3, mode="normal"):
         return "Iska jawab uploaded documents me nahi mila.", []
     context = "\n\n".join([f"[Source: {d.metadata.get('source','?')} Page: {d.metadata.get('page','?')}] {d.page_content}" for d in docs])
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0)
-
     if mode == "socratic":
         system = """You are a Socratic teaching assistant. Seedha answer MAT do.
-        Pehle student se 2-3 guiding sawal pucho taaki wo khud soche.
-        Last me hint do. Hinglish me baat karo."""
+Pehle student se 2-3 guiding sawal pucho taaki wo khud soche.
+Last me hint do. Hinglish me baat karo."""
     else:
         system = """You are a B.Tech/M.Tech teaching assistant. Answer ONLY from context.
 If not in context, say 'Ye aapke uploaded syllabus me nahi hai.'
 Always cite like [Page X, filename]."""
-
     prompt = f"""{system}
 Context:
 {context}
@@ -173,8 +149,6 @@ Answer in simple Hinglish:"""
         st.session_state.history = []
     st.session_state.history.append({"query": query, "answer": answer, "sources": sources, "mode": mode})
     return answer, sources
-
-# baaki functions: ask_with_voice, generate_quiz, generate_summary, predict_important_questions same rahenge
 
 def ask_with_voice(audio_bytes):
     api_key = get_api_key()
@@ -211,7 +185,6 @@ b)...
 c)...
 d)...
 Answer: b)
-
 Context:
 {context}"""
     try:
@@ -220,7 +193,6 @@ Context:
         return None, f"Groq error: {e}"
 
 def check_quiz_answer(question, user_answer, correct_answer, topic="general"):
-    """NEW: Weak Topic Tracker"""
     api_key = get_api_key()
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0)
     is_correct = user_answer.strip().lower() == correct_answer.strip().lower()
@@ -234,7 +206,6 @@ def check_quiz_answer(question, user_answer, correct_answer, topic="general"):
     return is_correct, feedback
 
 def get_weak_topics():
-    """NEW"""
     return st.session_state.get("weak_topics", {})
 
 def generate_summary():
