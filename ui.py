@@ -6,6 +6,16 @@ st.set_page_config(page_title="Advance RAG", layout="wide")
 st.markdown("""
 <style>
 .dev-corner {position: fixed; bottom: 20px; right: 20px; background: linear-gradient(135deg, #3f51b5, #9c27b0, #e91e63); padding: 10px 20px; border-radius: 20px; box-shadow: 0px 4px 8px rgba(0,0,0,0.3); color: white; font-size: 14px; font-weight: bold; z-index: 999;}
+.card-grid {display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 20px 0;}
+.rect-card {background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); border-radius: 15px; padding: 20px; color: white; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: 1px solid rgba(255,255,255,0.1);}
+.rect-card h4 {margin: 0 0 8px 0; font-size: 18px;}
+.rect-card p {margin: 0; font-size: 13px; opacity: 0.9; line-height: 1.4;}
+.rect-2 {background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);}
+.rect-3 {background: linear-gradient(135deg, #8E2DE2 0%, #4A00E0 100%);}
+.rect-4 {background: linear-gradient(135deg, #f7971e 0%, #ffd200 100%); color: #333;}
+.rect-5 {background: linear-gradient(135deg, #e53935 0%, #e35d5b 100%);}
+.rect-6 {background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);}
+@media (max-width: 768px) {.card-grid {grid-template-columns: repeat(2, 1fr);}}
 </style>
 <div class="dev-corner">Developer : KADIYA NARESH</div>
 """, unsafe_allow_html=True)
@@ -13,6 +23,26 @@ st.markdown("""
 st.title("RAG Based AI Teaching Assistant")
 st.caption("Upload PDF/CSV/TXT → Ask → Quiz → Viva → PYQ → AI Mentor → Story Mode")
 
+# ===== RECTANGLE FEATURES DASHBOARD =====
+st.subheader("📦 Saare Features - Ek Nazar Me")
+
+st.markdown("""
+<div class="card-grid">
+<div class="rect-card"><h4>⌨️ Ask Question</h4><p>Syllabus se sawal pucho, page citation ke sath jawab + audio me suno</p></div>
+<div class="rect-card rect-2"><h4>📝 Smart Quiz</h4><p>Auto MCQ banao, answer check karo, weak topics track karo</p></div>
+<div class="rect-card rect-3"><h4>📄 Summary</h4><p>Poori PDF ka 1-page Hinglish summary, headings ke sath</p></div>
+<div class="rect-card rect-4"><h4>⭐ Important Qs</h4><p>Exam me aane wale 10 most important questions predict karo</p></div>
+<div class="rect-card rect-5"><h4>📊 PYQ Analyzer</h4><p>PYQ upload karo, topic weightage + repeating questions dekho</p></div>
+<div class="rect-card rect-6"><h4>🎤 Viva Simulator</h4><p>Strict professor se viva practice karo, cross-questions ke sath</p></div>
+<div class="rect-card rect-2"><h4>💡 Desi Example</h4><p>Tough concept ko chai-dukaan, cricket example se samjho</p></div>
+<div class="rect-card rect-3"><h4>🧠 AI Mentor</h4><p>Tumhare quiz history se personal 7-din ka study plan</p></div>
+<div class="rect-card"><h4>📖 Story Mode</h4><p>Boring topic ko Bollywood movie story me badal do</p></div>
+</div>
+""", unsafe_allow_html=True)
+
+st.info("👇 Neeche tabs me jao aur koi bhi rectangle wala feature use karo")
+
+# ===== Tumhara purana code same =====
 st.sidebar.header("Configuration")
 uploaded_files = st.sidebar.file_uploader("Upload documents (PDF, CSV, TXT)", type=["pdf", "csv", "txt"], accept_multiple_files=True)
 chunk_size = st.sidebar.number_input("Chunk Size", min_value=200, max_value=2000, value=1000, step=100)
