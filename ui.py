@@ -11,7 +11,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("RAG Based AI Teaching Assistant")
-st.caption("Upload PDF/CSV/TXT → Ask (Text + Audio) → Quiz → Summary → Important Questions")
+st.caption("Upload PDF/CSV/TXT → Ask → Quiz → Viva → PYQ → AI Mentor")
 
 st.sidebar.header("Configuration")
 uploaded_files = st.sidebar.file_uploader("Upload documents (PDF, CSV, TXT)", type=["pdf", "csv", "txt"], accept_multiple_files=True)
@@ -37,7 +37,7 @@ else:
     st.sidebar.info("Abhi koi weak topic nahi. Quiz do!")
 
 st.subheader("💬 Study Dashboard")
-tab1, tab2, tab3, tab4 = st.tabs(["⌨️ Ask (Text + Audio)", "📝 Quiz", "📄 Summary", "⭐ Important Qs"])
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(["⌨️ Ask", "📝 Quiz", "📄 Summary", "⭐ Important Qs", "📊 PYQ", "🎤 Viva", "💡 Example", "🧠 AI Mentor"])
 
 with tab1:
     mode = st.radio("Mode chuno:", ["Normal", "Socratic (Khud se socho)"], horizontal=True)
@@ -102,6 +102,77 @@ with tab4:
         with st.spinner("Predict kar rahe hain..."):
             imp = predict_important_questions()
         st.markdown(imp)
+
+with tab5:
+    st.subheader("📊 PYQ Paper Analyzer")
+    pyq_files = st.file_uploader("PYQ PDF upload karo", type=["pdf"], accept_multiple_files=True, key="pyq")
+    if st.button("Analyze Karo"):
+        if pyq_files:
+            from rag_utils import analyze_pyq
+            with st.spinner("Analyzing..."):
+                st.markdown(analyze_pyq(pyq_files))
+        else:
+            st.warning("Pehle PDF upload karo")
+
+with tab6:
+    st.subheader("🎤 Viva Simulator - Professor Mode")
+    if "viva_q" not in st.session_state:
+        st.session_state.viva_q = ""
+    topic = st.text_input("Viva topic likho (e.g. DBMS Normalization)")
+    if st.button("Viva Start Karo"):
+        from rag_utils import viva_simulator
+        with st.spinner("Professor question soch rahe hain..."):
+            st.session_state.viva_q = viva_simulator(topic)
+    if st.session_state.viva_q:
+        st.info(f"Professor: {st.session_state.viva_q}")
+        ans = st.text_area("Tumhara jawab:")
+        if st.button("Jawab Submit Karo"):
+            from rag_utils import viva_followup
+            with st.spinner("Professor soch rahe hain..."):
+                nxt = viva_followup(st.session_state.viva_q, ans)
+            st.session_state.viva_q = nxt
+            st.rerun()
+
+with tab7:
+    st.subheader("💡 Tough Concept -> Desi Example")
+    st.write("Flashcards + Real-life example dono yahi milega")
+    conc = st.text_input("Kaunsa concept samajh nahi aaya?")
+    if st.button("Example se Samjhao"):
+        from rag_utils import real_life_example
+        with st.spinner("Example soch rahe hain..."):
+            st.markdown(real_life_example(conc))
+    st.divider()
+    if st.button("Flashcards Banao"):
+        from rag_utils import generate_flashcards
+        with st.spinner("Bana rahe hain..."):
+            st.markdown(generate_flashcards())
+    st.divider()
+    st.subheader("📅 Study Planner")
+    exam_date = st.date_input("Exam kab hai?")
+    hours = st.number_input("Roz kitne ghante?", 1, 12, 4)
+    if st.button("Plan Banao"):
+        from rag_utils import make_study_plan
+        with st.spinner("Planning..."):
+            st.markdown(make_study_plan(str(exam_date), hours))
+
+with tab8:
+    st.subheader("🧠 Tumhara AI Personal Mentor")
+    st.write("Ye tumhare saare quiz ko dekh ke personal plan banata hai.")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Attempted", len(st.session_state.get("history", [])))
+    with col2:
+        st.metric("Weak Topics", len(weak))
+    with col3:
+        if weak:
+            top_weak = max(weak, key=weak.get)
+            st.metric("Sabse Weak", top_weak[:15])
+    if st.button("📈 Mera Mentor Report Banao", type="primary"):
+        from rag_utils import get_mentor_report
+        with st.spinner("Mentor analyze kar raha hai..."):
+            report = get_mentor_report()
+        st.markdown(report)
+        st.success("Roz follow karo, topper bano!")
 
 with st.expander("🕘 Conversation History"):
     history = load_conversation_history()
