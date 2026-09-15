@@ -11,7 +11,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("RAG Based AI Teaching Assistant")
-st.caption("Upload PDF/CSV/TXT → Ask → Quiz → Viva → PYQ → AI Mentor")
+st.caption("Upload PDF/CSV/TXT → Ask → Quiz → Viva → PYQ → AI Mentor → Story Mode")
 
 st.sidebar.header("Configuration")
 uploaded_files = st.sidebar.file_uploader("Upload documents (PDF, CSV, TXT)", type=["pdf", "csv", "txt"], accept_multiple_files=True)
@@ -37,7 +37,7 @@ else:
     st.sidebar.info("Abhi koi weak topic nahi. Quiz do!")
 
 st.subheader("💬 Study Dashboard")
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(["⌨️ Ask", "📝 Quiz", "📄 Summary", "⭐ Important Qs", "📊 PYQ", "🎤 Viva", "💡 Example", "🧠 AI Mentor"])
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs(["⌨️ Ask", "📝 Quiz", "📄 Summary", "⭐ Important Qs", "📊 PYQ", "🎤 Viva", "💡 Example", "🧠 AI Mentor", "📖 Story Mode"])
 
 with tab1:
     mode = st.radio("Mode chuno:", ["Normal", "Socratic (Khud se socho)"], horizontal=True)
@@ -173,6 +173,25 @@ with tab8:
             report = get_mentor_report()
         st.markdown(report)
         st.success("Roz follow karo, topper bano!")
+
+with tab9:
+    st.subheader("📖 Syllabus to Movie Story Mode")
+    st.write("Boring topic ko Bollywood story me badal do, kabhi nahi bhuloge!")
+    story_topic = st.text_input("Kaunsa topic movie banana hai? (e.g. Thermodynamics Laws)")
+    if st.button("🎬 Movie Banao", type="primary"):
+        if story_topic:
+            from rag_utils import story_mode_learning
+            with st.spinner("Script likhi ja rahi hai... Interval ke baad milte hain..."):
+                story = story_mode_learning(story_topic)
+            st.markdown(story)
+            st.divider()
+            st.write("🔊 Story sunna hai?")
+            if st.button("Audio Suno"):
+                ap = text_to_speech(story)
+                if ap:
+                    st.audio(ap)
+        else:
+            st.warning("Pehle topic likho")
 
 with st.expander("🕘 Conversation History"):
     history = load_conversation_history()
