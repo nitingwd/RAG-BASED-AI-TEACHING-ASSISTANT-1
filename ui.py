@@ -41,7 +41,7 @@ st.sidebar.header("Configuration")
 uploaded_files = st.sidebar.file_uploader("Upload PDF/CSV/TXT", type=["pdf","csv","txt"], accept_multiple_files=True)
 chunk_size = st.sidebar.number_input("Chunk Size", 200, 2000, 1000, 100)
 chunk_overlap = st.sidebar.number_input("Chunk Overlap", 0, 500, 100, 10)
-top_k = st.sidebar.number_input("Docs to Retrieve", 1, 10, 3)
+top_k = st.sidebar.number_input("Docs to Retrieve", 1, 10, 8)
 if st.sidebar.button("Submit & Process"):
     if uploaded_files:
         process_files(uploaded_files, chunk_size, chunk_overlap)
@@ -64,7 +64,7 @@ if "viva_qs" not in st.session_state:
     st.session_state.viva_score = []
 
 st.title("RAG Based AI Teaching Assistant")
-st.caption("Har feature me Type + Voice dono hai")
+st.caption("Har feature me Type + Voice dono hai | V6 PDF Accurate")
 st.subheader("📦 Features")
 
 c1,c2,c3,c4 = st.columns(4)
@@ -119,7 +119,7 @@ elif active=="Quiz":
         ok,fb=check_quiz_answer(qq,ua,ca,tp)
         st.success(fb) if ok else st.error(fb)
 elif active=="Viva":
-    st.info("PDF se auto questions ayenge one-by-one.")
+    st.info("PDF se auto questions ayenge one-by-one. 100% PDF based.")
     topic=universal_input("viva_topic","Viva topic bolo - DBMS")
     num=st.slider("Kitne questions chahiye?",3,20,5)
     if st.button("Viva Start Karo",type="primary"):
@@ -160,26 +160,27 @@ elif active=="Viva":
             if st.button("Naya Viva Start Karo"):
                 st.session_state.viva_qs=[]; st.session_state.viva_idx=0; st.session_state.viva_score=[]; st.rerun()
 elif active=="PPT":
-    st.info("English me premium PPT with visualization - direct download.")
+    st.info("English me premium PPT with visualization - direct download. PDF Based.")
     topic=universal_input("ppt","Topic bolo - AI")
     pages=st.slider("Kitne slides chahiye?",5,25,10)
     if st.button("📊 PPT Banao",type="primary"):
         if topic:
-            with st.spinner(f"{pages} slides ka shaandar PPT bana raha hu..."):
+            with st.spinner(f"{pages} slides ka PDF based PPT bana raha hu..."):
                 ppt_path=create_ppt_file(topic, pages)
                 with open(ppt_path,"rb") as f:
-                    st.download_button("⬇️ PPT Download Karo", f, file_name=f"{topic}_{pages}_slides.pptx", mime="application/vnd.openxmlformats-officedocument.presentationml.presentation")
-                st.success("Ban gaya!")
+                    st.download_button("⬇️ PPT Download Karo", f, file_name=f"{topic}_{pages}_slides.pdf_based.pptx", mime="application/vnd.openxmlformats-officedocument.presentationml.presentation")
+                st.success("Ban gaya! 100% PDF se")
 elif active=="Video":
-    st.info("⚡ V5 TURBO - 2.5 MINUTE SUPERFAST: Human Tutor + Rohit Story + Visualization - 30-40 sec me banega!")
+    st.info("✅ V6 ACCURATE - PDF ke according bolega, apne man se nahi. 2.5 MIN, 30-40 sec me banega!")
+    st.warning("⚠️ Pehle PDF upload + Submit & Process karna zaruri hai, warna 'PDF me nahi mila' bolega.")
     col1, col2 = st.columns(2)
     with col1:
         lang = st.selectbox("Video ki Language chuno", ["Hinglish", "Hindi", "English", "Marathi"], key="vid_lang")
     with col2:
-        topic_text = st.text_input("Topic likho", placeholder="e.g. Deadlock in OS", key="vid_topic_text")
+        topic_text = st.text_input("Topic likho (jo PDF me hai)", placeholder="e.g. Deadlock in OS", key="vid_topic_text")
 
     st.write("Ya Voice me bolo:")
-    audio_val = st.audio_input("🎤 Topic bolo - jaise 'Mujhe deadlock Hindi me samjha do'", key="vid_audio")
+    audio_val = st.audio_input("🎤 Topic bolo - jaise 'Mujhe deadlock samjha do'", key="vid_audio")
 
     final_topic = topic_text
     final_lang = lang
@@ -196,29 +197,29 @@ elif active=="Video":
                 final_lang = l
                 st.success(f"🎧 Samajh gaya: **Topic = {t}** | **Language = {l}**")
 
-    if st.button("🚀 2.5 MINUTE VIDEO Banao (30 sec me banega)", type="primary"):
+    if st.button("🚀 PDF BASED 2.5 MIN VIDEO Banao", type="primary"):
         if not final_topic:
             st.warning("Pehle topic likho ya bolo!")
         else:
-            with st.spinner(f"⚡ {final_topic} pe {final_lang} me 2.5 MIN ka FULL STORY video bana raha hu... 5 Parts, 30 sec me ready..."):
+            with st.spinner(f"✅ {final_topic} pe {final_lang} me PDF se accurate 2.5 MIN video bana raha hu... 30-40 sec lagega..."):
                 try:
                     import importlib
                     import rag_utils
                     importlib.reload(rag_utils)
                     v_path, scenes = rag_utils.create_explainer_video(final_topic, final_lang, duration_sec=150)
                     if v_path and os.path.exists(v_path):
-                        st.success("🔥 2.5 MIN KA VIDEO BAN GAYA! 30 sec me!")
+                        st.success("🔥 PDF BASED VIDEO BAN GAYA! 100% Accurate!")
                         st.video(v_path)
                         with open(v_path, "rb") as f:
-                            st.download_button("⬇️ Video Download Karo", f, file_name=f"{final_topic}_{final_lang}_2.5MIN.mp4", mime="video/mp4")
-                        with st.expander("📜 Full 5 Parts Script Dekho"):
+                            st.download_button("⬇️ PDF Accurate Video Download Karo", f, file_name=f"{final_topic}_{final_lang}_PDF_ACCURATE.mp4", mime="video/mp4")
+                        with st.expander("📜 PDF Based 5 Parts Script Dekho"):
                             for i, s in enumerate(scenes):
-                                st.write(f"**Part {i+1}: {s['title']}** - {s['story_character']}")
-                                st.write(f"💬 {s['dialogue']}")
-                                st.write(f"📖 {s['explain'][:300]}...")
+                                st.write(f"**Part {i+1}: {s['title']}** | Source: {s['real_life_story']}")
+                                st.write(f"📖 {s['explain'][:500]}")
+                                st.write(f"🎯 Diagram: {s['diagram']}")
                                 st.divider()
                     else:
-                        st.error(str(scenes))
+                        st.error(f"❌ {scenes}")
                 except Exception as e:
                     st.error(f"Error: {e}")
                     import traceback
