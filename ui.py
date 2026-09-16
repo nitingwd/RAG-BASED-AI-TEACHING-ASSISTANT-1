@@ -172,10 +172,10 @@ elif active=="PPT":
                 ppt_path=create_ppt_file(topic, pages)
                 with open(ppt_path,"rb") as f:
                     st.download_button("⬇️ PPT Download Karo", f, file_name=f"{topic}_{pages}_slides.pptx", mime="application/vnd.openxmlformats-officedocument.presentationml.presentation")
-                st.success("Ban gaya! Ab design premium hai - visualization ke saath.")
+                st.success("Ban gaya!")
 
 elif active=="Video":
-    st.info("🎬 Naya Feature: Voice ya Text se bolo - AI Video banega usi language me jisme chahiye! Good explanation + visualization + voice.")
+    st.info("🎬 V3 - 5 MINUTE FULL STORY MOVIE: Human Tutor + Student Rohit ki baatcheet + Visualization Board + Full Explanation")
     col1, col2 = st.columns(2)
     with col1:
         lang = st.selectbox("Video ki Language chuno", ["Hinglish", "Hindi", "English", "Marathi"], key="vid_lang")
@@ -183,7 +183,7 @@ elif active=="Video":
         topic_text = st.text_input("Topic likho", placeholder="e.g. Deadlock in OS", key="vid_topic_text")
 
     st.write("Ya Voice me bolo:")
-    audio_val = st.audio_input("🎤 Topic bolo - jaise 'Mujhe deadlock Hindi me samjha do'", key="vid_audio")
+    audio_val = st.audio_input("🎤 Topic bolo - jaise 'Mujhe deadlock Hindi me 5 minute me full story me samjha do'", key="vid_audio")
 
     final_topic = topic_text
     final_lang = lang
@@ -199,29 +199,36 @@ elif active=="Video":
                 final_topic = t
                 final_lang = l
                 st.success(f"🎧 Samajh gaya: **Topic = {t}** | **Language = {l}**")
-                st.info(f"Ab {l} me video banega!")
+                st.info(f"Ab {l} me 5 MIN ka video banega!")
 
-    if st.button("🚀 AI Video Banao", type="primary"):
+    if st.button("🚀 5 MINUTE FULL VIDEO Banao", type="primary"):
         if not final_topic:
             st.warning("Pehle topic likho ya bolo!")
         else:
-            with st.spinner(f"🎬 {final_topic} pe {final_lang} me 60 sec ka video bana raha hu... Thoda time lagega (1-2 min)"):
+            with st.spinner(f"🎬 {final_topic} pe {final_lang} me 5 MINUTE ka FULL STORY video bana raha hu... 8 Parts, Human Tutor, Dialogue... Isme 3-4 minute lagega, wait karo..."):
                 try:
-                    v_path, scenes = create_explainer_video(final_topic, final_lang)
+                    import importlib
+                    import rag_utils
+                    importlib.reload(rag_utils)
+                    v_path, scenes = rag_utils.create_explainer_video(final_topic, final_lang, duration_sec=300)
                     if v_path and os.path.exists(v_path):
-                        st.success("Video ban gaya! 🔥")
+                        st.success("🔥 5 MINUTE KA DHAASU VIDEO BAN GAYA! Poora concept clear!")
                         st.video(v_path)
                         with open(v_path, "rb") as f:
-                            st.download_button("⬇️ Video Download Karo", f, file_name=f"{final_topic}_{final_lang}.mp4", mime="video/mp4")
-                        with st.expander("📜 Script Dekho"):
+                            st.download_button("⬇️ 5 Min Full Video Download Karo", f, file_name=f"{final_topic}_{final_lang}_5MIN_FULL.mp4", mime="video/mp4")
+                        with st.expander("📜 Full 8 Parts Script Dekho"):
                             for i, s in enumerate(scenes):
-                                st.write(f"**Scene {i+1}: {s['title']}**")
-                                st.write(s['explain'])
+                                st.write(f"**Part {i+1}: {s['title']}** - {s['story_character']}")
+                                st.write(f"💬 {s['dialogue']}")
+                                st.write(f"📖 {s['explain'][:400]}...")
+                                st.write(f"🎨 {s['diagram']} | {s['visual_action']}")
                                 st.divider()
                     else:
-                        st.error(scenes if isinstance(scenes, str) else "Video nahi bana, dubara try karo")
+                        st.error(str(scenes))
                 except Exception as e:
                     st.error(f"Error: {e}")
+                    import traceback
+                    st.code(traceback.format_exc())
 
 elif active=="Story":
     tp=universal_input("story","Topic bolo - jaise Stack")
