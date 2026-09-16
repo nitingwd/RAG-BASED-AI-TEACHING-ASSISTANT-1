@@ -1,6 +1,7 @@
 import os
 import streamlit as st
 import tempfile
+import json
 from langchain_groq import ChatGroq
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
@@ -209,3 +210,102 @@ def generate_podcast_script(topic):
     docs = hybrid_search(topic, k=3)
     ctx = "\n".join([d.page_content[:600] for d in docs])
     return ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.8).invoke(f"Topic {topic} pe 2 doston ka 3-min Hinglish podcast script banao. Format Host1: Host2:. Context:{ctx}").content
+
+def generate_viva_questions(topic, num_q=10):
+    docs = hybrid_search(topic, k=6)
+    ctx = "\n".join([d.page_content[:700] for d in docs])
+    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.6)
+    prompt = f"""Topic: {topic}
+Context: {ctx}
+{num_q} viva questions banao JSON array me. Har object: {{"q":"question", "a":"correct short answer in 2 lines"}}
+Sirf JSON array dena, koi extra text nahi."""
+    try:
+        txt = llm.invoke(prompt).content
+        s = txt.find('[')
+        e = txt.rfind(']') + 1
+        return json.loads(txt[s:e])
+    except:
+        return [{"q": f"Explain {topic} - Question {i+1}?", "a": "As per document, detailed explanation."} for i in range(num_q)]
+
+def verify_viva_answer(question, correct_ans, user_ans):
+    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0)
+    prompt = f"""Q:{question}
+Correct:{correct_ans}
+Student:{user_ans}
+Check karo sahi hai ya galat. JSON me jawab do: {{"verdict":"True/False", "feedback":"Hinglish me 2 line feedback + sahi answer"}}"""
+    try:
+        txt = llm.invoke(prompt).content
+        s = txt.find('{')
+        e = txt.rfind('}') + 1
+        return json.loads(txt[s:e])
+    except:
+        is_true = len(user_ans.strip()) > 5
+        return {"verdict": "True" if is_true else "False", "feedback": f"Correct ans: {correct_ans}"}
+
+def create_ppt_file(topic, num_slides=10):
+    docs = hybrid_search(topic, k=5)
+    ctx = "\n".join([d.page_content[:800] for d in docs])
+    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.4)
+    prompt = f"""Topic: {topic}, Slides: {num_slides}
+Context: {ctx}
+Give {num_slides} slides JSON array. Each object: {{"title":"Slide Title", "points":["point1","point2","point3"], "note":"speaker note"}}
+Make it professional English, B.Tech level. First slide Title slide, Last slide Thank You + Q&A.
+Only JSON array."""
+    try:
+        txt = llm.invoke(prompt).content
+        s = txt.find('[')
+        e = txt.rfind(']') + 1
+        slides_data = json.loads(txt[s:e])
+    except:
+        slides_data = [{"title": f"{topic} - Slide {i+1}", "points": [f"Point about {topic}", "Explanation", "Example"], "note": f"Explain {topic}"} for i in range(num_slides)]
+
+    from pptx import Presentation
+    from pptx.util import Inches, Pt
+    from pptx.dml.color import RGBColor
+    prs = Presentation()
+    prs.slide_width = Inches(13.33)
+    prs.slide_height = Inches(7.5)
+
+    for i, sl in enumerate(slides_data[:num_slides]):
+        if i == 0:
+            slide = prs.slides.add_slide(prs.slide_layouts[6])
+            fill = slide.background.fill
+            fill.solid()
+            fill.fore_color.rgb = RGBColor(20, 30, 70)
+            txBox = slide.shapes.add_textbox(Inches(0.5), Inches(1), Inches(12), Inches(2))
+            tf = txBox.text_frame
+            tf.text = sl.get('title', topic)
+            p = tf.paragraphs[0]
+            p.font.size = Pt(44)
+            p.font.bold = True
+            p.font.color.rgb = RGBColor(255, 255, 255)
+            txBox2 = slide.shapes.add_textbox(Inches(0.5), Inches(3.5), Inches(12), Inches(2))
+            tf2 = txBox2.text_frame
+            tf2.text = "\n".join(sl.get('points', []))
+            tf2.paragraphs[0].font.size = Pt(20)
+            tf2.paragraphs[0].font.color.rgb = RGBColor(220, 220, 255)
+        else:
+            slide = prs.slides.add_slide(prs.slide_layouts[5])
+            fill = slide.background.fill
+            fill.solid()
+            fill.fore_color.rgb = RGBColor(245, 245, 245)
+            titleBox = slide.shapes.add_textbox(Inches(0.5), Inches(0.2), Inches(12), Inches(1))
+            titleBox.text_frame.text = sl.get('title', '')
+            titleBox.text_frame.paragraphs[0].font.size = Pt(32)
+            titleBox.text_frame.paragraphs[0].font.bold = True
+            titleBox.text_frame.paragraphs[0].font.color.rgb = RGBColor(20, 30, 70)
+            contentBox = slide.shapes.add_textbox(Inches(0.5), Inches(1.2), Inches(7.5), Inches(5))
+            tf = contentBox.text_frame
+            tf.word_wrap = True
+            for pt in sl.get('points', []):
+                p = tf.add_paragraph()
+                p.text = f"• {pt}"
+                p.level = 0
+                p.font.size = Pt(18)
+            noteBox = slide.shapes.add_textbox(Inches(8.5), Inches(1.2), Inches(4), Inches(5))
+            noteBox.text_frame.text = "Speaker Note:\n" + sl.get('note', '')
+            noteBox.text_frame.paragraphs[0].font.size = Pt(14)
+
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pptx")
+    prs.save(tmp.name)
+    return tmp.name
