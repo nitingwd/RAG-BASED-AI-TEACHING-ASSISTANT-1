@@ -3,6 +3,7 @@ import streamlit as st
 import tempfile
 import json
 import textwrap
+import math
 from langchain_groq import ChatGroq
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
@@ -15,7 +16,7 @@ from groq import Groq
 try:
     from gtts import gTTS
     from PIL import Image, ImageDraw, ImageFont
-    from moviepy.editor import ImageClip, concatenate_videoclips, AudioFileClip
+    from moviepy.editor import ImageClip, concatenate_videoclips, AudioFileClip, ColorClip, CompositeVideoClip, TextClip
     VIDEO_AVAILABLE = True
 except:
     VIDEO_AVAILABLE = False
@@ -199,10 +200,6 @@ Return JSON: [{{"title":"","subtitle":"","points":["40-50 words each x4"],"visua
     except:
         slides_data = [
             {"title":"What is Operating System? The Soul of Computer","subtitle":"Bridge between User and Hardware","points":["Operating System is system software that acts as intermediary between user and computer hardware. It manages CPU, RAM, disk, I/O devices and provides common services. Without OS, you need to write assembly code to access hard disk sectors manually. OS provides abstraction so developer just says 'open file'.","Kernel is core part of OS that directly interacts with hardware in privileged mode. It has two types: Monolithic like Linux where all drivers in kernel for speed, Microkernel like QNX where only essential in kernel for stability. Windows uses Hybrid kernel for balance.","OS provides 5 major services: Process management to run multiple apps, Memory management to allocate RAM efficiently using paging, File management via NTFS/ext4, Device management for printer/mouse, Security via user permissions and firewall. This makes computer usable.","Real Example: When you double-click Chrome icon, OS does 10 things in 0.5 sec - checks permissions, loads Chrome.exe from SSD to RAM using virtual memory, allocates 500MB RAM, creates process PCB, gives CPU core via scheduler, handles network, graphics rendering, all automatically."],"visual_steps":["User Clicks App","OS Kernel Takes Control","Allocates CPU+RAM+Disk","App Runs Smoothly"],"real_example":"Windows 11, Linux Kernel 6.8, Android 14 all are OS"},
-            {"title":"Types of Operating System - Evolution","subtitle":"From Batch to Real-Time","points":["Batch OS was first OS in 1960s where jobs collected in batches on punch cards and executed one by one without user interaction. Example: IBM 7094 used for payroll. Problem: If one job failed, whole batch waited. CPU idle time was 80% because I/O was slow.","Time-Sharing OS invented in 1970s to solve batch problem. It divides CPU time into tiny slices of 10-100ms called quantum and gives each user a slice. Example: University Linux server where 200 students code together. You feel your terminal is only yours, but actually CPU switches 1000 times per second.","Real-Time OS gives guarantee that response will come within deadline like 1 microsecond. Used where delay means disaster. Hard RTOS used in ISRO rocket Chandrayaan where thruster must fire within 0.1ms, Soft RTOS in video streaming where few ms delay ok. Example: VxWorks used in Mars Rover.","Modern OS types: Distributed OS like Google's Borg runs one OS on 10000 machines, Embedded OS like FreeRTOS runs in washing machine with 16KB RAM, Mobile OS like Android optimized for touch and battery. Future is AI OS that predicts your next app."],"visual_steps":["1960 Batch OS","1970 Time-Sharing","1990 Real-Time OS","2025 AI-based OS"],"real_example":"ISRO uses RTOS, Google uses Distributed OS, Your smartwatch uses Embedded OS"},
-            {"title":"Process Management & CPU Scheduling - Heart of OS","subtitle":"How OS Runs 100 Apps Together?","points":["Process is program in execution. When you open Chrome, OS creates process with PCB containing PID, state, program counter, registers, memory limits, open files. Process states are 5: New when created, Ready when waiting for CPU, Running when CPU executing, Waiting when waiting for I/O like disk, Terminated when finished. OS manages 200+ processes together.","CPU Scheduling is algorithm to choose which Ready process gets CPU next. FCFS is simple queue but suffers convoy effect where small process waits behind big process like at ration shop. SJF picks shortest job first gives best average waiting time but needs prediction. Both not practical for interactive system.","Round Robin is used in all modern OS like Windows/Linux. Each process gets fixed time quantum like 100ms. If not finished, preempted and goes to end of queue. Plus priority scheduling where system processes get higher priority than user apps. This gives fair chance and responsiveness.","Context Switch is magic: When time quantum over, OS saves all registers of current process to its PCB in 1 microsecond, loads next process registers, flushes TLB, switches memory map. Happens 1000 times/sec. That's why you can run YouTube + VS Code + Chrome together without hanging. Without scheduling, one app would freeze whole system."],"visual_steps":["New Process Created","Ready Queue Waiting","CPU Scheduling Picks One","Context Switch 1000/sec"],"real_example":"Open Task Manager in Windows - you see Round Robin live"},
-            {"title":"Memory Management - Paging, Segmentation, Virtual Memory","subtitle":"How 8GB RAM Runs 20GB Apps?","points":["Memory Management solves problem: RAM is small and fragmented. OS uses Paging where it divides RAM into 4KB frames and program into 4KB pages. Page Table maps logical pages to physical frames. This allows program to be stored non-contiguously. Example: Chrome needs 500MB but RAM has only 10 small free holes, paging fits it. No external fragmentation.","Segmentation divides program by logical meaning: Code segment, Data segment, Stack segment, Heap. Each segment has different size and permission like code is read-only. Modern OS uses both Paging + Segmentation: Segmentation for logical protection, Paging for physical allocation. Example: In Linux, code segment shared between 2 Chrome processes to save RAM.","Virtual Memory is biggest invention: OS uses hard disk as extension of RAM. When RAM full, it moves inactive pages to swap space on disk. Page fault happens when program accesses swapped page, OS brings it back. This allows running 20GB of apps in 8GB RAM. Without virtual memory, Photoshop + Chrome would crash.","Real Working: Windows uses pagefile.sys (16GB on C drive), Linux uses swap partition. When you open 20 Chrome tabs, OS keeps only 5 active tabs in RAM, rest in disk. When you switch tab, 50ms lag comes due to page fault. TLB cache speeds up page table lookup by 90%."],"visual_steps":["Program Divided into 4KB Pages","Page Table Maps to RAM Frames","RAM Full -> Swap to Disk","TLB Cache Speeds Up"],"real_example":"Windows pagefile.sys, Linux swap, Mac uses same"},
-            {"title":"Deadlock & File System - Critical Challenges","subtitle":"When System Freezes Completely","points":["Deadlock is situation where 2+ processes wait forever for each other's resources. Real life: Two people crossing narrow bridge from opposite sides, both block. In OS: Process A holds Printer and wants Scanner, Process B holds Scanner and wants Printer, both wait forever. System freezes, mouse also hangs. Must have 4 conditions together: Mutual Exclusion, Hold & Wait, No Preemption, Circular Wait.","Deadlock Handling: Prevention breaks one condition like allow preemption where OS forcefully takes printer. Avoidance uses Banker's Algorithm where OS checks safe state before giving resource, like bank checks if giving loan keeps bank safe. Detection & Recovery allows deadlock then kills one process. Example: Windows detects deadlock after 10 sec and shows Not Responding.","File System manages how files stored on disk. FAT32 old, stores file in linked list, slow. NTFS used in Windows has journaling, security, encryption, supports 16TB file. ext4 used in Linux faster for small files. Allocation: Contiguous fast but fragmentation, Linked no fragmentation but slow random access, Indexed best used in NTFS/ext4 with inode table.","Summary & Future: OS is most complex software with 50 million lines of code in Windows. Without OS, hardware is iron box. Future OS will be AI-based: Microsoft Copilot OS predicts your next file and preloads in RAM, manages battery by learning your usage, auto fixes deadlock. Learning OS is must for every CS student for placements."],"visual_steps":["Process A Holds R1 Wants R2","Process B Holds R2 Wants R1","Circular Wait = Deadlock","Prevention / Banker's Algo"],"real_example":"Blue Screen of Death is deadlock, NTFS is file system of Windows 11"},
         ]
     from pptx import Presentation
     from pptx.util import Inches, Pt
@@ -260,7 +257,7 @@ Return JSON: [{{"title":"","subtitle":"","points":["40-50 words each x4"],"visua
     prs.save(tmp.name)
     return tmp.name
 
-# ================= NEW FEATURE: AI VIDEO EXPLAINER =================
+# ================= PREMIUM AI TUTOR VIDEO FEATURE =================
 
 def transcribe_topic_with_language(audio_path):
     text = transcribe_audio(get_api_key(), audio_path)
@@ -278,19 +275,17 @@ def transcribe_topic_with_language(audio_path):
 
 def create_explainer_video(topic, language="Hinglish", duration_sec=60):
     if not VIDEO_AVAILABLE:
-        return None, "Install gTTS, moviepy, Pillow first: pip install gTTS moviepy Pillow"
+        return None, "Install gTTS, moviepy, Pillow: pip install gTTS moviepy Pillow"
 
     api_key = get_api_key()
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0.8)
-
-    # Search docs if available for better context
     docs = hybrid_search(topic, k=3)
     ctx = "\n".join([d.page_content[:500] for d in docs]) if docs else ""
 
-    prompt = f"""Topic: {topic}, Language: {language}, Context: {ctx[:2000]}
-    Create 4 scenes JSON for 60 sec explainer video in {language}.
-    Each scene: {{"title":"Short Title (5 words)","explain":"40-50 words deep explanation in {language} with real example and why it works","visual_keyword":"CPU/RAM/Diagram name"}}
-    Return ONLY JSON array of 4 objects. Language MUST be {language}."""
+    prompt = f"""Topic: {topic}, Lang: {language}, Context: {ctx[:2000]}
+    Create 4 scenes JSON for PREMIUM TUTOR VIDEO in {language}.
+    Each: {{"title":"Title 4 words","explain":"45 words simple tutor style like 'Dekho dosto...' in {language}","diagram":"What whiteboard diagram to draw: e.g. CPU->RAM flow","example":"One real life example"}}
+    Only JSON array 4 objects, language {language}."""
 
     try:
         txt = llm.invoke(prompt).content
@@ -298,57 +293,99 @@ def create_explainer_video(topic, language="Hinglish", duration_sec=60):
         scenes = json.loads(txt[s:e])
     except:
         scenes = [
-            {"title": f"What is {topic}?", "explain": f"{topic} ek bahut important concept hai jo real life me kaam aata hai. Isko simple example se samjhte hain taaki jaldi samajh aaye.", "visual_keyword": "Introduction"},
-            {"title": f"How {topic} Works?", "explain": f"{topic} ka kaam step by step hota hai. Pehle input aata hai, fir processing hoti hai, fir output milta hai real time me.", "visual_keyword": "Working Steps"},
-            {"title": f"{topic} Real Use", "explain": f"{topic} ka use badi companies jaise Google, Microsoft, ISRO me daily hota hai. Yehi reason hai ki ye itna important hai placements ke liye.", "visual_keyword": "Real World"},
-            {"title": f"{topic} Summary", "explain": f"Toh dosto {topic} samajhna easy hai agar real example se dekhe. Exam me ye pakka ayega, isko yaad rakho.", "visual_keyword": "Summary"}
+            {"title": f"What is {topic}?", "explain": f"Dekho dosto, {topic} bahut simple hai. Socho jaise real life ka example, waise hi computer me kaam karta hai. Chalo board pe dekhte hain.", "diagram": "User -> OS -> Hardware", "example": "Windows me"},
+            {"title": "Internal Working", "explain": f"Ab iska internal kaam samjho. Pehle input aata hai, fir OS process karta hai step by step, fir output deta hai. Yehi magic hai.", "diagram": "Input -> Process -> Output", "example": "Chrome example"},
+            {"title": "Real Life Magic", "explain": f"Iska real use dekho Google, ISRO me hota hai. Bina iske system hang ho jayega. Isliye ye topic itna important hai.", "diagram": "Real World Use Case", "example": "Google Server"},
+            {"title": "Quick Summary", "explain": f"Toh final me {topic} ka matlab hai management aur speed. Exam me ye pakka ayega, yaad rakho dosto.", "diagram": "Summary Points", "example": "Exam important"}
         ]
 
     temp_dir = tempfile.mkdtemp()
     clips = []
 
-    for i, scene in enumerate(scenes):
-        # Create premium image
-        img = Image.new('RGB', (1280, 720), color=(13, 17, 38))
-        draw = ImageDraw.Draw(img)
+    def create_tutor_avatar():
+        avatar = Image.new('RGB', (300, 300), color=(13,17,38))
+        d = ImageDraw.Draw(avatar)
+        d.ellipse([(10,10),(290,290)], fill=(99,102,241), outline=(255,255,255), width=6)
         try:
-            font_title = ImageFont.truetype("arial.ttf", 48)
-            font_body = ImageFont.truetype("arial.ttf", 26)
+            font_big = ImageFont.truetype("arial.ttf", 80)
+            font_small = ImageFont.truetype("arial.ttf", 40)
+        except:
+            font_big = ImageFont.load_default()
+            font_small = ImageFont.load_default()
+        d.text((95, 60), "AI", font=font_big, fill=(255,255,255))
+        d.text((55, 160), "TUTOR", font=font_small, fill=(255,255,255))
+        p = os.path.join(temp_dir, "tutor.png")
+        avatar.save(p)
+        return p
+
+    tutor_path = create_tutor_avatar()
+
+    for i, scene in enumerate(scenes):
+        W, H = 1280, 720
+        # Premium whiteboard with grid
+        bg_img = Image.new('RGB', (W, H), (13, 17, 38))
+        draw = ImageDraw.Draw(bg_img)
+        for x in range(0, W, 80):
+            draw.line([(x, 0), (x, H)], fill=(30, 40, 70), width=1)
+        for y in range(0, H, 80):
+            draw.line([(0, y), (W, y)], fill=(30, 40, 70), width=1)
+
+        # Title bar
+        draw.rectangle([(0, 0), (W, 100)], fill=(99, 102, 241))
+        try:
+            font_title = ImageFont.truetype("arial.ttf", 42)
+            font_body = ImageFont.truetype("arial.ttf", 24)
         except:
             font_title = ImageFont.load_default()
             font_body = ImageFont.load_default()
 
-        draw.rectangle([(0,0),(1280,110)], fill=(99,102,241))
         draw.text((30, 25), f"{i+1}. {scene['title']}", font=font_title, fill=(255,255,255))
 
-        wrapped = textwrap.wrap(scene['explain'], width=60)
-        y = 150
-        for line in wrapped[:7]:
-            draw.text((30, y), line, font=font_body, fill=(210,220,255))
-            y += 42
+        # Main explanation
+        wrapped = textwrap.wrap(scene['explain'], width=58)
+        y = 130
+        for line in wrapped[:6]:
+            draw.text((30, y), line, font=font_body, fill=(220, 230, 255))
+            y += 40
 
-        draw.rectangle([(30, 560),(1250, 700)], fill=(25,35,70), outline=(99,102,241), width=2)
-        draw.text((50, 575), f"VISUAL: {scene['visual_keyword']}", font=font_body, fill=(0,220,255))
-        draw.text((50, 620), f"Topic: {topic} | Lang: {language}", font=font_body, fill=(255,255,255))
+        # Whiteboard diagram box
+        draw.rectangle([(30, 430), (850, 700)], fill=(25, 35, 70), outline=(0, 220, 255), width=3)
+        draw.text((50, 440), f"BOARD: {scene['diagram']}", font=font_body, fill=(0, 220, 255))
+        draw.text((50, 475), f"--> {scene['diagram']}", font=font_body, fill=(255, 255, 255))
+        draw.text((50, 515), f"Example: {scene['example']}", font=font_body, fill=(245, 158, 11))
+        draw.text((50, 555), f"Animation: Flow -> Process -> Result", font=font_body, fill=(200, 200, 200))
+        draw.text((50, 595), f"Tutor explains with visualization", font=font_body, fill=(16, 185, 129))
 
-        img_path = os.path.join(temp_dir, f"scene_{i}.png")
-        img.save(img_path)
+        bg_path = os.path.join(temp_dir, f"bg_{i}.png")
+        bg_img.save(bg_path)
 
         # Audio
         lang_code = 'hi' if 'hindi' in language.lower() or 'hinglish' in language.lower() else 'en'
-        audio_path = os.path.join(temp_dir, f"scene_{i}.mp3")
+        audio_path = os.path.join(temp_dir, f"aud_{i}.mp3")
         try:
             tts = gTTS(text=scene['explain'], lang=lang_code, slow=False)
             tts.save(audio_path)
             audio = AudioFileClip(audio_path)
-            clip = ImageClip(img_path).set_duration(audio.duration + 0.5)
-            clip = clip.set_audio(audio)
-        except Exception as e:
-            clip = ImageClip(img_path).set_duration(4)
+            dur = audio.duration + 0.8
+        except:
+            audio = None
+            dur = 5
 
-        clips.append(clip)
+        # Animation: slow zoom + tutor bounce
+        bg_clip = ImageClip(bg_path).set_duration(dur)
+        bg_clip = bg_clip.resize(lambda t: 1 + 0.04 * math.sin(t * 0.6))
+
+        tutor_clip = ImageClip(tutor_path).set_duration(dur).resize(0.65)
+        # Bounce animation for tutor
+        tutor_clip = tutor_clip.set_position(lambda t: (980, 420 + 8 * math.sin(t * 2.5)))
+
+        final_scene = CompositeVideoClip([bg_clip, tutor_clip])
+        if audio:
+            final_scene = final_scene.set_audio(audio)
+
+        clips.append(final_scene)
 
     final = concatenate_videoclips(clips, method="compose")
-    out_path = os.path.join(tempfile.gettempdir(), f"{topic.replace(' ','_')}_{language}_explainer.mp4")
+    out_path = os.path.join(tempfile.gettempdir(), f"{topic.replace(' ','_')}_PREMIUM_TUTOR.mp4")
     final.write_videofile(out_path, fps=24, codec='libx264', audio_codec='aac', verbose=False, logger=None)
     return out_path, scenes
