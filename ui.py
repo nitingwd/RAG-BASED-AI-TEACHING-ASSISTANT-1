@@ -6,7 +6,7 @@ from rag_utils import (
     generate_quiz, generate_summary, predict_important_questions,
     check_quiz_answer, get_weak_topics, transcribe_audio,
     story_mode_learning, build_project_guide, generate_podcast_script,
-    get_mentor_report, generate_viva_questions, verify_viva_answer, create_ppt_file
+    generate_viva_questions, verify_viva_answer, create_ppt_file
 )
 
 st.set_page_config(page_title="Advance RAG", layout="wide")
@@ -79,14 +79,12 @@ with c2:
         st.session_state.active="Important"; st.rerun()
     if st.button("🎤 Viva Mode", use_container_width=True):
         st.session_state.active="Viva"; st.rerun()
-    if st.button("🧠 AI Mentor", use_container_width=True):
-        st.session_state.active="Mentor"; st.rerun()
-with c3:
     if st.button("📖 Story Movie", use_container_width=True):
         st.session_state.active="Story"; st.rerun()
+with c3:
     if st.button("🔧 Project Builder", use_container_width=True):
         st.session_state.active="Projects"; st.rerun()
-    if st.button("📊 PPT Maker", use_container_width=True):
+    if st.button("📊 PPT Maker Pro", use_container_width=True):
         st.session_state.active="PPT"; st.rerun()
     if st.button("🎙️ Podcast", use_container_width=True):
         st.session_state.active="Podcast"; st.rerun()
@@ -161,7 +159,7 @@ elif active=="Viva":
                 st.session_state.viva_qs=[]; st.session_state.viva_idx=0; st.session_state.viva_score=[]; st.rerun()
 
 elif active=="PPT":
-    st.info("English me professional PPT - jitne pages chahiye utne - direct download.")
+    st.info("English me premium PPT with visualization - direct download.")
     topic=universal_input("ppt","Topic bolo - AI")
     pages=st.slider("Kitne slides chahiye?",5,25,10)
     if st.button("📊 PPT Banao",type="primary"):
@@ -170,7 +168,7 @@ elif active=="PPT":
                 ppt_path=create_ppt_file(topic, pages)
                 with open(ppt_path,"rb") as f:
                     st.download_button("⬇️ PPT Download Karo", f, file_name=f"{topic}_{pages}_slides.pptx", mime="application/vnd.openxmlformats-officedocument.presentationml.presentation")
-                st.success("Ban gaya! Premium design hai.")
+                st.success("Ban gaya! Ab design premium hai - visualization ke saath.")
 
 elif active=="Story":
     tp=universal_input("story","Topic bolo - jaise Stack")
@@ -189,8 +187,6 @@ elif active=="Summary":
     if st.button("Summary Banao",type="primary"): st.markdown(generate_summary())
 elif active=="Important":
     if st.button("Predict Karo",type="primary"): st.markdown(predict_important_questions())
-elif active=="Mentor":
-    if st.button("📈 Report Banao",type="primary"): st.markdown(get_mentor_report())
 
 with st.expander("🕘 History"):
     h=load_conversation_history()
