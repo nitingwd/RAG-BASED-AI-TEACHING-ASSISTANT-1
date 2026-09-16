@@ -105,7 +105,6 @@ if active=="Ask":
         if q:
             ans,src = ask_question(q, top_k, mode=sel)
             st.markdown(ans)
-
 elif active=="Quiz":
     n = st.number_input("Kitne Q?",3,10,5)
     if st.button("Quiz Banao"):
@@ -119,9 +118,8 @@ elif active=="Quiz":
     if st.button("Check Karo"):
         ok,fb=check_quiz_answer(qq,ua,ca,tp)
         st.success(fb) if ok else st.error(fb)
-
 elif active=="Viva":
-    st.info("PDF se auto questions ayenge one-by-one. Answer do, verify hoga, sahi answer milega. Last me list milega.")
+    st.info("PDF se auto questions ayenge one-by-one.")
     topic=universal_input("viva_topic","Viva topic bolo - DBMS")
     num=st.slider("Kitne questions chahiye?",3,20,5)
     if st.button("Viva Start Karo",type="primary"):
@@ -161,7 +159,6 @@ elif active=="Viva":
                     st.write(f"**Feedback:** {s['fb']}")
             if st.button("Naya Viva Start Karo"):
                 st.session_state.viva_qs=[]; st.session_state.viva_idx=0; st.session_state.viva_score=[]; st.rerun()
-
 elif active=="PPT":
     st.info("English me premium PPT with visualization - direct download.")
     topic=universal_input("ppt","Topic bolo - AI")
@@ -173,9 +170,8 @@ elif active=="PPT":
                 with open(ppt_path,"rb") as f:
                     st.download_button("⬇️ PPT Download Karo", f, file_name=f"{topic}_{pages}_slides.pptx", mime="application/vnd.openxmlformats-officedocument.presentationml.presentation")
                 st.success("Ban gaya!")
-
 elif active=="Video":
-    st.info("🎬 V3 - 5 MINUTE FULL STORY MOVIE: Human Tutor + Student Rohit ki baatcheet + Visualization Board + Full Explanation")
+    st.info("⚡ V5 TURBO - 2.5 MINUTE SUPERFAST: Human Tutor + Rohit Story + Visualization - 30-40 sec me banega!")
     col1, col2 = st.columns(2)
     with col1:
         lang = st.selectbox("Video ki Language chuno", ["Hinglish", "Hindi", "English", "Marathi"], key="vid_lang")
@@ -183,7 +179,7 @@ elif active=="Video":
         topic_text = st.text_input("Topic likho", placeholder="e.g. Deadlock in OS", key="vid_topic_text")
 
     st.write("Ya Voice me bolo:")
-    audio_val = st.audio_input("🎤 Topic bolo - jaise 'Mujhe deadlock Hindi me 5 minute me full story me samjha do'", key="vid_audio")
+    audio_val = st.audio_input("🎤 Topic bolo - jaise 'Mujhe deadlock Hindi me samjha do'", key="vid_audio")
 
     final_topic = topic_text
     final_lang = lang
@@ -192,36 +188,34 @@ elif active=="Video":
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
             tmp.write(audio_val.getvalue())
             ap = tmp.name
-        with st.spinner("Voice sun raha hu aur language detect kar raha hu..."):
+        with st.spinner("Voice sun raha hu..."):
             t, l = transcribe_topic_with_language(ap)
             os.remove(ap)
             if t:
                 final_topic = t
                 final_lang = l
                 st.success(f"🎧 Samajh gaya: **Topic = {t}** | **Language = {l}**")
-                st.info(f"Ab {l} me 5 MIN ka video banega!")
 
-    if st.button("🚀 5 MINUTE FULL VIDEO Banao", type="primary"):
+    if st.button("🚀 2.5 MINUTE VIDEO Banao (30 sec me banega)", type="primary"):
         if not final_topic:
             st.warning("Pehle topic likho ya bolo!")
         else:
-            with st.spinner(f"🎬 {final_topic} pe {final_lang} me 5 MINUTE ka FULL STORY video bana raha hu... 8 Parts, Human Tutor, Dialogue... Isme 3-4 minute lagega, wait karo..."):
+            with st.spinner(f"⚡ {final_topic} pe {final_lang} me 2.5 MIN ka FULL STORY video bana raha hu... 5 Parts, 30 sec me ready..."):
                 try:
                     import importlib
                     import rag_utils
                     importlib.reload(rag_utils)
-                    v_path, scenes = rag_utils.create_explainer_video(final_topic, final_lang, duration_sec=300)
+                    v_path, scenes = rag_utils.create_explainer_video(final_topic, final_lang, duration_sec=150)
                     if v_path and os.path.exists(v_path):
-                        st.success("🔥 5 MINUTE KA DHAASU VIDEO BAN GAYA! Poora concept clear!")
+                        st.success("🔥 2.5 MIN KA VIDEO BAN GAYA! 30 sec me!")
                         st.video(v_path)
                         with open(v_path, "rb") as f:
-                            st.download_button("⬇️ 5 Min Full Video Download Karo", f, file_name=f"{final_topic}_{final_lang}_5MIN_FULL.mp4", mime="video/mp4")
-                        with st.expander("📜 Full 8 Parts Script Dekho"):
+                            st.download_button("⬇️ Video Download Karo", f, file_name=f"{final_topic}_{final_lang}_2.5MIN.mp4", mime="video/mp4")
+                        with st.expander("📜 Full 5 Parts Script Dekho"):
                             for i, s in enumerate(scenes):
                                 st.write(f"**Part {i+1}: {s['title']}** - {s['story_character']}")
                                 st.write(f"💬 {s['dialogue']}")
-                                st.write(f"📖 {s['explain'][:400]}...")
-                                st.write(f"🎨 {s['diagram']} | {s['visual_action']}")
+                                st.write(f"📖 {s['explain'][:300]}...")
                                 st.divider()
                     else:
                         st.error(str(scenes))
