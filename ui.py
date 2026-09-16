@@ -6,7 +6,8 @@ from rag_utils import (
     generate_quiz, generate_summary, predict_important_questions,
     check_quiz_answer, get_weak_topics, transcribe_audio,
     story_mode_learning, build_project_guide, generate_podcast_script,
-    generate_viva_questions, verify_viva_answer, create_ppt_file
+    generate_viva_questions, verify_viva_answer, create_ppt_file,
+    create_explainer_video, transcribe_topic_with_language
 )
 
 st.set_page_config(page_title="Advance RAG", layout="wide")
@@ -66,7 +67,7 @@ st.title("RAG Based AI Teaching Assistant")
 st.caption("Har feature me Type + Voice dono hai")
 st.subheader("📦 Features")
 
-c1,c2,c3 = st.columns(3)
+c1,c2,c3,c4 = st.columns(4)
 with c1:
     if st.button("⌨️ Ask Q&A", use_container_width=True):
         st.session_state.active="Ask"; st.rerun()
@@ -88,6 +89,9 @@ with c3:
         st.session_state.active="PPT"; st.rerun()
     if st.button("🎙️ Podcast", use_container_width=True):
         st.session_state.active="Podcast"; st.rerun()
+with c4:
+    if st.button("🎬 AI Video", use_container_width=True):
+        st.session_state.active="Video"; st.rerun()
 
 st.divider()
 active = st.session_state.active
@@ -169,6 +173,55 @@ elif active=="PPT":
                 with open(ppt_path,"rb") as f:
                     st.download_button("⬇️ PPT Download Karo", f, file_name=f"{topic}_{pages}_slides.pptx", mime="application/vnd.openxmlformats-officedocument.presentationml.presentation")
                 st.success("Ban gaya! Ab design premium hai - visualization ke saath.")
+
+elif active=="Video":
+    st.info("🎬 Naya Feature: Voice ya Text se bolo - AI Video banega usi language me jisme chahiye! Good explanation + visualization + voice.")
+    col1, col2 = st.columns(2)
+    with col1:
+        lang = st.selectbox("Video ki Language chuno", ["Hinglish", "Hindi", "English", "Marathi"], key="vid_lang")
+    with col2:
+        topic_text = st.text_input("Topic likho", placeholder="e.g. Deadlock in OS", key="vid_topic_text")
+
+    st.write("Ya Voice me bolo:")
+    audio_val = st.audio_input("🎤 Topic bolo - jaise 'Mujhe deadlock Hindi me samjha do'", key="vid_audio")
+
+    final_topic = topic_text
+    final_lang = lang
+
+    if audio_val:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+            tmp.write(audio_val.getvalue())
+            ap = tmp.name
+        with st.spinner("Voice sun raha hu aur language detect kar raha hu..."):
+            t, l = transcribe_topic_with_language(ap)
+            os.remove(ap)
+            if t:
+                final_topic = t
+                final_lang = l
+                st.success(f"🎧 Samajh gaya: **Topic = {t}** | **Language = {l}**")
+                st.info(f"Ab {l} me video banega!")
+
+    if st.button("🚀 AI Video Banao", type="primary"):
+        if not final_topic:
+            st.warning("Pehle topic likho ya bolo!")
+        else:
+            with st.spinner(f"🎬 {final_topic} pe {final_lang} me 60 sec ka video bana raha hu... Thoda time lagega (1-2 min)"):
+                try:
+                    v_path, scenes = create_explainer_video(final_topic, final_lang)
+                    if v_path and os.path.exists(v_path):
+                        st.success("Video ban gaya! 🔥")
+                        st.video(v_path)
+                        with open(v_path, "rb") as f:
+                            st.download_button("⬇️ Video Download Karo", f, file_name=f"{final_topic}_{final_lang}.mp4", mime="video/mp4")
+                        with st.expander("📜 Script Dekho"):
+                            for i, s in enumerate(scenes):
+                                st.write(f"**Scene {i+1}: {s['title']}**")
+                                st.write(s['explain'])
+                                st.divider()
+                    else:
+                        st.error(scenes if isinstance(scenes, str) else "Video nahi bana, dubara try karo")
+                except Exception as e:
+                    st.error(f"Error: {e}")
 
 elif active=="Story":
     tp=universal_input("story","Topic bolo - jaise Stack")
