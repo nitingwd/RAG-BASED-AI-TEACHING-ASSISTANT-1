@@ -154,10 +154,7 @@ def generate_viva_questions(topic, num_q=10):
     docs = hybrid_search(topic, k=6)
     ctx = "\n".join([d.page_content[:700] for d in docs])
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.6)
-    prompt = f"""Topic: {topic}
-Context: {ctx}
-{num_q} viva questions banao JSON array me. Har object: {{"q":"question", "a":"correct short answer in 2 lines"}}
-Sirf JSON array dena."""
+    prompt = f"""Topic: {topic}\nContext: {ctx}\n{num_q} viva questions banao JSON array me. Har object: {{"q":"question", "a":"correct short answer in 2 lines"}}\nSirf JSON array dena."""
     try:
         txt = llm.invoke(prompt).content
         s = txt.find('['); e = txt.rfind(']') + 1
@@ -178,62 +175,79 @@ def verify_viva_answer(question, correct_ans, user_ans):
 def create_ppt_file(topic, num_slides=10):
     docs = hybrid_search(topic, k=6)
     ctx = "\n".join([d.page_content[:1000] for d in docs])
-    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.5)
-    prompt = f"""You are top PPT designer. Topic: {topic}, Slides: {num_slides}
-Context: {ctx[:6000]}
-Create {num_slides} slides JSON array. Each: {{"title":"Catchy Title", "subtitle":"1 line subtitle", "points":["Detailed explanation 15-20 words with how/why","Point 2 deep","Point 3","Point 4"], "visual":"What diagram/flowchart/architecture/table to draw", "example":"Real world example 1 line"}}
-Structure: 1=Title, 2=Agenda, 3 to {num_slides-2}=Core with deep explanation, {num_slides-1}=Applications, {num_slides}=Summary. English only. Only JSON."""
+    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.7)
+    prompt = f"""You are world-class professor. Topic: {topic}, Slides: {num_slides}
+PDF Context: {ctx[:6000]}
+
+Create JSON array of {num_slides} slides. Each:
+{{
+ "title": "Title",
+ "subtitle": "subtitle 1 line",
+ "points": ["Point 1 in 25-30 words, explain WHY and HOW it works internally with real mechanism, not short definition", "Point 2 with real company example like Tesla/Google/ISRO uses this how", "Point 3 deep technical working", "Point 4 application/advantage with numbers"],
+ "visual_type": "flowchart/architecture/cycle/pyramid",
+ "visual_steps": ["Step1 short 3 words", "Step2", "Step3", "Step4"],
+ "real_example": "Real company/product example with numbers"
+}}
+Only JSON. English, very detailed, real-life."""
     try:
         txt = llm.invoke(prompt).content
         s = txt.find('['); e = txt.rfind(']')+1
         slides_data = json.loads(txt[s:e])
     except:
-        slides_data = [{"title": f"{topic} Slide {i+1}", "subtitle":"Deep Dive", "points":[f"Detailed about {topic}", "Working mechanism", "Advantages"], "visual":f"Diagram of {topic}", "example":f"Used in {topic} industry"} for i in range(num_slides)]
+        slides_data = [{"title": f"{topic} - Part {i+1}", "subtitle": "Real Life Deep Dive", "points": [f"{topic} ka internal working ye hai ki...", f"Google me {topic} ka use...", "Technical depth..."], "visual_type": "flowchart", "visual_steps": ["Input", "Process", "Output", "Result"], "real_example": "Used in industry"} for i in range(num_slides)]
 
     from pptx import Presentation
     from pptx.util import Inches, Pt
     from pptx.dml.color import RGBColor
-    from pptx.enum.text import PP_ALIGN
+    from pptx.enum.shapes import MSO_SHAPE
 
     prs = Presentation()
     prs.slide_width = Inches(13.33); prs.slide_height = Inches(7.5)
 
+    def draw_diagram(slide, left, top, steps, vtype):
+        colors = [RGBColor(0,180,255), RGBColor(0,210,130), RGBColor(255,160,0), RGBColor(160,100,255), RGBColor(255,90,90)]
+        for i, step in enumerate(steps[:5]):
+            if vtype == "pyramid":
+                w = Inches(3.8 - i*0.5)
+                l = left + Inches(i*0.25)
+                box = slide.shapes.add_shape(MSO_SHAPE_TRAPEZOID, l, top + i*Inches(0.7), w, Inches(0.6))
+            else:
+                box = slide.shapes.add_shape(MSO_SHAPE_ROUNDED_RECTANGLE, left, top + i*Inches(0.95), Inches(4.2), Inches(0.65))
+            box.fill.solid(); box.fill.fore_color.rgb = colors[i % 5]; box.line.fill.background()
+            tf = box.text_frame; tf.text = f"{i+1}. {step}"; tf.paragraphs[0].font.size=Pt(13); tf.paragraphs[0].font.bold=True; tf.paragraphs[0].font.color.rgb=RGBColor(255,255,255); tf.paragraphs[0].alignment=1
+            if i < len(steps[:5])-1 and vtype!= "pyramid":
+                arr = slide.shapes.add_shape(MSO_SHAPE_DOWN_ARROW, left+Inches(1.8), top + i*Inches(0.95)+Inches(0.65), Inches(0.4), Inches(0.25))
+                arr.fill.solid(); arr.fill.fore_color.rgb = RGBColor(80,80,80); arr.line.fill.background()
+
     for i, sl in enumerate(slides_data[:num_slides]):
         if i == 0:
             slide = prs.slides.add_slide(prs.slide_layouts[6])
-            slide.background.fill.solid(); slide.background.fill.fore_color.rgb = RGBColor(10, 20, 50)
-            bar = slide.shapes.add_shape(1, Inches(0), Inches(5.6), Inches(13.33), Inches(0.12))
-            bar.fill.solid(); bar.fill.fore_color.rgb = RGBColor(0, 210, 255); bar.line.fill.background()
-            t = slide.shapes.add_textbox(Inches(0.8), Inches(1), Inches(11), Inches(1.2))
-            t.text_frame.text = sl.get('title','').upper(); t.text_frame.paragraphs[0].font.size=Pt(42); t.text_frame.paragraphs[0].font.bold=True; t.text_frame.paragraphs[0].font.color.rgb=RGBColor(255,255,255)
-            sub = slide.shapes.add_textbox(Inches(0.8), Inches(2.2), Inches(8), Inches(0.8))
-            sub.text_frame.text = sl.get('subtitle',''); sub.text_frame.paragraphs[0].font.size=Pt(20); sub.text_frame.paragraphs[0].font.color.rgb=RGBColor(0,210,255)
-            pts = slide.shapes.add_textbox(Inches(0.8), Inches(3.2), Inches(6.5), Inches(2))
-            tf=pts.text_frame; tf.word_wrap=True
-            for pt in sl.get('points',[])[:3]:
-                pa=tf.add_paragraph(); pa.text=f"✦ {pt}"; pa.space_after=Pt(10); pa.font.size=Pt(15); pa.font.color.rgb=RGBColor(210,210,210)
-        elif i==1:
+            slide.background.fill.solid(); slide.background.fill.fore_color.rgb = RGBColor(8,15,45)
+            t = slide.shapes.add_textbox(Inches(0.8), Inches(0.8), Inches(8), Inches(1.3))
+            t.text_frame.text = sl.get('title','').upper(); t.text_frame.paragraphs[0].font.size=Pt(40); t.text_frame.paragraphs[0].font.bold=True; t.text_frame.paragraphs[0].font.color.rgb=RGBColor(255,255,255)
+            sub = slide.shapes.add_textbox(Inches(0.8), Inches(2), Inches(7.5), Inches(1.5))
+            sub.text_frame.word_wrap=True; sub.text_frame.text = sl.get('subtitle','') + f"\n\nREAL EXAMPLE: {sl.get('real_example','')}\n\n" + "\n".join(sl.get('points',[])[:2])
+            sub.text_frame.paragraphs[0].font.size=Pt(14); sub.text_frame.paragraphs[0].font.color.rgb=RGBColor(180,220,255)
+            draw_diagram(slide, Inches(9), Inches(0.8), sl.get('visual_steps',[]), sl.get('visual_type','flowchart'))
+        elif i == 1:
             slide = prs.slides.add_slide(prs.slide_layouts[5]); slide.background.fill.solid(); slide.background.fill.fore_color.rgb=RGBColor(255,255,255)
-            tb=slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12), Inches(0.8)); tb.text_frame.text=f"AGENDA: {sl.get('title','')}"; tb.text_frame.paragraphs[0].font.size=Pt(30); tb.text_frame.paragraphs[0].font.bold=True; tb.text_frame.paragraphs[0].font.color.rgb=RGBColor(10,20,50)
-            left=slide.shapes.add_textbox(Inches(0.7), Inches(1.4), Inches(6), Inches(5.5)); tf=left.text_frame; tf.word_wrap=True
+            tb=slide.shapes.add_textbox(Inches(0.5), Inches(0.2), Inches(12), Inches(0.7)); tb.text_frame.text="ROADMAP - What You Will Learn"; tb.text_frame.paragraphs[0].font.size=Pt(28); tb.text_frame.paragraphs[0].font.bold=True; tb.text_frame.paragraphs[0].font.color.rgb=RGBColor(10,20,50)
+            left=slide.shapes.add_textbox(Inches(0.6), Inches(1.1), Inches(6.5), Inches(5.8)); tf=left.text_frame; tf.word_wrap=True
             for idx, pt in enumerate(sl.get('points',[])):
-                pa=tf.add_paragraph(); pa.text=f"{idx+1:02d} {pt}"; pa.font.size=Pt(17); pa.space_after=Pt(18); pa.font.color.rgb=RGBColor(30,30,30)
-            right=slide.shapes.add_shape(1, Inches(7.5), Inches(1.4), Inches(5), Inches(5.2)); right.fill.solid(); right.fill.fore_color.rgb=RGBColor(235,242,255); right.line.fill.background()
-            vt=slide.shapes.add_textbox(Inches(7.7), Inches(1.6), Inches(4.6), Inches(4.8)); vt.text_frame.word_wrap=True; vt.text_frame.text=f"🎨 VISUAL\n{sl.get('visual','')}\n\n💡 EXAMPLE\n{sl.get('example','')}"; vt.text_frame.paragraphs[0].font.size=Pt(13)
+                pa=tf.add_paragraph(); pa.text=f"{idx+1}. {pt}"; pa.space_after=Pt(14); pa.font.size=Pt(13)
+            draw_diagram(slide, Inches(8), Inches(1.1), sl.get('visual_steps',[]), sl.get('visual_type','flowchart'))
         else:
-            slide = prs.slides.add_slide(prs.slide_layouts[5]); slide.background.fill.solid(); slide.background.fill.fore_color.rgb=RGBColor(248,249,252)
-            header=slide.shapes.add_shape(1, Inches(0), Inches(0), Inches(13.33), Inches(1.05)); header.fill.solid(); header.fill.fore_color.rgb=RGBColor(10,20,50); header.line.fill.background()
-            ht=slide.shapes.add_textbox(Inches(0.6), Inches(0.15), Inches(8), Inches(0.7)); ht.text_frame.text=sl.get('title',''); ht.text_frame.paragraphs[0].font.size=Pt(26); ht.text_frame.paragraphs[0].font.bold=True; ht.text_frame.paragraphs[0].font.color.rgb=RGBColor(255,255,255)
-            hs=slide.shapes.add_textbox(Inches(0.6), Inches(0.6), Inches(8), Inches(0.35)); hs.text_frame.text=sl.get('subtitle',''); hs.text_frame.paragraphs[0].font.size=Pt(13); hs.text_frame.paragraphs[0].font.color.rgb=RGBColor(0,210,255)
-            card=slide.shapes.add_shape(1, Inches(0.5), Inches(1.3), Inches(7.5), Inches(5.8)); card.fill.solid(); card.fill.fore_color.rgb=RGBColor(255,255,255); card.line.color.rgb=RGBColor(220,220,220)
-            ct=slide.shapes.add_textbox(Inches(0.8), Inches(1.5), Inches(7), Inches(5.3)); tf=ct.text_frame; tf.word_wrap=True
+            slide = prs.slides.add_slide(prs.slide_layouts[5]); slide.background.fill.solid(); slide.background.fill.fore_color.rgb=RGBColor(246,248,255)
+            header=slide.shapes.add_shape(MSO_SHAPE_RECTANGLE, Inches(0), Inches(0), Inches(13.33), Inches(0.9)); header.fill.solid(); header.fill.fore_color.rgb=RGBColor(10,20,50); header.line.fill.background()
+            ht=slide.shapes.add_textbox(Inches(0.5), Inches(0.1), Inches(7.5), Inches(0.7)); ht.text_frame.text=sl.get('title',''); ht.text_frame.paragraphs[0].font.size=Pt(22); ht.text_frame.paragraphs[0].font.bold=True; ht.text_frame.paragraphs[0].font.color.rgb=RGBColor(255,255,255)
+            card=slide.shapes.add_shape(MSO_SHAPE_ROUNDED_RECTANGLE, Inches(0.4), Inches(1.1), Inches(7.2), Inches(6.1)); card.fill.solid(); card.fill.fore_color.rgb=RGBColor(255,255,255); card.line.color.rgb=RGBColor(210,210,210)
+            ct=slide.shapes.add_textbox(Inches(0.6), Inches(1.2), Inches(6.8), Inches(5.9)); tf=ct.text_frame; tf.word_wrap=True
             for pt in sl.get('points',[]):
-                pa=tf.add_paragraph(); pa.text=f"• {pt}"; pa.space_after=Pt(12); pa.font.size=Pt(15); pa.font.color.rgb=RGBColor(30,30,30)
-            if sl.get('example'):
-                ex=tf.add_paragraph(); ex.text=f"\n💡 Example: {sl.get('example')}"; ex.font.size=Pt(13); ex.font.bold=True; ex.font.color.rgb=RGBColor(0,100,160); ex.space_before=Pt(16)
-            vcard=slide.shapes.add_shape(1, Inches(8.5), Inches(1.3), Inches(4.3), Inches(5.8)); vcard.fill.solid(); vcard.fill.fore_color.rgb=RGBColor(10,20,50); vcard.line.fill.background()
-            vt=slide.shapes.add_textbox(Inches(8.7), Inches(1.5), Inches(3.9), Inches(0.4)); vt.text_frame.text="VISUALIZATION"; vt.text_frame.paragraphs[0].font.size=Pt(11); vt.text_frame.paragraphs[0].font.bold=True; vt.text_frame.paragraphs[0].font.color.rgb=RGBColor(0,210,255)
-            vc=slide.shapes.add_textbox(Inches(8.7), Inches(2), Inches(3.9), Inches(4.8)); vc.text_frame.word_wrap=True; vc.text_frame.text=f"{sl.get('visual','')}\n\n[ Diagram Placeholder ]\n→ Use flowchart / block diagram\n→ Add icons & arrows\n→ Keep visual clean\n\nDeep Explanation:\nThis slide explains {sl.get('title','')} with real-world context for easy understanding."; vc.text_frame.paragraphs[0].font.size=Pt(12); vc.text_frame.paragraphs[0].font.color.rgb=RGBColor(220,220,220)
+                pa=tf.add_paragraph(); pa.text=f"• {pt}"; pa.space_after=Pt(12); pa.font.size=Pt(12.5); pa.font.color.rgb=RGBColor(30,30,30)
+            ex=tf.add_paragraph(); ex.text=f"\n🌍 Real Industry Use: {sl.get('real_example','')}"; ex.font.size=Pt(11); ex.font.bold=True; ex.font.color.rgb=RGBColor(0,110,180); ex.space_before=Pt(14)
+            vbg=slide.shapes.add_shape(MSO_SHAPE_ROUNDED_RECTANGLE, Inches(8), Inches(1.1), Inches(5), Inches(6.1)); vbg.fill.solid(); vbg.fill.fore_color.rgb=RGBColor(15,25,60); vbg.line.fill.background()
+            vt=slide.shapes.add_textbox(Inches(8.2), Inches(1.2), Inches(4.6), Inches(0.4)); vt.text_frame.text=f"{sl.get('visual_type','DIAGRAM').upper()} - VISUAL EXPLANATION"; vt.text_frame.paragraphs[0].font.size=Pt(11); vt.text_frame.paragraphs[0].font.bold=True; vt.text_frame.paragraphs[0].font.color.rgb=RGBColor(0,220,255)
+            draw_diagram(slide, Inches(8.3), Inches(1.8), sl.get('visual_steps',[]), sl.get('visual_type','flowchart'))
 
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pptx")
     prs.save(tmp.name)
