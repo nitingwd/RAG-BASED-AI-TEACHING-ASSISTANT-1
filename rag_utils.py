@@ -2,6 +2,7 @@ import os
 import streamlit as st
 import tempfile
 import json
+import textwrap
 from langchain_groq import ChatGroq
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
@@ -9,6 +10,15 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader, CSVLoader, TextLoader
 from dotenv import load_dotenv
 from groq import Groq
+
+# Video feature imports
+try:
+    from gtts import gTTS
+    from PIL import Image, ImageDraw, ImageFont
+    from moviepy.editor import ImageClip, concatenate_videoclips, AudioFileClip
+    VIDEO_AVAILABLE = True
+except:
+    VIDEO_AVAILABLE = False
 
 load_dotenv()
 
@@ -176,14 +186,12 @@ def create_ppt_file(topic, num_slides=5):
     docs = hybrid_search(topic, k=6)
     ctx = "\n".join([d.page_content[:1200] for d in docs])
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.85)
-
     prompt = f"""You are IIT professor + designer.
 Topic: {topic}
 Context: {ctx[:7000]}
 Create {num_slides} UNIQUE slides JSON. Each slide 4 points, each point 40-50 words detailed real working, no repeat.
 Outline for 5: 1.What is OS, 2.Types, 3.Process Management, 4.Memory Management, 5.Deadlock & File System
 Return JSON: [{{"title":"","subtitle":"","points":["40-50 words each x4"],"visual_steps":["Step A","Step B","Step C","Step D"],"real_example":"Windows/Linux example"}}] Only JSON."""
-
     try:
         txt = llm.invoke(prompt).content
         s = txt.find('['); e = txt.rfind(']')+1
@@ -196,14 +204,11 @@ Return JSON: [{{"title":"","subtitle":"","points":["40-50 words each x4"],"visua
             {"title":"Memory Management - Paging, Segmentation, Virtual Memory","subtitle":"How 8GB RAM Runs 20GB Apps?","points":["Memory Management solves problem: RAM is small and fragmented. OS uses Paging where it divides RAM into 4KB frames and program into 4KB pages. Page Table maps logical pages to physical frames. This allows program to be stored non-contiguously. Example: Chrome needs 500MB but RAM has only 10 small free holes, paging fits it. No external fragmentation.","Segmentation divides program by logical meaning: Code segment, Data segment, Stack segment, Heap. Each segment has different size and permission like code is read-only. Modern OS uses both Paging + Segmentation: Segmentation for logical protection, Paging for physical allocation. Example: In Linux, code segment shared between 2 Chrome processes to save RAM.","Virtual Memory is biggest invention: OS uses hard disk as extension of RAM. When RAM full, it moves inactive pages to swap space on disk. Page fault happens when program accesses swapped page, OS brings it back. This allows running 20GB of apps in 8GB RAM. Without virtual memory, Photoshop + Chrome would crash.","Real Working: Windows uses pagefile.sys (16GB on C drive), Linux uses swap partition. When you open 20 Chrome tabs, OS keeps only 5 active tabs in RAM, rest in disk. When you switch tab, 50ms lag comes due to page fault. TLB cache speeds up page table lookup by 90%."],"visual_steps":["Program Divided into 4KB Pages","Page Table Maps to RAM Frames","RAM Full -> Swap to Disk","TLB Cache Speeds Up"],"real_example":"Windows pagefile.sys, Linux swap, Mac uses same"},
             {"title":"Deadlock & File System - Critical Challenges","subtitle":"When System Freezes Completely","points":["Deadlock is situation where 2+ processes wait forever for each other's resources. Real life: Two people crossing narrow bridge from opposite sides, both block. In OS: Process A holds Printer and wants Scanner, Process B holds Scanner and wants Printer, both wait forever. System freezes, mouse also hangs. Must have 4 conditions together: Mutual Exclusion, Hold & Wait, No Preemption, Circular Wait.","Deadlock Handling: Prevention breaks one condition like allow preemption where OS forcefully takes printer. Avoidance uses Banker's Algorithm where OS checks safe state before giving resource, like bank checks if giving loan keeps bank safe. Detection & Recovery allows deadlock then kills one process. Example: Windows detects deadlock after 10 sec and shows Not Responding.","File System manages how files stored on disk. FAT32 old, stores file in linked list, slow. NTFS used in Windows has journaling, security, encryption, supports 16TB file. ext4 used in Linux faster for small files. Allocation: Contiguous fast but fragmentation, Linked no fragmentation but slow random access, Indexed best used in NTFS/ext4 with inode table.","Summary & Future: OS is most complex software with 50 million lines of code in Windows. Without OS, hardware is iron box. Future OS will be AI-based: Microsoft Copilot OS predicts your next file and preloads in RAM, manages battery by learning your usage, auto fixes deadlock. Learning OS is must for every CS student for placements."],"visual_steps":["Process A Holds R1 Wants R2","Process B Holds R2 Wants R1","Circular Wait = Deadlock","Prevention / Banker's Algo"],"real_example":"Blue Screen of Death is deadlock, NTFS is file system of Windows 11"},
         ]
-
     from pptx import Presentation
     from pptx.util import Inches, Pt
     from pptx.dml.color import RGBColor
-
     prs = Presentation()
     prs.slide_width = Inches(13.33); prs.slide_height = Inches(7.5)
-
     def draw_pro_diagram(slide, left, top, steps):
         colors = [RGBColor(99,102,241), RGBColor(16,185,129), RGBColor(245,158,11), RGBColor(236,72,153)]
         for i, step in enumerate(steps[:4]):
@@ -218,7 +223,6 @@ Return JSON: [{{"title":"","subtitle":"","points":["40-50 words each x4"],"visua
             if i < 3:
                 arr = slide.shapes.add_shape(5, left+Inches(1.9), top + i*Inches(1.15)+Inches(0.85), Inches(0.04), Inches(0.3))
                 arr.fill.solid(); arr.fill.fore_color.rgb = RGBColor(255,255,255); arr.line.fill.background()
-
     for i, sl in enumerate(slides_data[:num_slides]):
         if i == 0:
             slide = prs.slides.add_slide(prs.slide_layouts[6])
@@ -252,7 +256,99 @@ Return JSON: [{{"title":"","subtitle":"","points":["40-50 words each x4"],"visua
             vt=slide.shapes.add_textbox(Inches(8.8), Inches(1.3), Inches(4), Inches(0.5))
             vt.text_frame.text="VISUAL WORKFLOW"; vt.text_frame.paragraphs[0].font.size=Pt(11); vt.text_frame.paragraphs[0].font.bold=True; vt.text_frame.paragraphs[0].font.color.rgb=RGBColor(99,102,241)
             draw_pro_diagram(slide, Inches(8.8), Inches(1.9), sl.get('visual_steps',[]))
-
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pptx")
     prs.save(tmp.name)
     return tmp.name
+
+# ================= NEW FEATURE: AI VIDEO EXPLAINER =================
+
+def transcribe_topic_with_language(audio_path):
+    text = transcribe_audio(get_api_key(), audio_path)
+    if not text:
+        return None, "Hinglish"
+    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0)
+    prompt = f"Extract topic and language from: '{text}'. Return JSON {{\"topic\":\"...\",\"language\":\"Hindi/English/Hinglish/Marathi\"}} only."
+    try:
+        res = llm.invoke(prompt).content
+        s = res.find('{'); e = res.rfind('}')+1
+        data = json.loads(res[s:e])
+        return data.get('topic', text), data.get('language', 'Hinglish')
+    except:
+        return text, "Hinglish"
+
+def create_explainer_video(topic, language="Hinglish", duration_sec=60):
+    if not VIDEO_AVAILABLE:
+        return None, "Install gTTS, moviepy, Pillow first: pip install gTTS moviepy Pillow"
+
+    api_key = get_api_key()
+    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0.8)
+
+    # Search docs if available for better context
+    docs = hybrid_search(topic, k=3)
+    ctx = "\n".join([d.page_content[:500] for d in docs]) if docs else ""
+
+    prompt = f"""Topic: {topic}, Language: {language}, Context: {ctx[:2000]}
+    Create 4 scenes JSON for 60 sec explainer video in {language}.
+    Each scene: {{"title":"Short Title (5 words)","explain":"40-50 words deep explanation in {language} with real example and why it works","visual_keyword":"CPU/RAM/Diagram name"}}
+    Return ONLY JSON array of 4 objects. Language MUST be {language}."""
+
+    try:
+        txt = llm.invoke(prompt).content
+        s = txt.find('['); e = txt.rfind(']')+1
+        scenes = json.loads(txt[s:e])
+    except:
+        scenes = [
+            {"title": f"What is {topic}?", "explain": f"{topic} ek bahut important concept hai jo real life me kaam aata hai. Isko simple example se samjhte hain taaki jaldi samajh aaye.", "visual_keyword": "Introduction"},
+            {"title": f"How {topic} Works?", "explain": f"{topic} ka kaam step by step hota hai. Pehle input aata hai, fir processing hoti hai, fir output milta hai real time me.", "visual_keyword": "Working Steps"},
+            {"title": f"{topic} Real Use", "explain": f"{topic} ka use badi companies jaise Google, Microsoft, ISRO me daily hota hai. Yehi reason hai ki ye itna important hai placements ke liye.", "visual_keyword": "Real World"},
+            {"title": f"{topic} Summary", "explain": f"Toh dosto {topic} samajhna easy hai agar real example se dekhe. Exam me ye pakka ayega, isko yaad rakho.", "visual_keyword": "Summary"}
+        ]
+
+    temp_dir = tempfile.mkdtemp()
+    clips = []
+
+    for i, scene in enumerate(scenes):
+        # Create premium image
+        img = Image.new('RGB', (1280, 720), color=(13, 17, 38))
+        draw = ImageDraw.Draw(img)
+        try:
+            font_title = ImageFont.truetype("arial.ttf", 48)
+            font_body = ImageFont.truetype("arial.ttf", 26)
+        except:
+            font_title = ImageFont.load_default()
+            font_body = ImageFont.load_default()
+
+        draw.rectangle([(0,0),(1280,110)], fill=(99,102,241))
+        draw.text((30, 25), f"{i+1}. {scene['title']}", font=font_title, fill=(255,255,255))
+
+        wrapped = textwrap.wrap(scene['explain'], width=60)
+        y = 150
+        for line in wrapped[:7]:
+            draw.text((30, y), line, font=font_body, fill=(210,220,255))
+            y += 42
+
+        draw.rectangle([(30, 560),(1250, 700)], fill=(25,35,70), outline=(99,102,241), width=2)
+        draw.text((50, 575), f"VISUAL: {scene['visual_keyword']}", font=font_body, fill=(0,220,255))
+        draw.text((50, 620), f"Topic: {topic} | Lang: {language}", font=font_body, fill=(255,255,255))
+
+        img_path = os.path.join(temp_dir, f"scene_{i}.png")
+        img.save(img_path)
+
+        # Audio
+        lang_code = 'hi' if 'hindi' in language.lower() or 'hinglish' in language.lower() else 'en'
+        audio_path = os.path.join(temp_dir, f"scene_{i}.mp3")
+        try:
+            tts = gTTS(text=scene['explain'], lang=lang_code, slow=False)
+            tts.save(audio_path)
+            audio = AudioFileClip(audio_path)
+            clip = ImageClip(img_path).set_duration(audio.duration + 0.5)
+            clip = clip.set_audio(audio)
+        except Exception as e:
+            clip = ImageClip(img_path).set_duration(4)
+
+        clips.append(clip)
+
+    final = concatenate_videoclips(clips, method="compose")
+    out_path = os.path.join(tempfile.gettempdir(), f"{topic.replace(' ','_')}_{language}_explainer.mp4")
+    final.write_videofile(out_path, fps=24, codec='libx264', audio_codec='aac', verbose=False, logger=None)
+    return out_path, scenes
