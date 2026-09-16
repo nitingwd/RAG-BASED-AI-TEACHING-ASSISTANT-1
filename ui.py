@@ -4,11 +4,9 @@ import os
 from rag_utils import (
     process_files, ask_question, load_conversation_history, get_api_key,
     generate_quiz, generate_summary, predict_important_questions,
-    text_to_speech, check_quiz_answer, get_weak_topics, transcribe_audio,
-    generate_ppt_slides, generate_lab_manual, generate_podcast_script,
-    story_mode_learning, build_project_guide, real_life_example,
-    generate_flashcards, make_study_plan, viva_simulator, viva_followup,
-    get_mentor_report, analyze_pyq
+    check_quiz_answer, get_weak_topics, transcribe_audio,
+    story_mode_learning, build_project_guide, generate_podcast_script,
+    get_mentor_report, generate_viva_questions, verify_viva_answer, create_ppt_file
 )
 
 st.set_page_config(page_title="Advance RAG", layout="wide")
@@ -59,55 +57,39 @@ else:
 
 if "active" not in st.session_state:
     st.session_state.active = "Ask"
+if "viva_qs" not in st.session_state:
+    st.session_state.viva_qs = []
+    st.session_state.viva_idx = 0
+    st.session_state.viva_score = []
 
 st.title("RAG Based AI Teaching Assistant")
 st.caption("Har feature me Type + Voice dono hai")
 st.subheader("📦 Features")
 
-c1,c2,c3,c4 = st.columns(4)
+c1,c2,c3 = st.columns(3)
 with c1:
-    if st.button("⌨️ Ask\nQ&A", use_container_width=True):
-        st.session_state.active="Ask"
-        st.rerun()
-    if st.button("📝 Quiz\nMCQ", use_container_width=True):
-        st.session_state.active="Quiz"
-        st.rerun()
+    if st.button("⌨️ Ask Q&A", use_container_width=True):
+        st.session_state.active="Ask"; st.rerun()
+    if st.button("📝 Quiz", use_container_width=True):
+        st.session_state.active="Quiz"; st.rerun()
     if st.button("📄 Summary", use_container_width=True):
-        st.session_state.active="Summary"
-        st.rerun()
+        st.session_state.active="Summary"; st.rerun()
 with c2:
     if st.button("⭐ Important Qs", use_container_width=True):
-        st.session_state.active="Important"
-        st.rerun()
-    if st.button("📊 PYQ Analyzer", use_container_width=True):
-        st.session_state.active="PYQ"
-        st.rerun()
+        st.session_state.active="Important"; st.rerun()
     if st.button("🎤 Viva Mode", use_container_width=True):
-        st.session_state.active="Viva"
-        st.rerun()
-with c3:
-    if st.button("💡 Example + Cards", use_container_width=True):
-        st.session_state.active="Example"
-        st.rerun()
+        st.session_state.active="Viva"; st.rerun()
     if st.button("🧠 AI Mentor", use_container_width=True):
-        st.session_state.active="Mentor"
-        st.rerun()
+        st.session_state.active="Mentor"; st.rerun()
+with c3:
     if st.button("📖 Story Movie", use_container_width=True):
-        st.session_state.active="Story"
-        st.rerun()
-with c4:
+        st.session_state.active="Story"; st.rerun()
     if st.button("🔧 Project Builder", use_container_width=True):
-        st.session_state.active="Projects"
-        st.rerun()
+        st.session_state.active="Projects"; st.rerun()
     if st.button("📊 PPT Maker", use_container_width=True):
-        st.session_state.active="PPT"
-        st.rerun()
-    if st.button("🔬 Lab Manual", use_container_width=True):
-        st.session_state.active="Lab"
-        st.rerun()
+        st.session_state.active="PPT"; st.rerun()
     if st.button("🎙️ Podcast", use_container_width=True):
-        st.session_state.active="Podcast"
-        st.rerun()
+        st.session_state.active="Podcast"; st.rerun()
 
 st.divider()
 active = st.session_state.active
@@ -121,18 +103,12 @@ if active=="Ask":
         if q:
             ans,src = ask_question(q, top_k, mode=sel)
             st.markdown(ans)
-            ap=text_to_speech(ans)
-            if ap:
-                st.audio(ap)
 
 elif active=="Quiz":
     n = st.number_input("Kitne Q?",3,10,5)
     if st.button("Quiz Banao"):
         qt,err = generate_quiz(n)
-        if err:
-            st.error(err)
-        else:
-            st.markdown(qt)
+        st.error(err) if err else st.markdown(qt)
     st.divider()
     qq=universal_input("qq","Question bolo/likho")
     ua=universal_input("ua","Tumhara answer")
@@ -140,95 +116,83 @@ elif active=="Quiz":
     tp=st.text_input("Topic","general")
     if st.button("Check Karo"):
         ok,fb=check_quiz_answer(qq,ua,ca,tp)
-        if ok:
-            st.success(fb)
+        st.success(fb) if ok else st.error(fb)
+
+elif active=="Viva":
+    st.info("PDF se auto questions ayenge one-by-one. Answer do, verify hoga, sahi answer milega. Last me list milega.")
+    topic=universal_input("viva_topic","Viva topic bolo - DBMS")
+    num=st.slider("Kitne questions chahiye?",3,20,5)
+    if st.button("Viva Start Karo",type="primary"):
+        if topic:
+            with st.spinner("PDF se questions bana raha hu..."):
+                qs=generate_viva_questions(topic,num)
+                st.session_state.viva_qs=qs; st.session_state.viva_idx=0; st.session_state.viva_score=[]
+                st.rerun()
+    if st.session_state.viva_qs:
+        idx=st.session_state.viva_idx
+        if idx < len(st.session_state.viva_qs):
+            curr=st.session_state.viva_qs[idx]
+            st.subheader(f"Q{idx+1}/{len(st.session_state.viva_qs)}: {curr['q']}")
+            user_ans=universal_input(f"v_ans_{idx}","Answer bolo/likho")
+            col1,col2=st.columns(2)
+            with col1:
+                if st.button("Answer Submit Karo"):
+                    if user_ans:
+                        res=verify_viva_answer(curr['q'], curr['a'], user_ans)
+                        is_true=res['verdict'].lower()=="true"
+                        st.session_state.viva_score.append({"q":curr['q'],"your":user_ans,"correct":curr['a'],"result":"✅ Sahi" if is_true else "❌ Galat","fb":res['feedback']})
+                        st.success(res['feedback']) if is_true else st.error(res['feedback'])
+                        st.session_state.viva_idx+=1
+                        st.rerun()
+            with col2:
+                if st.button("Stop Viva - Result Dikhao"):
+                    st.session_state.viva_idx=len(st.session_state.viva_qs)
+                    st.rerun()
         else:
-            st.error(fb)
+            score=st.session_state.viva_score
+            true_c=sum(1 for x in score if "Sahi" in x['result']); false_c=len(score)-true_c
+            st.success(f"Viva Khatam! ✅ Sahi: {true_c} | ❌ Galat: {false_c}")
+            for i,s in enumerate(score):
+                with st.expander(f"{i+1}. {s['q']} - {s['result']}"):
+                    st.write(f"**Tumhara:** {s['your']}")
+                    st.write(f"**Correct:** {s['correct']}")
+                    st.write(f"**Feedback:** {s['fb']}")
+            if st.button("Naya Viva Start Karo"):
+                st.session_state.viva_qs=[]; st.session_state.viva_idx=0; st.session_state.viva_score=[]; st.rerun()
+
+elif active=="PPT":
+    st.info("English me professional PPT - jitne pages chahiye utne - direct download.")
+    topic=universal_input("ppt","Topic bolo - AI")
+    pages=st.slider("Kitne slides chahiye?",5,25,10)
+    if st.button("📊 PPT Banao",type="primary"):
+        if topic:
+            with st.spinner(f"{pages} slides ka shaandar PPT bana raha hu..."):
+                ppt_path=create_ppt_file(topic, pages)
+                with open(ppt_path,"rb") as f:
+                    st.download_button("⬇️ PPT Download Karo", f, file_name=f"{topic}_{pages}_slides.pptx", mime="application/vnd.openxmlformats-officedocument.presentationml.presentation")
+                st.success("Ban gaya! Premium design hai.")
 
 elif active=="Story":
     tp=universal_input("story","Topic bolo - jaise Stack")
-    if st.button("🎬 Movie Banao",type="primary"):
-        if tp:
-            s=story_mode_learning(tp)
-            st.markdown(s)
-            ap=text_to_speech(s)
-            if ap:
-                st.audio(ap)
-
-elif active=="Example":
-    conc=universal_input("ex","Concept bolo - DBMS")
-    if st.button("Example se Samjhao"):
-        if conc:
-            st.markdown(real_life_example(conc))
-    if st.button("Flashcards Banao"):
-        st.markdown(generate_flashcards())
-    ed=st.date_input("Exam kab?")
-    hr=st.number_input("Ghante?",1,12,4)
-    if st.button("Plan Banao"):
-        st.markdown(make_study_plan(str(ed),hr))
-
-elif active=="Viva":
-    if "vq" not in st.session_state:
-        st.session_state.vq=""
-    tp=universal_input("viva","Viva topic bolo")
-    if st.button("Viva Start"):
-        if tp:
-            st.session_state.vq=viva_simulator(tp)
-            st.rerun()
-    if st.session_state.vq:
-        st.info(st.session_state.vq)
-        a=universal_input("viva_ans","Jawab bolo/likho")
-        if st.button("Submit"):
-            st.session_state.vq=viva_followup(st.session_state.vq,a)
-            st.rerun()
-
+    if st.button("🎬 Movie Banao",type="primary") and tp:
+        st.markdown(story_mode_learning(tp))
 elif active=="Projects":
     idea=universal_input("proj","Project idea bolo - Smart Dustbin")
     bud=st.selectbox("Budget",["low (under ₹1500)","medium (₹1500-5000)","high (₹5000+)"])
-    if st.button("🚀 Guide Banao",type="primary"):
-        if idea:
-            st.markdown(build_project_guide(idea,bud))
-
-elif active=="PPT":
-    tp=universal_input("ppt","Topic bolo - PPT ke liye")
-    if st.button("📊 PPT Banao",type="primary"):
-        if tp:
-            st.markdown(generate_ppt_slides(tp))
-
-elif active=="Lab":
-    tp=universal_input("lab","Experiment bolo - Ultrasonic Sensor")
-    if st.button("🔬 Manual Banao",type="primary"):
-        if tp:
-            st.markdown(generate_lab_manual(tp))
-
+    if st.button("🚀 Guide Banao",type="primary") and idea:
+        st.markdown(build_project_guide(idea,bud))
 elif active=="Podcast":
     tp=universal_input("pod","Topic bolo - Podcast ke liye")
-    if st.button("🎙️ Podcast Script Banao",type="primary"):
-        if tp:
-            script=generate_podcast_script(tp)
-            st.markdown(script)
-            ap=text_to_speech(script)
-            if ap:
-                st.audio(ap)
-
+    if st.button("🎙️ Podcast Script Banao",type="primary") and tp:
+        st.markdown(generate_podcast_script(tp))
 elif active=="Summary":
-    if st.button("Summary Banao",type="primary"):
-        st.markdown(generate_summary())
+    if st.button("Summary Banao",type="primary"): st.markdown(generate_summary())
 elif active=="Important":
-    if st.button("Predict Karo",type="primary"):
-        st.markdown(predict_important_questions())
-elif active=="PYQ":
-    fs=st.file_uploader("PYQ PDFs", type=["pdf"], accept_multiple_files=True)
-    if st.button("Analyze Karo",type="primary"):
-        if fs:
-            st.markdown(analyze_pyq(fs))
+    if st.button("Predict Karo",type="primary"): st.markdown(predict_important_questions())
 elif active=="Mentor":
-    if st.button("📈 Report Banao",type="primary"):
-        st.markdown(get_mentor_report())
+    if st.button("📈 Report Banao",type="primary"): st.markdown(get_mentor_report())
 
 with st.expander("🕘 History"):
     h=load_conversation_history()
     for x in reversed(h[-10:]):
-        st.markdown(f"**Q:** {x['query']}")
-        st.markdown(x['answer'][:500])
-        st.divider()
+        st.markdown(f"**Q:** {x['query']}"); st.markdown(x['answer'][:500]); st.divider()
