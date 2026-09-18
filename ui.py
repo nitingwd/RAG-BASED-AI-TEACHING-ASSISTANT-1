@@ -3,7 +3,6 @@ import tempfile
 import os
 import io
 import sqlite3
-import json
 import hashlib
 from datetime import datetime
 from PIL import Image
@@ -19,11 +18,20 @@ os.makedirs(PICS_PATH, exist_ok=True)
 def init_db():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     c = conn.cursor()
+    # FIX: Agar purana table hai to auto delete
+    try:
+        c.execute("SELECT username FROM users LIMIT 1")
+    except Exception:
+        c.execute("DROP TABLE IF EXISTS users")
+        c.execute("DROP TABLE IF EXISTS conversations")
+        conn.commit()
+
     c.execute('''CREATE TABLE IF NOT EXISTS users
     (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT, name TEXT, email TEXT, photo TEXT, bio TEXT, created_at TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS conversations
     (id INTEGER PRIMARY KEY, user_id INTEGER, query TEXT, answer TEXT, mode TEXT, timestamp TEXT)''')
     conn.commit(); conn.close()
+
 init_db()
 
 def hash_pwd(p): return hashlib.sha256(p.encode()).hexdigest()
@@ -90,10 +98,10 @@ def get_user_conversations(user_id):
 def auth_ui():
     if st.session_state.get("logged_in"):
         return True
-    st.set_page_config(page_title="SUBMIT - Login", layout="centered", page_icon="🎓")
+    st.set_page_config(page_title="RAG Based AI Teaching Assistant - Login", layout="centered", page_icon="🎓")
     st.markdown("""
     <style>.login-box {background: linear-gradient(135deg,#E0E7FF,#C7D2FE); padding:30px; border-radius:20px; text-align:center;}</style>
-    <div class="login-box"><h1>🎓 SUBMIT V16</h1><p>Username + Password Login</p></div><br>
+    <div class="login-box"><h1>🎓 RAG Based AI Teaching Assistant</h1><p>Username + Password Login</p></div><br>
     """, unsafe_allow_html=True)
     tab1, tab2 = st.tabs(["🔐 Login", "📝 Sign Up"])
     with tab1:
@@ -157,7 +165,7 @@ except ImportError:
         return pdf_buffer
     def images_to_docx(image_files):
         doc = Document()
-        doc.add_heading('SUBMIT - Converted Images Document', 0)
+        doc.add_heading('RAG Based AI Teaching Assistant - Converted Images', 0)
         doc_buffer = io.BytesIO()
         for img_file in image_files:
             image = Image.open(img_file)
@@ -170,7 +178,7 @@ except ImportError:
         doc_buffer.seek(0)
         return doc_buffer
 
-st.set_page_config(page_title="Advance RAG - AI Teaching Assistant", layout="wide", page_icon="🎓")
+st.set_page_config(page_title="RAG Based AI Teaching Assistant", layout="wide", page_icon="🎓")
 
 st.markdown("""
 <style>
@@ -180,9 +188,8 @@ html, body, [class*="css"] {font-family: 'Inter', sans-serif;}
 .dev-badge {position: fixed; bottom: 15px; right: 15px; background: linear-gradient(135deg,#0D1126,#6366F1); color: white; padding: 8px 14px; border-radius: 20px; font-size: 12px; z-index: 999;}
 .hero {background: linear-gradient(135deg, #E0E7FF 0%, #C7D2FE 100%); border-radius: 20px; padding: 30px; margin-bottom: 20px;}
 .stButton>button {border-radius: 10px; height: 48px; font-weight: 600;}
-.chat-btn {text-align:left!important;}
 </style>
-<div class="dev-badge">V16.5 AUTH + HISTORY | KADIYA NARESH</div>
+<div class="dev-badge">V17.0 RAG TEACHING | KADIYA NARESH</div>
 """, unsafe_allow_html=True)
 
 def universal_input(key, placeholder="Bolo ya likho..."):
@@ -217,7 +224,6 @@ def play_audio_block(text, lang, key):
             else:
                 st.error("Audio fail - net check karo")
 
-# ================= SIDEBAR WITH CLICKABLE HISTORY =================
 with st.sidebar:
     if user['photo'] and os.path.exists(user['photo']):
         st.image(user['photo'], width=100)
@@ -232,7 +238,6 @@ with st.sidebar:
         if st.button("🚪 Logout", use_container_width=True):
             st.session_state.clear(); st.rerun()
     st.divider()
-
     st.markdown("### 📁 File Upload")
     uploaded_files = st.file_uploader("PDF, CSV, TXT", type=["pdf","csv","txt"], accept_multiple_files=True, label_visibility="collapsed")
     if st.button("🚀 Upload & Process", type="primary", use_container_width=True):
@@ -240,7 +245,6 @@ with st.sidebar:
             with st.spinner("Processing..."):
                 process_files(uploaded_files, 1000, 100)
     st.divider()
-
     st.markdown("### 💬 Tumhari Chats - Click Karo")
     search = st.text_input("Search chats", placeholder="Search...", label_visibility="collapsed", key="search_chat")
     convs = get_user_conversations(user['id'])
@@ -256,7 +260,6 @@ with st.sidebar:
                 st.session_state.selected_conv = {"id": cid, "query": q, "answer": a, "mode": mode, "timestamp": ts}
                 st.session_state.active = "ChatView"
                 st.rerun()
-
     st.divider()
     st.markdown("### 🌐 Global Language")
     selected_language = st.selectbox("Output Language", ["Hinglish","Hindi","Gujarati","English"], index=0, key="glang")
@@ -274,8 +277,8 @@ with st.sidebar:
 
 st.markdown(f"""
 <div class="hero">
-    <h1 style="margin:0; font-size: 32px; color: #111827;">Welcome {user['name']}! RAG AI Teaching Assistant</h1>
-    <p style="color: #4B5563;">🔊 Audio + Quiz + Viva + Image2PDF + Profile History - V16.5</p>
+    <h1 style="margin:0; font-size: 32px; color: #111827;">Welcome {user['name']}! RAG Based AI Teaching Assistant</h1>
+    <p style="color: #4B5563;">🔊 Audio + Quiz + Viva + Image2PDF + Profile History</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -321,7 +324,6 @@ active = st.session_state.active
 lang = st.session_state.get('selected_language','Hinglish')
 st.header(f"▶ {active} Mode | 🌐 {lang}")
 
-# ================= MODES =================
 if active=="Image2PDF":
     st.markdown("### 🖼️ Image to PDF / DOCX Converter")
     uploaded_images = st.file_uploader("Images Upload Karo (JPG, PNG, JPEG)", type=["jpg","jpeg","png"], accept_multiple_files=True, key="img_upload")
@@ -346,9 +348,9 @@ if active=="Image2PDF":
                     st.session_state.docx_ready = docx_data
                 st.success("DOCX Ready!")
         if "pdf_ready" in st.session_state:
-            st.download_button(label="⬇️ PDF Download Karo", data=st.session_state.pdf_ready, file_name=f"SUBMIT_Images_{len(uploaded_images)}_pages.pdf", mime="application/pdf", use_container_width=True, key="dl_pdf_final")
+            st.download_button(label="⬇️ PDF Download Karo", data=st.session_state.pdf_ready, file_name=f"RAG_Images_{len(uploaded_images)}_pages.pdf", mime="application/pdf", use_container_width=True, key="dl_pdf_final")
         if "docx_ready" in st.session_state:
-            st.download_button(label="⬇️ DOCX Download Karo", data=st.session_state.docx_ready, file_name=f"SUBMIT_Images_{len(uploaded_images)}_pages.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True, key="dl_docx_final")
+            st.download_button(label="⬇️ DOCX Download Karo", data=st.session_state.docx_ready, file_name=f"RAG_Images_{len(uploaded_images)}_pages.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True, key="dl_docx_final")
     else:
         st.warning("Pehle images upload karo")
 
@@ -459,7 +461,6 @@ elif active=="Podcast":
         if ap and os.path.exists(ap):
             with open(ap,"rb") as f:
                 st.audio(f.read(), format="audio/mp3", autoplay=True)
-            st.success(f"🔊 {lang} Podcast Auto Play")
     if "last_pod" in st.session_state:
         play_audio_block(st.session_state.last_pod, lang, "pod")
 
