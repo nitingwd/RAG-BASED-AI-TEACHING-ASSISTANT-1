@@ -125,10 +125,11 @@ def auth_ui():
     st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
-    header[data-testid="stHeader"]{display:none!important;}
-   .stApp {background: #E0F2FE; background-image: radial-gradient(at 15% 15%, rgba(14,165,233,0.18) 0%, transparent 45%), radial-gradient(at 85% 15%, rgba(251,191,36,0.12) 0%, transparent 45%); background-attachment: fixed;}
-   .login-card {background: white; padding: 36px; border-radius: 28px; text-align:center; border: 1px solid #BAE6FD; box-shadow: 0 24px 80px rgba(14,165,233,0.12);}
-   .login-title {font-family:'Space Grotesk'; font-size:28px; font-weight:700; color:#0F172A;}
+    header[data-testid="stHeader"] {background: transparent!important; height: 60px!important;}
+    header[data-testid="stHeader"] button {background: white!important; border: 1.5px solid #7DD3FC!important; border-radius: 12px!important;}
+  .stApp {background: #E0F2FE; background-image: radial-gradient(at 15% 15%, rgba(14,165,233,0.18) 0%, transparent 45%), radial-gradient(at 85% 15%, rgba(251,191,36,0.12) 0%, transparent 45%); background-attachment: fixed;}
+  .login-card {background: white; padding: 36px; border-radius: 28px; text-align:center; border: 1px solid #BAE6FD; box-shadow: 0 24px 80px rgba(14,165,233,0.12);}
+  .login-title {font-family:'Space Grotesk'; font-size:28px; font-weight:700; color:#0F172A;}
     </style>
     """, unsafe_allow_html=True)
     _, col, _ = st.columns([1,2,1])
@@ -212,8 +213,39 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
 
-header[data-testid="stHeader"], div[data-testid="stToolbar"], div[data-testid="stDecoration"], #MainMenu, footer {display:none!important; height:0!important;}
-.main.block-container {padding-top: 0.5rem!important;}
+/* SIDEBAR TOGGLE FIX - HEADER KO HIDE NAHI KARNA */
+#MainMenu, footer, div[data-testid="stDecoration"], div[data-testid="stToolbar"] {display:none!important;}
+
+header[data-testid="stHeader"] {
+    background: transparent!important;
+    background-color: transparent!important;
+    height: 70px!important;
+    display: flex!important;
+    visibility: visible!important;
+    z-index: 999!important;
+}
+header[data-testid="stHeader"] button[kind="header"],
+header[data-testid="stHeader"] button[data-testid="stSidebarCollapseButton"],
+header[data-testid="stHeader"] button[data-testid="baseButton-header"] {
+    display: flex!important;
+    visibility: visible!important;
+    opacity: 1!important;
+    background: #FFFFFF!important;
+    color: #0F172A!important;
+    border: 1.5px solid #7DD3FC!important;
+    border-radius: 12px!important;
+    box-shadow: 0 4px 14px rgba(14,165,233,0.15)!important;
+    width: 44px!important;
+    height: 44px!important;
+    margin-top: 12px!important;
+    margin-left: 12px!important;
+}
+header[data-testid="stHeader"] button * {
+    color: #0F172A!important;
+    fill: #0F172A!important;
+}
+
+.main.block-container {padding-top: 1.5rem!important;}
 
 .stApp {
     background: linear-gradient(180deg, #E0F2FE 0%, #BAE6FD 18%, #E0F2FE 38%, #FFF7ED 62%, #FFEDD5 82%, #E0F2FE 100%)!important;
@@ -259,7 +291,6 @@ section[data-testid="stSidebar"] * {color: #0F172A!important;}
     z-index: 999;
 }
 
-/* BUTTONS LIGHT */
 div[data-testid="stButton"] > button {
     background: white!important; border-radius: 14px!important; height: 56px!important;
     font-weight: 700!important; border: 1.5px solid #7DD3FC!important; color: #0F172A!important;
@@ -279,7 +310,6 @@ section.main div[data-testid="stButton"]:nth-of-type(11) button {background: lin
 section.main div[data-testid="stButton"]:nth-of-type(12) button {background: linear-gradient(135deg, #FFF7ED, #FFEDD5)!important; color: #7C2D12!important;}
 div[data-testid="stButton"] > button:hover {transform: translateY(-3px)!important; box-shadow: 0 10px 28px rgba(14,165,233,0.18)!important;}
 
-/* INPUTS LIGHT */
 div[data-testid="stTextInput"] > div > div > input,
 div[data-testid="stNumberInput"] input,
 div[data-testid="stSelectbox"] > div > div {
@@ -287,7 +317,6 @@ div[data-testid="stSelectbox"] > div > div {
     border-radius: 12px!important; color: #0F172A!important;
 }
 
-/* FILE UPLOADER WHITE */
 div[data-testid="stFileUploader"] {
     background: #FFFFFF!important; border: 1.5px solid #7DD3FC!important;
     border-radius: 16px!important; padding: 14px!important;
@@ -303,13 +332,11 @@ div[data-testid="stFileUploader"] button {
     border: 1.5px solid #7DD3FC!important; border-radius: 10px!important;
 }
 
-/* TEXT AREA - BIO WHITE */
 div[data-testid="stTextArea"] textarea {
     background: #FFFFFF!important; background-color: #FFFFFF!important;
     color: #0F172A!important; border: 1.5px solid #7DD3FC!important; border-radius: 12px!important;
 }
 
-/* AUDIO INPUT WHITE */
 div[data-testid="stAudioInput"] {
     background: #FFFFFF!important; border: 1.5px solid #7DD3FC!important;
     border-radius: 16px!important; padding: 12px!important;
