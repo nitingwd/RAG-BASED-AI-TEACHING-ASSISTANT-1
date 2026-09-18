@@ -97,7 +97,7 @@ def get_user_conversations(user_id):
 def auth_ui():
     cookies = None
     if COOKIE_OK:
-        cookies = EncryptedCookieManager(prefix="rag_v23_best_", password="kadiya_naresh_final_v23_best_color_2024")
+        cookies = EncryptedCookieManager(prefix="rag_v24_premium_", password="kadiya_naresh_v24_premium_mesh_2024")
         if not cookies.ready():
             st.stop()
     if st.session_state.get("logged_in") and st.session_state.get("user"):
@@ -118,12 +118,20 @@ def auth_ui():
     st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
-.stApp {background: radial-gradient(1000px at 20% 10%, #E0E7FF 0%, #F0F4FF 40%, #FFFFFF 100%);}
-.login-card {background: rgba(255,255,255,0.95); backdrop-filter: blur(24px); border: 1px solid rgba(99,102,241,0.12); padding: 36px; border-radius: 28px; box-shadow: 0 24px 80px rgba(99,102,241,0.18); text-align:center; max-width:440px; width:100%;}
-.login-title {font-family:'Space Grotesk'; font-size:28px; font-weight:700; color:#111827; line-height:1.2;}
-.login-sub {color:#6B7280; font-size:13px; margin-top:6px;}
-.pill {display:inline-block; background:linear-gradient(135deg,#EEF2FF,#E0E7FF); color:#6366F1; padding:6px 12px; border-radius:20px; font-size:11px; font-weight:700; margin:3px; border:1px solid #C7D2FE;}
-.stButton>button {border-radius:12px; height:48px; font-weight:700;}
+   .stApp {
+        background:
+            radial-gradient(at 0% 0%, rgba(99,102,241,0.18) 0px, transparent 50%),
+            radial-gradient(at 100% 0%, rgba(236,72,153,0.16) 0px, transparent 50%),
+            radial-gradient(at 0% 100%, rgba(6,182,214,0.14) 0px, transparent 50%),
+            radial-gradient(at 100% 100%, rgba(245,158,11,0.12) 0px, transparent 50%),
+            linear-gradient(180deg, #F8FAFF 0%, #FFFFFF 100%);
+        background-attachment: fixed;
+    }
+   .login-card {background: rgba(255,255,255,0.85); backdrop-filter: blur(24px); border: 1px solid rgba(255,255,255,0.7); padding: 36px; border-radius: 28px; box-shadow: 0 24px 80px rgba(99,102,241,0.15), inset 0 1px 0 rgba(255,255,255,0.9); text-align:center; max-width:440px; width:100%;}
+   .login-title {font-family:'Space Grotesk'; font-size:28px; font-weight:700; color:#111827; line-height:1.2;}
+   .login-sub {color:#6B7280; font-size:13px; margin-top:6px;}
+   .pill {display:inline-block; background:linear-gradient(135deg,#EEF2FF,#E0E7FF); color:#6366F1; padding:6px 12px; border-radius:20px; font-size:11px; font-weight:700; margin:3px; border:1px solid #C7D2FE;}
+   .stButton>button {border-radius:12px; height:48px; font-weight:700;}
     </style>
     """, unsafe_allow_html=True)
     _, col, _ = st.columns([1,2,1])
@@ -132,7 +140,7 @@ def auth_ui():
         <div class="login-card">
             <div style="font-size:52px; margin-bottom:8px;">🎓</div>
             <div class="login-title">RAG Based AI<br>Teaching Assistant</div>
-            <div class="login-sub">One-time login, 30 days tak yaad rahega</div>
+            <div class="login-sub">Premium Mesh UI • 30 Days Login</div>
             <div style="margin-top:14px;">
                 <span class="pill">💬 Q&A</span><span class="pill">🎤 VIVA</span><span class="pill">📝 QUIZ</span><span class="pill">🔊 AUDIO</span>
             </div>
@@ -179,7 +187,11 @@ except:
     from rag_utils import (process_files, ask_question, get_api_key, generate_quiz, generate_summary, predict_important_questions, check_quiz_answer, get_weak_topics, transcribe_audio, story_mode_learning, build_project_guide, generate_podcast_script, generate_viva_questions, verify_viva_answer, create_ppt_file, text_to_audio_file)
     def images_to_pdf(image_files):
         images=[Image.open(img).convert("RGB") for img in image_files]
-        buf=io.BytesIO(); images[0].save(buf, format="PDF", save_all=True, append_images=images[1:]) if len(images)>1 else images[0].save(buf, format="PDF")
+        buf=io.BytesIO()
+        if len(images)>1:
+            images[0].save(buf, format="PDF", save_all=True, append_images=images[1:])
+        else:
+            images[0].save(buf, format="PDF")
         buf.seek(0); return buf
     def images_to_docx(image_files):
         doc=Document(); doc.add_heading('RAG Based AI Teaching Assistant',0); buf=io.BytesIO()
@@ -192,68 +204,97 @@ st.set_page_config(page_title="RAG Based AI Teaching Assistant", layout="wide", 
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
-.main {background:#F8FAFF;}
-.hero-pro {background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 35%, #EC4899 70%, #F59E0B 100%); border-radius: 24px; padding: 26px 28px; color:white; box-shadow: 0 16px 40px rgba(99,102,241,0.25);}
-.profile-card-pro {background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFF 100%); border-radius:20px; padding:18px; border:1px solid #E0E7FF; text-align:center; box-shadow: 0 8px 24px rgba(99,102,241,0.08);}
+
+/* ===== V24 PREMIUM MESH + GLASS ===== */
+.stApp {
+    background:
+        radial-gradient(at 10% 15%, rgba(99,102,241,0.18) 0px, transparent 55%),
+        radial-gradient(at 90% 10%, rgba(236,72,153,0.16) 0px, transparent 50%),
+        radial-gradient(at 15% 85%, rgba(6,182,214,0.13) 0px, transparent 50%),
+        radial-gradient(at 85% 90%, rgba(245,158,11,0.11) 0px, transparent 50%),
+        linear-gradient(180deg, #F8FAFF 0%, #FFFFFF 60%, #F8FAFF 100%);
+    background-attachment: fixed;
+}
+.main {background: transparent!important;}
+.block-container {
+    background: rgba(255,255,255,0.72);
+    backdrop-filter: blur(20px);
+    border-radius: 24px;
+    border: 1px solid rgba(255,255,255,0.65);
+    box-shadow: 0 8px 32px rgba(99,102,241,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+    padding-top: 1.5rem!important;
+    margin-top: 0.8rem;
+}
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(248,250,255,0.96) 100%)!important;
+    backdrop-filter: blur(24px);
+    border-right: 1px solid rgba(99,102,241,0.08);
+}
+
+/* Hero Premium Glass */
+.hero-pro {
+    background: linear-gradient(135deg, rgba(79,70,229,0.96) 0%, rgba(124,58,237,0.94) 35%, rgba(236,72,153,0.92) 70%, rgba(245,158,11,0.88) 100%);
+    backdrop-filter: blur(40px);
+    border-radius: 24px; padding: 26px 28px; color:white;
+    box-shadow: 0 16px 40px rgba(99,102,241,0.28), inset 0 1px 0 rgba(255,255,255,0.25);
+    border: 1px solid rgba(255,255,255,0.22);
+    position: relative; overflow: hidden;
+}
+.hero-pro::after {
+    content: ''; position: absolute; top: -60%; left: -30%; width: 160%; height: 160%;
+    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+.profile-card-pro {
+    background: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(248,250,255,0.92) 100%);
+    backdrop-filter: blur(16px);
+    border-radius:20px; padding:18px; border:1px solid rgba(224,231,255,0.85);
+    text-align:center; box-shadow: 0 8px 24px rgba(99,102,241,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+}
 .img-circle {width:85px; height:85px; border-radius:50%; object-fit:cover; border:3px solid transparent; background: linear-gradient(white, white) padding-box, linear-gradient(135deg,#6366F1,#EC4899) border-box; box-shadow: 0 6px 20px rgba(99,102,241,0.25); display:block; margin:0 auto;}
 .avatar-letter {width:85px; height:85px; border-radius:50%; background: linear-gradient(135deg,#6366F1 0%, #8B5CF6 50%, #EC4899 100%); display:flex; align-items:center; justify-content:center; margin:0 auto; color:white; font-size:32px; font-weight:700; font-family:Space Grotesk;}
-.dev-badge {position: fixed; bottom: 14px; right: 14px; background: #111827; color: white; padding: 7px 12px; border-radius: 20px; font-size: 10px; z-index: 999; font-weight:600;}
+.dev-badge {position: fixed; bottom: 14px; right: 14px; background: rgba(17,24,39,0.9); backdrop-filter: blur(12px); color: white; padding: 7px 12px; border-radius: 20px; font-size: 10px; z-index: 999; font-weight:600; border: 1px solid rgba(255,255,255,0.12);}
 
-/* ===== BEST COLOR + HOVER POP EFFECT ===== */
+/* Dashboard Buttons - Frosted Glass + Pop */
 section.main div[data-testid="stButton"] > button {
-    border-radius:14px!important;
-    height:58px!important;
-    font-weight:700!important;
-    font-size:13px!important;
-    border:1.5px solid rgba(0,0,0,0.06)!important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.06)!important;
+    border-radius:14px!important; height:58px!important; font-weight:700!important; font-size:13px!important;
+    border:1.5px solid rgba(255,255,255,0.55)!important;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.85)!important;
+    backdrop-filter: blur(12px)!important;
     transition: all 0.32s cubic-bezier(0.34, 1.56, 0.64, 1)!important;
 }
 section.main div[data-testid="stButton"] > button:hover {
     transform: translateY(-7px) scale(1.05)!important;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.20)!important;
-    z-index: 20!important;
-    border-color: transparent!important;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.20), inset 0 1px 0 rgba(255,255,255,0.4)!important;
+    z-index: 20!important; border-color: rgba(255,255,255,0.35)!important;
 }
-
-/* 12 Best Colors - Normal soft tint, Hover full gradient + pop */
-section.main div[data-testid="stButton"]:nth-of-type(1) button {background: linear-gradient(135deg,#EEF2FF,#E0E7FF)!important; border-color:#C7D2FE!important; color:#4F46E5!important;}
+section.main div[data-testid="stButton"]:nth-of-type(1) button {background: linear-gradient(135deg,rgba(238,242,255,0.92),rgba(224,231,255,0.92))!important; border-color:#C7D2FE!important; color:#4F46E5!important;}
 section.main div[data-testid="stButton"]:nth-of-type(1) button:hover {background: linear-gradient(135deg,#4F46E5 0%,#06B6D4 100%)!important; color:white!important;}
-
-section.main div[data-testid="stButton"]:nth-of-type(2) button {background: linear-gradient(135deg,#FEF3C7,#FDE68A)!important; border-color:#FCD34D!important; color:#D97706!important;}
+section.main div[data-testid="stButton"]:nth-of-type(2) button {background: linear-gradient(135deg,rgba(254,243,199,0.92),rgba(253,230,138,0.92))!important; border-color:#FCD34D!important; color:#D97706!important;}
 section.main div[data-testid="stButton"]:nth-of-type(2) button:hover {background: linear-gradient(135deg,#F59E0B 0%,#EF4444 100%)!important; color:white!important;}
-
-section.main div[data-testid="stButton"]:nth-of-type(3) button {background: linear-gradient(135deg,#D1FAE5,#A7F3D0)!important; border-color:#6EE7B7!important; color:#059669!important;}
+section.main div[data-testid="stButton"]:nth-of-type(3) button {background: linear-gradient(135deg,rgba(209,250,229,0.92),rgba(167,243,208,0.92))!important; border-color:#6EE7B7!important; color:#059669!important;}
 section.main div[data-testid="stButton"]:nth-of-type(3) button:hover {background: linear-gradient(135deg,#10B981 0%,#06B6D4 100%)!important; color:white!important;}
-
-section.main div[data-testid="stButton"]:nth-of-type(4) button {background: linear-gradient(135deg,#FCE7F3,#FBCFE8)!important; border-color:#F9A8D4!important; color:#DB2777!important;}
+section.main div[data-testid="stButton"]:nth-of-type(4) button {background: linear-gradient(135deg,rgba(252,231,243,0.92),rgba(251,207,232,0.92))!important; border-color:#F9A8D4!important; color:#DB2777!important;}
 section.main div[data-testid="stButton"]:nth-of-type(4) button:hover {background: linear-gradient(135deg,#EC4899 0%,#8B5CF6 100%)!important; color:white!important;}
-
-section.main div[data-testid="stButton"]:nth-of-type(5) button {background: linear-gradient(135deg,#DBEAFE,#BFDBFE)!important; border-color:#93C5FD!important; color:#2563EB!important;}
+section.main div[data-testid="stButton"]:nth-of-type(5) button {background: linear-gradient(135deg,rgba(219,234,254,0.92),rgba(191,219,254,0.92))!important; border-color:#93C5FD!important; color:#2563EB!important;}
 section.main div[data-testid="stButton"]:nth-of-type(5) button:hover {background: linear-gradient(135deg,#3B82F6 0%,#6366F1 100%)!important; color:white!important;}
-
-section.main div[data-testid="stButton"]:nth-of-type(6) button {background: linear-gradient(135deg,#EDE9FE,#DDD6FE)!important; border-color:#C4B5FD!important; color:#7C3AED!important;}
+section.main div[data-testid="stButton"]:nth-of-type(6) button {background: linear-gradient(135deg,rgba(237,233,254,0.92),rgba(221,214,254,0.92))!important; border-color:#C4B5FD!important; color:#7C3AED!important;}
 section.main div[data-testid="stButton"]:nth-of-type(6) button:hover {background: linear-gradient(135deg,#7C3AED 0%,#EC4899 100%)!important; color:white!important;}
-
-section.main div[data-testid="stButton"]:nth-of-type(7) button {background: linear-gradient(135deg,#FFEDD5,#FED7AA)!important; border-color:#FDBA74!important; color:#EA580C!important;}
+section.main div[data-testid="stButton"]:nth-of-type(7) button {background: linear-gradient(135deg,rgba(255,237,213,0.92),rgba(254,215,170,0.92))!important; border-color:#FDBA74!important; color:#EA580C!important;}
 section.main div[data-testid="stButton"]:nth-of-type(7) button:hover {background: linear-gradient(135deg,#F97316 0%,#EF4444 100%)!important; color:white!important;}
-
-section.main div[data-testid="stButton"]:nth-of-type(8) button {background: linear-gradient(135deg,#CCFBF1,#99F6E0)!important; border-color:#5EEAD4!important; color:#0D9488!important;}
+section.main div[data-testid="stButton"]:nth-of-type(8) button {background: linear-gradient(135deg,rgba(204,251,241,0.92),rgba(153,246,224,0.92))!important; border-color:#5EEAD4!important; color:#0D9488!important;}
 section.main div[data-testid="stButton"]:nth-of-type(8) button:hover {background: linear-gradient(135deg,#14B8A6 0%,#10B981 100%)!important; color:white!important;}
-
-section.main div[data-testid="stButton"]:nth-of-type(9) button {background: linear-gradient(135deg,#F3E8FF,#E9D5FF)!important; border-color:#D8B4FE!important; color:#9333EA!important;}
+section.main div[data-testid="stButton"]:nth-of-type(9) button {background: linear-gradient(135deg,rgba(243,232,255,0.92),rgba(233,213,255,0.92))!important; border-color:#D8B4FE!important; color:#9333EA!important;}
 section.main div[data-testid="stButton"]:nth-of-type(9) button:hover {background: linear-gradient(135deg,#A855F7 0%,#EC4899 100%)!important; color:white!important;}
-
-section.main div[data-testid="stButton"]:nth-of-type(10) button {background: linear-gradient(135deg,#CFFAFE,#A5F3FC)!important; border-color:#67E8F9!important; color:#0891B2!important;}
+section.main div[data-testid="stButton"]:nth-of-type(10) button {background: linear-gradient(135deg,rgba(207,250,254,0.92),rgba(165,243,252,0.92))!important; border-color:#67E8F9!important; color:#0891B2!important;}
 section.main div[data-testid="stButton"]:nth-of-type(10) button:hover {background: linear-gradient(135deg,#06B6D4 0%,#3B82F6 100%)!important; color:white!important;}
-
-section.main div[data-testid="stButton"]:nth-of-type(11) button {background: linear-gradient(135deg,#F3F4F6,#E5E7EB)!important; border-color:#D1D5DB!important; color:#374151!important;}
+section.main div[data-testid="stButton"]:nth-of-type(11) button {background: linear-gradient(135deg,rgba(243,244,246,0.92),rgba(229,231,235,0.92))!important; border-color:#D1D5DB!important; color:#374151!important;}
 section.main div[data-testid="stButton"]:nth-of-type(11) button:hover {background: linear-gradient(135deg,#111827 0%,#4B5563 100%)!important; color:white!important;}
-
-section.main div[data-testid="stButton"]:nth-of-type(12) button {background: linear-gradient(135deg,#FEF3C7,#FFEDD5)!important; border-color:#FCD34D!important; color:#B45309!important;}
+section.main div[data-testid="stButton"]:nth-of-type(12) button {background: linear-gradient(135deg,rgba(254,243,199,0.92),rgba(255,237,213,0.92))!important; border-color:#FCD34D!important; color:#B45309!important;}
 section.main div[data-testid="stButton"]:nth-of-type(12) button:hover {background: linear-gradient(135deg,#F59E0B 0%,#F97316 100%)!important; color:white!important;}
 </style>
-<div class="dev-badge">V23 BEST COLOR + HOVER POP | KADIYA NARESH</div>
+<div class="dev-badge">V24 PREMIUM MESH + GLASS UI | KADIYA NARESH</div>
 """, unsafe_allow_html=True)
 
 def universal_input(key, placeholder="Bolo ya likho..."):
@@ -427,10 +468,16 @@ elif active=="Story":
         story_text = story_mode_learning(tp, language=lang); st.session_state.last_story = story_text; save_conversation(user['id'], tp, story_text, "Story"); st.markdown(story_text)
     if "last_story" in st.session_state: play_audio_block(st.session_state.last_story, lang, "story")
 elif active=="Projects":
-    idea=universal_input("proj",f"Project idea {lang}"); bud=st.selectbox("Budget",["low","medium","high"], key="bud")
-    if st.button("🔧 Generate Guide", type="primary", use_container_width=True, key="proj_gen") and idea:
-        guide = build_project_guide(idea,bud, language=lang); st.session_state.last_proj = guide; save_conversation(user['id'], idea, guide, "Project"); st.markdown(guide)
-    if "last_proj" in st.session_state: play_audio_block(st.session_state.last_proj, lang, "proj")
+    idea=universal_input("proj",f"IoT Project idea likho - e.g. Smart Home ({lang})")
+    bud=st.selectbox("Budget", ["low (under ₹1500)","medium (₹1500-5000)","high (₹5000+)"], key="bud")
+    if st.button("🔧 Full IoT Guide + Code + Circuit Generate Karo", type="primary", use_container_width=True, key="proj_gen") and idea:
+        with st.spinner("Full Project Guide bana raha hu..."):
+            guide = build_project_guide(idea,bud, language=lang)
+        st.session_state.last_proj = guide; save_conversation(user['id'], idea, guide, "Project"); st.markdown(guide)
+    if "last_proj" in st.session_state:
+        st.divider()
+        play_audio_block(st.session_state.last_proj, lang, "proj")
+        st.download_button("⬇️ Full Guide TXT", st.session_state.last_proj, file_name="Full_IoT_Guide.txt", mime="text/plain", use_container_width=True)
 elif active=="Podcast":
     tp=universal_input("pod",f"Topic {lang}")
     if st.button("🎙️ Create Podcast", type="primary", use_container_width=True, key="pod_gen") and tp:
