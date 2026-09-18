@@ -1,14 +1,58 @@
 import streamlit as st
 import tempfile
 import os
-from rag_utils import (
-    process_files, ask_question, load_conversation_history, get_api_key,
-    generate_quiz, generate_summary, predict_important_questions,
-    check_quiz_answer, get_weak_topics, transcribe_audio,
-    story_mode_learning, build_project_guide, generate_podcast_script,
-    generate_viva_questions, verify_viva_answer, create_ppt_file,
-    text_to_audio_file, images_to_pdf, images_to_docx
-)
+import io
+from PIL import Image
+from docx import Document
+from docx.shared import Inches
+
+# ===== SAFE IMPORT - KABHI CRASH NAHI HOGA =====
+try:
+    from rag_utils import (
+        process_files, ask_question, load_conversation_history, get_api_key,
+        generate_quiz, generate_summary, predict_important_questions,
+        check_quiz_answer, get_weak_topics, transcribe_audio,
+        story_mode_learning, build_project_guide, generate_podcast_script,
+        generate_viva_questions, verify_viva_answer, create_ppt_file,
+        text_to_audio_file, images_to_pdf, images_to_docx
+    )
+    RAG_OK = True
+except ImportError as e:
+    # Agar rag_utils purana hai to bhi app chalega, bas core functions import karo
+    from rag_utils import (
+        process_files, ask_question, load_conversation_history, get_api_key,
+        generate_quiz, generate_summary, predict_important_questions,
+        check_quiz_answer, get_weak_topics, transcribe_audio,
+        story_mode_learning, build_project_guide, generate_podcast_script,
+        generate_viva_questions, verify_viva_answer, create_ppt_file,
+        text_to_audio_file
+    )
+    RAG_OK = False
+    # Local fallback functions - Ye toh chalenge hi
+    def images_to_pdf(image_files):
+        images = [Image.open(img).convert("RGB") for img in image_files]
+        pdf_buffer = io.BytesIO()
+        if len(images) == 1:
+            images[0].save(pdf_buffer, format="PDF")
+        else:
+            images[0].save(pdf_buffer, format="PDF", save_all=True, append_images=images[1:])
+        pdf_buffer.seek(0)
+        return pdf_buffer
+
+    def images_to_docx(image_files):
+        doc = Document()
+        doc.add_heading('SUBMIT - Converted Images Document', 0)
+        doc_buffer = io.BytesIO()
+        for img_file in image_files:
+            image = Image.open(img_file)
+            temp_buffer = io.BytesIO()
+            image.save(temp_buffer, format='PNG')
+            temp_buffer.seek(0)
+            doc.add_picture(temp_buffer, width=Inches(5.5))
+            doc.add_paragraph("")
+        doc.save(doc_buffer)
+        doc_buffer.seek(0)
+        return doc_buffer
 
 st.set_page_config(page_title="Advance RAG - AI Teaching Assistant", layout="wide", page_icon="🎓")
 
@@ -21,7 +65,7 @@ html, body, [class*="css"] {font-family: 'Inter', sans-serif;}
 .hero {background: linear-gradient(135deg, #E0E7FF 0%, #C7D2FE 100%); border-radius: 20px; padding: 30px; margin-bottom: 20px;}
 .stButton>button {border-radius: 10px; height: 48px; font-weight: 600;}
 </style>
-<div class="dev-badge">V15.2 + IMAGE2PDF | KADIYA NARESH</div>
+<div class="dev-badge">V15.3 FIXED | KADIYA NARESH</div>
 """, unsafe_allow_html=True)
 
 def universal_input(key, placeholder="Bolo ya likho..."):
@@ -68,6 +112,8 @@ with st.sidebar:
     selected_language = st.selectbox("Output Language", ["Hinglish","Hindi","Gujarati","English"], index=0, key="glang")
     st.session_state.selected_language = selected_language
     st.success(f"Active: {selected_language}")
+    if not RAG_OK:
+        st.warning("⚠️ rag_utils.py purana hai - Image feature local mode me chal raha hai. Naya rag_utils.py push karo.")
     st.divider()
     st.markdown("### 📊 Weak Topics")
     weak = get_weak_topics()
@@ -79,7 +125,7 @@ with st.sidebar:
 st.markdown("""
 <div class="hero">
     <h1 style="margin:0; font-size: 36px; color: #111827;">RAG Based AI Teaching Assistant</h1>
-    <p style="color: #4B5563;">🔊 Audio + Quiz Report + Viva Report + Image2PDF - V15.2</p>
+    <p style="color: #4B5563;">🔊 Audio + Quiz Report + Viva Report + Image2PDF - V15.3 FIXED</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -91,7 +137,7 @@ if "quiz_data" not in st.session_state:
 if "quiz_results" not in st.session_state:
     st.session_state.quiz_results = []
 
-st.markdown("### ✨ Features - V15.2")
+st.markdown("### ✨ Features - V15.3")
 c1,c2,c3,c4,c5,c6 = st.columns(6)
 with c1:
     if st.button("💬 Ask Q&A", use_container_width=True): st.session_state.active="Ask"; st.rerun()
@@ -122,8 +168,8 @@ lang = st.session_state.get('selected_language','Hinglish')
 st.header(f"▶ {active} Mode | 🌐 {lang} | 🔊 Audio Enabled")
 
 if active=="Image2PDF":
-    st.markdown("### 🖼️ Image to PDF / DOCX Converter - Game Changer")
-    st.info("Single ya Multiple Images upload karo -> PDF aur DOCX banake download karo. Ye feature NotebookLM me bhi nahi hai!")
+    st.markdown("### 🖼️ Image to PDF / DOCX Converter")
+    st.info("Single ya Multiple Images upload karo -> PDF aur DOCX banake download karo.")
     uploaded_images = st.file_uploader(
         "Images Upload Karo (JPG, PNG, JPEG)",
         type=["jpg","jpeg","png"],
@@ -183,7 +229,6 @@ elif active=="Ask":
             with st.expander("📚 Source"): st.write(src)
     if "last_ask" in st.session_state:
         play_audio_block(st.session_state.last_ask, lang, "ask")
-
 elif active=="Important":
     if st.button(f"Generate Important Qs in {lang}",type="primary"):
         imp = predict_important_questions(language=lang)
@@ -191,7 +236,6 @@ elif active=="Important":
         st.markdown(imp)
     if "last_imp" in st.session_state:
         play_audio_block(st.session_state.last_imp, lang, "imp")
-
 elif active=="Summary":
     if st.button(f"Generate Summary in {lang}",type="primary"):
         summ = generate_summary(language=lang)
@@ -199,7 +243,6 @@ elif active=="Summary":
         st.markdown(summ)
     if "last_summ" in st.session_state:
         play_audio_block(st.session_state.last_summ, lang, "summ")
-
 elif active=="Story":
     tp=universal_input("story",f"Topic in {lang} - Stack")
     if st.button("🎬 Create Story + Audio",type="primary") and tp:
@@ -208,7 +251,6 @@ elif active=="Story":
         st.markdown(story_text)
     if "last_story" in st.session_state:
         play_audio_block(st.session_state.last_story, lang, "story")
-
 elif active=="Projects":
     idea=universal_input("proj",f"Project idea ({lang})")
     bud=st.selectbox("Budget",["low (under ₹1500)","medium (₹1500-5000)","high (₹5000+)"])
@@ -218,7 +260,6 @@ elif active=="Projects":
         st.markdown(guide)
     if "last_proj" in st.session_state:
         play_audio_block(st.session_state.last_proj, lang, "proj")
-
 elif active=="Podcast":
     tp=universal_input("pod",f"Topic for Podcast in {lang}")
     if st.button("🎙️ Create Podcast + Audio",type="primary") and tp:
@@ -232,7 +273,6 @@ elif active=="Podcast":
             st.success(f"🔊 {lang} Podcast Auto Play")
     if "last_pod" in st.session_state:
         play_audio_block(st.session_state.last_pod, lang, "pod")
-
 elif active=="Quiz":
     n = st.number_input("Kitne Q?",3,15,5)
     if st.button("Generate Quiz", type="primary"):
@@ -260,7 +300,6 @@ elif active=="Quiz":
                         })
                         st.success(fb) if ok else st.error(fb)
                         st.info(f"📖 {qd.get('explanation','')}")
-
         if st.session_state.quiz_results:
             results = st.session_state.quiz_results
             correct = sum(1 for r in results if r.get('is_correct', False))
@@ -275,21 +314,10 @@ elif active=="Quiz":
             m3.metric("❌ Galat", wrong)
             m4.metric("Score", f"{perc:.1f}%")
             st.progress(int(perc))
-            st.markdown("### 📋 Detail - Kaunsa Sahi / Galat")
-            for idx, r in enumerate(results):
-                icon = "🟢" if r.get('is_correct', False) else "🔴"
-                status = "SAHI" if r.get('is_correct', False) else "GALAT"
-                with st.expander(f"{icon} Q{idx+1}: {status} - {r['q'][:60]}..."):
-                    st.write(f"**Question:** {r['q']}")
-                    st.write(f"**Tumhara Jawaab:** {r['your']}")
-                    st.write(f"**Sahi Jawaab:** {r['correct']}")
-                    st.write(f"**Status:** {status}")
-                    st.write(f"**Explanation:** {r.get('explanation','')}")
             if st.button("🔄 Quiz Reset"):
                 st.session_state.quiz_data = None
                 st.session_state.quiz_results = []
                 st.rerun()
-
 elif active=="Viva":
     topic=universal_input("viva_topic",f"Viva topic ({lang})")
     num=st.slider("Questions?",3,20,5)
@@ -339,23 +367,8 @@ elif active=="Viva":
             m3.metric("❌ Galat", wrong)
             m4.metric("Score", f"{perc:.1f}%")
             st.progress(int(perc))
-            st.markdown("### 📋 Kaunsa Question Sahi Tha / Galat Tha")
-            for i, s in enumerate(score):
-                icon = "🟢" if s.get('is_correct', False) else "🔴"
-                status = "SAHI" if s.get('is_correct', False) else "GALAT"
-                with st.expander(f"{icon} Q{i+1}: {status} - {s['q'][:70]}"):
-                    st.write(f"**Q:** {s['q']}")
-                    st.write(f"**Tumhara Jawaab:** {s['your']}")
-                    st.write(f"**Sahi Jawaab:** {s['correct']}")
-                    st.write(f"**Result:** {status}")
-                    st.write(f"**Feedback:** {s.get('fb','')}")
-            report_text = f"VIVA REPORT - {topic}\nTotal: {total}, Sahi: {correct}, Galat: {wrong}, Score: {perc:.1f}%\n\n"
-            for i,s in enumerate(score):
-                report_text += f"Q{i+1}: {s['q']}\nYour: {s['your']}\nCorrect: {s['correct']}\nStatus: {'SAHI' if s.get('is_correct', False) else 'GALAT'}\n\n"
-            st.download_button("⬇️ Download Viva Report", report_text, file_name=f"viva_report_{topic}.txt")
             if st.button("🔄 New Viva Start"):
                 st.session_state.viva_qs = []; st.session_state.viva_idx = 0; st.session_state.viva_score = []; st.rerun()
-
 elif active=="PPT":
     topic=universal_input("ppt",f"Topic in {lang} - AI")
     pages=st.slider("Slides?",5,25,10)
@@ -365,7 +378,6 @@ elif active=="PPT":
             with open(ppt_path,"rb") as f:
                 st.download_button("⬇️ Download PPT", f, file_name=f"{topic}_{lang}.pptx")
             st.success("Ban gaya!")
-            play_audio_block(f"{topic} par {pages} slides ka PPT {lang} me ban gaya hai.", lang, "ppt")
 
 with st.expander("🕘 History"):
     h=load_conversation_history()
