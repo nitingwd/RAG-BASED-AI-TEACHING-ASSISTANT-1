@@ -97,7 +97,7 @@ def get_user_conversations(user_id):
 def auth_ui():
     cookies = None
     if COOKIE_OK:
-        cookies = EncryptedCookieManager(prefix="rag_v24_premium_", password="kadiya_naresh_v24_premium_mesh_2024")
+        cookies = EncryptedCookieManager(prefix="rag_v25_ultra_", password="kadiya_naresh_v25_ultra_dark_aurora_2024")
         if not cookies.ready():
             st.stop()
     if st.session_state.get("logged_in") and st.session_state.get("user"):
@@ -119,18 +119,18 @@ def auth_ui():
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
    .stApp {
-        background:
-            radial-gradient(at 0% 0%, rgba(99,102,241,0.18) 0px, transparent 50%),
-            radial-gradient(at 100% 0%, rgba(236,72,153,0.16) 0px, transparent 50%),
-            radial-gradient(at 0% 100%, rgba(6,182,214,0.14) 0px, transparent 50%),
-            radial-gradient(at 100% 100%, rgba(245,158,11,0.12) 0px, transparent 50%),
-            linear-gradient(180deg, #F8FAFF 0%, #FFFFFF 100%);
+        background: #06060A;
+        background-image:
+            radial-gradient(at 15% 20%, rgba(99,102,241,0.35) 0%, transparent 40%),
+            radial-gradient(at 85% 15%, rgba(236,72,153,0.30) 0%, transparent 40%),
+            radial-gradient(at 15% 85%, rgba(6,182,214,0.25) 0%, transparent 40%),
+            radial-gradient(at 85% 85%, rgba(168,85,247,0.28) 0%, transparent 45%);
         background-attachment: fixed;
     }
-   .login-card {background: rgba(255,255,255,0.85); backdrop-filter: blur(24px); border: 1px solid rgba(255,255,255,0.7); padding: 36px; border-radius: 28px; box-shadow: 0 24px 80px rgba(99,102,241,0.15), inset 0 1px 0 rgba(255,255,255,0.9); text-align:center; max-width:440px; width:100%;}
-   .login-title {font-family:'Space Grotesk'; font-size:28px; font-weight:700; color:#111827; line-height:1.2;}
-   .login-sub {color:#6B7280; font-size:13px; margin-top:6px;}
-   .pill {display:inline-block; background:linear-gradient(135deg,#EEF2FF,#E0E7FF); color:#6366F1; padding:6px 12px; border-radius:20px; font-size:11px; font-weight:700; margin:3px; border:1px solid #C7D2FE;}
+   .login-card {background: rgba(20,20,28,0.8); backdrop-filter: blur(30px); border: 1px solid rgba(255,255,255,0.08); padding: 36px; border-radius: 28px; box-shadow: 0 24px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08); text-align:center; max-width:440px; width:100%;}
+   .login-title {font-family:'Space Grotesk'; font-size:28px; font-weight:700; color:#FFFFFF; line-height:1.2;}
+   .login-sub {color:#9CA3AF; font-size:13px; margin-top:6px;}
+   .pill {display:inline-block; background:rgba(99,102,241,0.15); color:#A5B4FC; padding:6px 12px; border-radius:20px; font-size:11px; font-weight:700; margin:3px; border:1px solid rgba(99,102,241,0.2);}
    .stButton>button {border-radius:12px; height:48px; font-weight:700;}
     </style>
     """, unsafe_allow_html=True)
@@ -140,7 +140,7 @@ def auth_ui():
         <div class="login-card">
             <div style="font-size:52px; margin-bottom:8px;">🎓</div>
             <div class="login-title">RAG Based AI<br>Teaching Assistant</div>
-            <div class="login-sub">Premium Mesh UI • 30 Days Login</div>
+            <div class="login-sub">Ultra Dark Aurora • Pro Level</div>
             <div style="margin-top:14px;">
                 <span class="pill">💬 Q&A</span><span class="pill">🎤 VIVA</span><span class="pill">📝 QUIZ</span><span class="pill">🔊 AUDIO</span>
             </div>
@@ -205,96 +205,116 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
 
-/* ===== V24 PREMIUM MESH + GLASS ===== */
+/* ===== V25 ULTRA DARK AURORA - TRUE BEST ===== */
 .stApp {
-    background:
-        radial-gradient(at 10% 15%, rgba(99,102,241,0.18) 0px, transparent 55%),
-        radial-gradient(at 90% 10%, rgba(236,72,153,0.16) 0px, transparent 50%),
-        radial-gradient(at 15% 85%, rgba(6,182,214,0.13) 0px, transparent 50%),
-        radial-gradient(at 85% 90%, rgba(245,158,11,0.11) 0px, transparent 50%),
-        linear-gradient(180deg, #F8FAFF 0%, #FFFFFF 60%, #F8FAFF 100%);
+    background: #050507;
+    background-image:
+        radial-gradient(ellipse 800px 600px at 15% 20%, rgba(99,102,241,0.22), transparent),
+        radial-gradient(ellipse 700px 500px at 85% 15%, rgba(236,72,153,0.20), transparent),
+        radial-gradient(ellipse 600px 700px at 15% 85%, rgba(6,182,214,0.18), transparent),
+        radial-gradient(ellipse 800px 600px at 85% 85%, rgba(168,85,247,0.20), transparent),
+        radial-gradient(ellipse 1000px 800px at 50% 50%, rgba(99,102,241,0.06), transparent);
     background-attachment: fixed;
 }
 .main {background: transparent!important;}
 .block-container {
-    background: rgba(255,255,255,0.72);
-    backdrop-filter: blur(20px);
-    border-radius: 24px;
-    border: 1px solid rgba(255,255,255,0.65);
-    box-shadow: 0 8px 32px rgba(99,102,241,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+    background: rgba(18,18,24,0.65);
+    backdrop-filter: blur(32px) saturate(180%);
+    border-radius: 28px;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08);
     padding-top: 1.5rem!important;
-    margin-top: 0.8rem;
-}
-section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(248,250,255,0.96) 100%)!important;
-    backdrop-filter: blur(24px);
-    border-right: 1px solid rgba(99,102,241,0.08);
 }
 
-/* Hero Premium Glass */
+/* Sidebar Dark Glass */
+section[data-testid="stSidebar"] {
+    background: rgba(12,12,16,0.85)!important;
+    backdrop-filter: blur(32px);
+    border-right: 1px solid rgba(255,255,255,0.06);
+}
+
+/* Text Colors for Dark */
+h1, h2, h3, h4, h5, h6 {color: #F9FAFB!important;}
+p, label,.stMarkdown {color: #D1D5DB!important;}
+small,.stCaption {color: #9CA3AF!important;}
+
+/* Hero - Neon Glass */
 .hero-pro {
-    background: linear-gradient(135deg, rgba(79,70,229,0.96) 0%, rgba(124,58,237,0.94) 35%, rgba(236,72,153,0.92) 70%, rgba(245,158,11,0.88) 100%);
-    backdrop-filter: blur(40px);
-    border-radius: 24px; padding: 26px 28px; color:white;
-    box-shadow: 0 16px 40px rgba(99,102,241,0.28), inset 0 1px 0 rgba(255,255,255,0.25);
-    border: 1px solid rgba(255,255,255,0.22);
+    background: linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(139,92,246,0.20) 35%, rgba(236,72,153,0.18) 70%, rgba(6,182,214,0.15) 100%);
+    backdrop-filter: blur(40px) saturate(180%);
+    border-radius: 24px; padding: 28px 32px; color:white;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.10);
     position: relative; overflow: hidden;
 }
-.hero-pro::after {
-    content: ''; position: absolute; top: -60%; left: -30%; width: 160%; height: 160%;
-    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18) 0%, transparent 50%);
-    pointer-events: none;
+.hero-pro::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(99,102,241,0.5), rgba(236,72,153,0.5), transparent);
 }
+.hero-pro h1 {color: #FFFFFF!important; text-shadow: 0 2px 20px rgba(99,102,241,0.3);}
+.hero-pro h2 {color: rgba(255,255,255,0.85)!important;}
 
 .profile-card-pro {
-    background: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(248,250,255,0.92) 100%);
-    backdrop-filter: blur(16px);
-    border-radius:20px; padding:18px; border:1px solid rgba(224,231,255,0.85);
-    text-align:center; box-shadow: 0 8px 24px rgba(99,102,241,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+    background: rgba(24,24,32,0.75); backdrop-filter: blur(20px);
+    border-radius:20px; padding:18px; border:1px solid rgba(255,255,255,0.08);
+    text-align:center; box-shadow: 0 8px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
 }
-.img-circle {width:85px; height:85px; border-radius:50%; object-fit:cover; border:3px solid transparent; background: linear-gradient(white, white) padding-box, linear-gradient(135deg,#6366F1,#EC4899) border-box; box-shadow: 0 6px 20px rgba(99,102,241,0.25); display:block; margin:0 auto;}
-.avatar-letter {width:85px; height:85px; border-radius:50%; background: linear-gradient(135deg,#6366F1 0%, #8B5CF6 50%, #EC4899 100%); display:flex; align-items:center; justify-content:center; margin:0 auto; color:white; font-size:32px; font-weight:700; font-family:Space Grotesk;}
-.dev-badge {position: fixed; bottom: 14px; right: 14px; background: rgba(17,24,39,0.9); backdrop-filter: blur(12px); color: white; padding: 7px 12px; border-radius: 20px; font-size: 10px; z-index: 999; font-weight:600; border: 1px solid rgba(255,255,255,0.12);}
+.profile-card-pro h4 {color: #F9FAFB!important;}
+.profile-card-pro p {color: #A5B4FC!important;}
 
-/* Dashboard Buttons - Frosted Glass + Pop */
+.img-circle {width:85px; height:85px; border-radius:50%; object-fit:cover; border:2px solid rgba(99,102,241,0.3); box-shadow: 0 0 30px rgba(99,102,241,0.3); display:block; margin:0 auto;}
+.avatar-letter {width:85px; height:85px; border-radius:50%; background: linear-gradient(135deg,#6366F1 0%, #8B5CF6 50%, #EC4899 100%); display:flex; align-items:center; justify-content:center; margin:0 auto; color:white; font-size:32px; font-weight:700; font-family:Space Grotesk; box-shadow: 0 0 30px rgba(99,102,241,0.4);}
+.dev-badge {position: fixed; bottom: 14px; right: 14px; background: rgba(0,0,0,0.7); backdrop-filter: blur(12px); color: rgba(255,255,255,0.7); padding: 7px 12px; border-radius: 20px; font-size: 10px; z-index: 999; font-weight:600; border: 1px solid rgba(255,255,255,0.08);}
+
+/* ===== DARK BUTTONS - NEON GLOW ===== */
 section.main div[data-testid="stButton"] > button {
-    border-radius:14px!important; height:58px!important; font-weight:700!important; font-size:13px!important;
-    border:1.5px solid rgba(255,255,255,0.55)!important;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.85)!important;
-    backdrop-filter: blur(12px)!important;
-    transition: all 0.32s cubic-bezier(0.34, 1.56, 0.64, 1)!important;
+    background: rgba(28,28,36,0.8)!important;
+    backdrop-filter: blur(16px)!important;
+    border-radius:16px!important; height:62px!important; font-weight:700!important; font-size:13px!important;
+    border:1px solid rgba(255,255,255,0.08)!important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)!important;
+    color: #E5E7EB!important;
+    transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)!important;
+    position: relative; overflow: hidden;
+}
+section.main div[data-testid="stButton"] > button::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
 }
 section.main div[data-testid="stButton"] > button:hover {
-    transform: translateY(-7px) scale(1.05)!important;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.20), inset 0 1px 0 rgba(255,255,255,0.4)!important;
-    z-index: 20!important; border-color: rgba(255,255,255,0.35)!important;
+    transform: translateY(-6px) scale(1.03)!important;
+    border-color: rgba(99,102,241,0.4)!important;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 0 30px rgba(99,102,241,0.2), inset 0 1px 0 rgba(255,255,255,0.1)!important;
+    color: white!important;
 }
-section.main div[data-testid="stButton"]:nth-of-type(1) button {background: linear-gradient(135deg,rgba(238,242,255,0.92),rgba(224,231,255,0.92))!important; border-color:#C7D2FE!important; color:#4F46E5!important;}
-section.main div[data-testid="stButton"]:nth-of-type(1) button:hover {background: linear-gradient(135deg,#4F46E5 0%,#06B6D4 100%)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(2) button {background: linear-gradient(135deg,rgba(254,243,199,0.92),rgba(253,230,138,0.92))!important; border-color:#FCD34D!important; color:#D97706!important;}
-section.main div[data-testid="stButton"]:nth-of-type(2) button:hover {background: linear-gradient(135deg,#F59E0B 0%,#EF4444 100%)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(3) button {background: linear-gradient(135deg,rgba(209,250,229,0.92),rgba(167,243,208,0.92))!important; border-color:#6EE7B7!important; color:#059669!important;}
-section.main div[data-testid="stButton"]:nth-of-type(3) button:hover {background: linear-gradient(135deg,#10B981 0%,#06B6D4 100%)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(4) button {background: linear-gradient(135deg,rgba(252,231,243,0.92),rgba(251,207,232,0.92))!important; border-color:#F9A8D4!important; color:#DB2777!important;}
-section.main div[data-testid="stButton"]:nth-of-type(4) button:hover {background: linear-gradient(135deg,#EC4899 0%,#8B5CF6 100%)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(5) button {background: linear-gradient(135deg,rgba(219,234,254,0.92),rgba(191,219,254,0.92))!important; border-color:#93C5FD!important; color:#2563EB!important;}
-section.main div[data-testid="stButton"]:nth-of-type(5) button:hover {background: linear-gradient(135deg,#3B82F6 0%,#6366F1 100%)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(6) button {background: linear-gradient(135deg,rgba(237,233,254,0.92),rgba(221,214,254,0.92))!important; border-color:#C4B5FD!important; color:#7C3AED!important;}
-section.main div[data-testid="stButton"]:nth-of-type(6) button:hover {background: linear-gradient(135deg,#7C3AED 0%,#EC4899 100%)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(7) button {background: linear-gradient(135deg,rgba(255,237,213,0.92),rgba(254,215,170,0.92))!important; border-color:#FDBA74!important; color:#EA580C!important;}
-section.main div[data-testid="stButton"]:nth-of-type(7) button:hover {background: linear-gradient(135deg,#F97316 0%,#EF4444 100%)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(8) button {background: linear-gradient(135deg,rgba(204,251,241,0.92),rgba(153,246,224,0.92))!important; border-color:#5EEAD4!important; color:#0D9488!important;}
-section.main div[data-testid="stButton"]:nth-of-type(8) button:hover {background: linear-gradient(135deg,#14B8A6 0%,#10B981 100%)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(9) button {background: linear-gradient(135deg,rgba(243,232,255,0.92),rgba(233,213,255,0.92))!important; border-color:#D8B4FE!important; color:#9333EA!important;}
-section.main div[data-testid="stButton"]:nth-of-type(9) button:hover {background: linear-gradient(135deg,#A855F7 0%,#EC4899 100%)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(10) button {background: linear-gradient(135deg,rgba(207,250,254,0.92),rgba(165,243,252,0.92))!important; border-color:#67E8F9!important; color:#0891B2!important;}
-section.main div[data-testid="stButton"]:nth-of-type(10) button:hover {background: linear-gradient(135deg,#06B6D4 0%,#3B82F6 100%)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(11) button {background: linear-gradient(135deg,rgba(243,244,246,0.92),rgba(229,231,235,0.92))!important; border-color:#D1D5DB!important; color:#374151!important;}
-section.main div[data-testid="stButton"]:nth-of-type(11) button:hover {background: linear-gradient(135deg,#111827 0%,#4B5563 100%)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(12) button {background: linear-gradient(135deg,rgba(254,243,199,0.92),rgba(255,237,213,0.92))!important; border-color:#FCD34D!important; color:#B45309!important;}
-section.main div[data-testid="stButton"]:nth-of-type(12) button:hover {background: linear-gradient(135deg,#F59E0B 0%,#F97316 100%)!important; color:white!important;}
+
+/* Neon Accent on Hover - Each different */
+section.main div[data-testid="stButton"]:nth-of-type(1) button:hover {background: linear-gradient(135deg, rgba(99,102,241,0.25), rgba(6,182,214,0.20))!important; box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 0 40px rgba(99,102,241,0.3)!important; border-color: rgba(99,102,241,0.5)!important;}
+section.main div[data-testid="stButton"]:nth-of-type(2) button:hover {background: linear-gradient(135deg, rgba(245,158,11,0.25), rgba(239,68,68,0.20))!important; box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 0 40px rgba(245,158,11,0.3)!important; border-color: rgba(245,158,11,0.5)!important;}
+section.main div[data-testid="stButton"]:nth-of-type(3) button:hover {background: linear-gradient(135deg, rgba(16,185,129,0.25), rgba(6,182,214,0.20))!important; box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 0 40px rgba(16,185,129,0.3)!important; border-color: rgba(16,185,129,0.5)!important;}
+section.main div[data-testid="stButton"]:nth-of-type(4) button:hover {background: linear-gradient(135deg, rgba(236,72,153,0.25), rgba(139,92,246,0.20))!important; box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 0 40px rgba(236,72,153,0.3)!important; border-color: rgba(236,72,153,0.5)!important;}
+section.main div[data-testid="stButton"]:nth-of-type(5) button:hover {background: linear-gradient(135deg, rgba(59,130,246,0.25), rgba(99,102,241,0.20))!important; box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 0 40px rgba(59,130,246,0.3)!important; border-color: rgba(59,130,246,0.5)!important;}
+section.main div[data-testid="stButton"]:nth-of-type(6) button:hover {background: linear-gradient(135deg, rgba(124,58,237,0.25), rgba(236,72,153,0.20))!important; box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 0 40px rgba(124,58,237,0.3)!important; border-color: rgba(124,58,237,0.5)!important;}
+section.main div[data-testid="stButton"]:nth-of-type(7) button:hover {background: linear-gradient(135deg, rgba(249,115,22,0.25), rgba(239,68,68,0.20))!important; box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 0 40px rgba(249,115,22,0.3)!important; border-color: rgba(249,115,22,0.5)!important;}
+section.main div[data-testid="stButton"]:nth-of-type(8) button:hover {background: linear-gradient(135deg, rgba(20,184,166,0.25), rgba(16,185,129,0.20))!important; box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 0 40px rgba(20,184,166,0.3)!important; border-color: rgba(20,184,166,0.5)!important;}
+section.main div[data-testid="stButton"]:nth-of-type(9) button:hover {background: linear-gradient(135deg, rgba(168,85,247,0.25), rgba(236,72,153,0.20))!important; box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 0 40px rgba(168,85,247,0.3)!important; border-color: rgba(168,85,247,0.5)!important;}
+section.main div[data-testid="stButton"]:nth-of-type(10) button:hover {background: linear-gradient(135deg, rgba(6,182,214,0.25), rgba(59,130,246,0.20))!important; box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 0 40px rgba(6,182,214,0.3)!important; border-color: rgba(6,182,214,0.5)!important;}
+section.main div[data-testid="stButton"]:nth-of-type(11) button:hover {background: linear-gradient(135deg, rgba(100,116,139,0.25), rgba(71,85,105,0.20))!important; box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 0 40px rgba(100,116,139,0.2)!important; border-color: rgba(100,116,139,0.4)!important;}
+section.main div[data-testid="stButton"]:nth-of-type(12) button:hover {background: linear-gradient(135deg, rgba(245,158,11,0.25), rgba(249,115,22,0.20))!important; box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 0 40px rgba(245,158,11,0.3)!important; border-color: rgba(245,158,11,0.5)!important;}
+
+/* Input Fields Dark */
+.stTextInput input,.stTextArea textarea {
+    background: rgba(24,24,32,0.8)!important;
+    border: 1px solid rgba(255,255,255,0.08)!important;
+    color: white!important;
+    border-radius: 12px!important;
+}
+.stTextInput input:focus,.stTextArea textarea:focus {
+    border-color: rgba(99,102,241,0.4)!important;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.1)!important;
+}
 </style>
-<div class="dev-badge">V24 PREMIUM MESH + GLASS UI | KADIYA NARESH</div>
+<div class="dev-badge">V25 ULTRA DARK AURORA - TRUE PREMIUM | KADIYA NARESH</div>
 """, unsafe_allow_html=True)
 
 def universal_input(key, placeholder="Bolo ya likho..."):
@@ -337,11 +357,11 @@ with st.sidebar:
     st.markdown(f"""
     <div class="profile-card-pro">
         {photo_html}
-        <h4 style="margin:12px 0 2px 0; font-family:Space Grotesk; font-size:16px; color:#111827;">{user['name']}</h4>
-        <p style="margin:0; color:#6366F1; font-size:12px; font-weight:600;">@{user['username']}</p>
+        <h4 style="margin:12px 0 2px 0; font-family:Space Grotesk; font-size:16px; color:#F9FAFB;">{user['name']}</h4>
+        <p style="margin:0; color:#A5B4FC; font-size:12px; font-weight:600;">@{user['username']}</p>
         <div style="margin-top:10px; display:flex; gap:6px; justify-content:center;">
-            <span style="background:#EEF2FF; color:#6366F1; padding:3px 8px; border-radius:10px; font-size:10px; font-weight:700;">PRO</span>
-            <span style="background:#F0FDF4; color:#16A34A; padding:3px 8px; border-radius:10px; font-size:10px; font-weight:700;">ACTIVE</span>
+            <span style="background:rgba(99,102,241,0.15); color:#A5B4FC; padding:3px 8px; border-radius:10px; font-size:10px; font-weight:700; border:1px solid rgba(99,102,241,0.2);">PRO</span>
+            <span style="background:rgba(16,185,129,0.12); color:#6EE7B7; padding:3px 8px; border-radius:10px; font-size:10px; font-weight:700; border:1px solid rgba(16,185,129,0.2);">ACTIVE</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -381,7 +401,7 @@ st.markdown(f"""
 <div class="hero-pro">
     <div style="position:relative; z-index:2;">
         <h1 style="margin:0; font-family:Space Grotesk; font-size:26px; font-weight:700;">Welcome back, {user['name'].split()[0]}! 👋</h1>
-        <h2 style="margin:6px 0 0 0; font-family:Space Grotesk; font-size:18px; font-weight:500; opacity:0.93;">RAG Based AI Teaching Assistant</h2>
+        <h2 style="margin:6px 0 0 0; font-family:Space Grotesk; font-size:16px; font-weight:400; opacity:0.85;">RAG Based AI Teaching Assistant • Ultra Premium</h2>
     </div>
 </div><br>
 """, unsafe_allow_html=True)
