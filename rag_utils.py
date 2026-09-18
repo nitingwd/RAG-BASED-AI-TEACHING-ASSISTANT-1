@@ -3,6 +3,7 @@ import streamlit as st
 import tempfile
 import json
 import textwrap
+import re
 from langchain_groq import ChatGroq
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
@@ -34,21 +35,36 @@ def get_api_key():
 def get_embeddings():
     return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2", model_kwargs={'device': 'cpu'}, encode_kwargs={'normalize_embeddings': False})
 
-# ========== NEW V11 HELPERS ==========
 def get_lang_code(lang_name):
     mapping = {"Hindi":"hi", "Gujarati":"gu", "Hinglish":"hi", "English":"en", "Marathi":"mr"}
     return mapping.get(lang_name, "hi")
 
 def text_to_audio_file(text, language_name="Hinglish"):
+    """FINAL AUDIO FIX - Har language me bolega, VIDEO_AVAILABLE se independent"""
     try:
-        if not VIDEO_AVAILABLE: return None
+        clean_text = re.sub(r'[^\w\s\.\,\!\?\:\-\(\)\u0900-\u097F\u0A80-\u0AFF]', ' ', text)
+        clean_text = re.sub(r'\s+', ' ', clean_text).strip()[:3500]
+        if len(clean_text) < 5:
+            clean_text = "Audio ke liye valid text nahi mila"
+
         lang_code = get_lang_code(language_name)
-        clean_text = text[:4000]
-        tts = gTTS(text=clean_text, lang=lang_code, slow=False)
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-        tts.save(tmp.name)
-        return tmp.name
-    except:
+        tmp.close()
+
+        try:
+            tts = gTTS(text=clean_text, lang=lang_code, slow=False)
+            tts.save(tmp.name)
+        except Exception as e:
+            print(f"gTTS {lang_code} failed, fallback to hi: {e}")
+            tts = gTTS(text=clean_text, lang='hi', slow=False)
+            tts.save(tmp.name)
+
+        if os.path.exists(tmp.name) and os.path.getsize(tmp.name) > 1000:
+            return tmp.name
+        else:
+            return None
+    except Exception as e:
+        print(f"Audio final error: {e}")
         return None
 
 def transcribe_audio(api_key, audio_path):
@@ -98,7 +114,7 @@ def ask_question(query, k=3, mode="normal", language="Hinglish"):
     if not docs: return "PDF me nahi mila.", []
     context = "\n\n".join([f"[{d.metadata.get('source','?')}] {d.page_content}" for d in docs])
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0)
-    system = f"You are B.Tech Topper. Answer ONLY in {language}. If {language} is Gujarati, answer in Gujarati. If Hindi, in Hindi. Hinglish = Hindi+English mix. Sirf PDF context se jawab do. Formula exact PDF se do."
+    system = f"You are B.Tech Topper. Answer ONLY in {language}. If Gujarati, answer in Gujarati. If Hindi, Hindi. Hinglish = Hindi+English mix. Sirf PDF context se jawab do."
     if mode=="socratic": system = f"You are Socratic teacher. Answer in {language}. Sirf PDF se sawal puch ke sikhhao."
     answer = llm.invoke(f"{system}\nContext:\n{context}\nQ: {query}").content
     st.session_state.history.append({"query": query, "answer": answer, "sources": [d.metadata for d in docs], "mode": mode})
@@ -110,15 +126,7 @@ def generate_quiz(num_q=5, language="Hinglish"):
     docs = hybrid_search("important concepts definitions formula", k=6)
     context = "\n".join([d.page_content[:1000] for d in docs])
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.3)
-    prompt = f"""
-Based ONLY on PDF Context, create {num_q} MCQs.
-Language: {language}
-Context: {context[:6000]}
-
-Return ONLY JSON array:
-[{{"question":"...","options":["a)...","b)...","c)...","d)..."],"answer":"a)...","explanation":"PDF se...","topic":"chapter name"}}]
-No extra text.
-"""
+    prompt = f"""Based ONLY on PDF Context, create {num_q} MCQs. Language: {language} Context: {context[:6000]} Return ONLY JSON array: [{{"question":"...","options":["a)...","b)...","c)...","d)..."],"answer":"a)...","explanation":"PDF se...","topic":"chapter name"}}] No extra text."""
     try:
         txt = llm.invoke(prompt).content
         s = txt.find('['); e = txt.rfind(']')+1
@@ -216,29 +224,17 @@ def create_explainer_video(topic, language="Hinglish", duration_sec=150):
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0.2)
     docs = hybrid_search(topic, k=8)
     if not docs: return None, f"Tere PDF me '{topic}' nahi mila."
-
-    # DURATION LOGIC - User selects
     num_scenes = max(2, min(8, duration_sec // 30))
     if duration_sec <= 40: num_scenes = 2
     elif duration_sec <= 90: num_scenes = 3
     elif duration_sec <= 160: num_scenes = 5
     else: num_scenes = 7
-
     ctx = "\n\n".join([f"DOC {i+1}: {d.page_content[:1000]}" for i, d in enumerate(docs)])
-    prompt = f"""Use ONLY PDF Context. No hallucination.
-Topic: {topic}, Language: {language}, Need {num_scenes} scenes, Total Duration {duration_sec} sec.
-PDF Context: {ctx[:8000]}
-
-Create {num_scenes} scenes JSON accurate from PDF. Each:
-{{"title":"Sub-topic from PDF", "explain":"{90 if duration_sec<60 else 110} words in {language} using EXACT definitions/formulas from PDF. Start 'PDF ke according...'", "diagram":"Definition from PDF", "source":"PDF source"}}
-
-Return ONLY JSON array {num_scenes} objects."""
-
+    prompt = f"""Use ONLY PDF Context. Topic: {topic}, Language: {language}, Need {num_scenes} scenes, Duration {duration_sec} sec. Context: {ctx[:8000]} Create {num_scenes} scenes JSON: {{"title":"Sub-topic", "explain":"110 words in {language} using PDF definitions", "diagram":"PDF def", "source":"PDF"}} Only JSON array."""
     try:
         txt = llm.invoke(prompt).content; s = txt.find('['); e = txt.rfind(']')+1; scenes = json.loads(txt[s:e])
     except:
         scenes = [{"title": f"{topic} - Part {i+1}", "explain": f"PDF ke according {d.page_content[:380]}", "diagram": d.page_content[:120], "source": d.metadata.get('source','PDF')} for i, d in enumerate(docs[:num_scenes])]
-
     temp_dir = tempfile.mkdtemp(); clips = []
     def fast_avatar(name, bg_color):
         img = Image.new('RGB', (300, 300), bg_color); d = ImageDraw.Draw(img)
@@ -246,7 +242,6 @@ Return ONLY JSON array {num_scenes} objects."""
         d.ellipse([(85,90),(115,120)], fill=(0,0,0)); d.ellipse([(185,90),(215,120)], fill=(0,0,0))
         d.text((90, 250), name, fill=(255,255,255)); p = os.path.join(temp_dir, f"{name}.png"); img.save(p); return p
     tutor_path = fast_avatar("TUTOR", (99,102,241)); student_path = fast_avatar("STUDENT", (25,35,70))
-
     for i, scene in enumerate(scenes[:num_scenes]):
         W, H = 1280, 720; bg_img = Image.new('RGB', (W, H), (13,17,38)); draw = ImageDraw.Draw(bg_img)
         draw.rectangle([(0,0),(W,80)], fill=(99,102,241)); draw.text((20,15), f"PART {i+1}/{num_scenes}: {scene['title'][:60]}", fill=(255,255,255))
