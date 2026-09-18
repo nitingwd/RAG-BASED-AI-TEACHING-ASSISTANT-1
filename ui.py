@@ -21,7 +21,7 @@ html, body, [class*="css"] {font-family: 'Inter', sans-serif;}
 .hero {background: linear-gradient(135deg, #E0E7FF 0%, #C7D2FE 100%); border-radius: 20px; padding: 30px; margin-bottom: 20px;}
 .stButton>button {border-radius: 10px; height: 48px; font-weight: 600;}
 </style>
-<div class="dev-badge">V15 REPORT BOARD | KADIYA NARESH</div>
+<div class="dev-badge">V15.1 FIXED REPORT | KADIYA NARESH</div>
 """, unsafe_allow_html=True)
 
 def universal_input(key, placeholder="Bolo ya likho..."):
@@ -79,7 +79,7 @@ with st.sidebar:
 st.markdown("""
 <div class="hero">
     <h1 style="margin:0; font-size: 36px; color: #111827;">RAG Based AI Teaching Assistant</h1>
-    <p style="color: #4B5563;">🔊 Audio + Quiz Report + Viva Report - V15</p>
+    <p style="color: #4B5563;">🔊 Audio + Quiz Report + Viva Report - V15.1 Fixed</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -202,7 +202,6 @@ elif active=="Quiz":
                 with c2:
                     if st.button(f"Check Q{i+1}", key=f"chk_{i}"):
                         ok, fb = check_quiz_answer(qd['question'], choice, qd['answer'], qd.get('topic','general'))
-                        # SAVE FOR FINAL REPORT
                         st.session_state.quiz_results.append({
                             "q": qd['question'], "your": choice, "correct": qd['answer'],
                             "is_correct": ok, "topic": qd.get('topic','general'), "explanation": qd.get('explanation','')
@@ -210,14 +209,12 @@ elif active=="Quiz":
                         st.success(fb) if ok else st.error(fb)
                         st.info(f"📖 {qd.get('explanation','')}")
 
-        # ===== QUIZ REPORT BOARD - NEW =====
         if st.session_state.quiz_results:
             results = st.session_state.quiz_results
-            correct = sum(1 for r in results if r['is_correct'])
+            correct = sum(1 for r in results if r.get('is_correct', False))
             total = len(results)
             wrong = total - correct
             perc = (correct/total*100) if total>0 else 0
-
             st.divider()
             st.markdown("## 📊 QUIZ REPORT BOARD")
             m1,m2,m3,m4 = st.columns(4)
@@ -225,20 +222,17 @@ elif active=="Quiz":
             m2.metric("✅ Sahi", correct)
             m3.metric("❌ Galat", wrong)
             m4.metric("Score", f"{perc:.1f}%")
-
             st.progress(int(perc))
-
             st.markdown("### 📋 Detail - Kaunsa Sahi / Galat")
             for idx, r in enumerate(results):
-                icon = "🟢" if r['is_correct'] else "🔴"
-                status = "SAHI" if r['is_correct'] else "GALAT"
+                icon = "🟢" if r.get('is_correct', False) else "🔴"
+                status = "SAHI" if r.get('is_correct', False) else "GALAT"
                 with st.expander(f"{icon} Q{idx+1}: {status} - {r['q'][:60]}..."):
                     st.write(f"**Question:** {r['q']}")
                     st.write(f"**Tumhara Jawaab:** {r['your']}")
                     st.write(f"**Sahi Jawaab:** {r['correct']}")
                     st.write(f"**Status:** {status}")
-                    st.write(f"**Explanation:** {r['explanation']}")
-
+                    st.write(f"**Explanation:** {r.get('explanation','')}")
             if st.button("🔄 Quiz Reset"):
                 st.session_state.quiz_data = None
                 st.session_state.quiz_results = []
@@ -264,31 +258,28 @@ elif active=="Viva":
             if st.button("Submit", key=f"v_sub_{idx}"):
                 if user_ans:
                     res=verify_viva_answer(curr['q'], curr['a'], user_ans, language=lang)
-                    is_correct = "true" in str(res['verdict']).lower()
+                    is_correct = "true" in str(res.get('verdict','')).lower()
                     st.session_state.viva_score.append({
                         "q":curr['q'],"your":user_ans,"correct":curr['a'],
-                        "result":res['verdict'],"is_correct": is_correct, "fb":res['feedback']
+                        "result":res.get('verdict',''),"is_correct": is_correct, "fb":res.get('feedback','')
                     })
-                    ap2 = text_to_audio_file(res['feedback'], lang)
+                    ap2 = text_to_audio_file(res.get('feedback',''), lang)
                     if ap2 and os.path.exists(ap2):
                         with open(ap2,"rb") as f: st.audio(f.read(), format="audio/mp3", autoplay=True)
                     if is_correct:
-                        st.success(f"✅ SAHI - {res['feedback']}")
+                        st.success(f"✅ SAHI - {res.get('feedback','')}")
                     else:
-                        st.error(f"❌ GALAT - {res['feedback']}")
+                        st.error(f"❌ GALAT - {res.get('feedback','')}")
                         st.info(f"💡 Sahi Jawaab: {curr['a']}")
                     st.session_state.viva_idx+=1; st.rerun()
         else:
-            # ===== VIVA REPORT BOARD - NEW =====
             score=st.session_state.viva_score
-            correct = sum(1 for s in score if s['is_correct'])
+            correct = sum(1 for s in score if s.get('is_correct', False))
             total = len(score)
             wrong = total - correct
             perc = (correct/total*100) if total>0 else 0
-
             st.balloons()
             st.success(f"Viva Done! {total} Questions")
-
             st.markdown("## 📊 VIVA FINAL REPORT")
             m1,m2,m3,m4 = st.columns(4)
             m1.metric("Total", total)
@@ -296,22 +287,19 @@ elif active=="Viva":
             m3.metric("❌ Galat", wrong)
             m4.metric("Score", f"{perc:.1f}%")
             st.progress(int(perc))
-
             st.markdown("### 📋 Kaunsa Question Sahi Tha / Galat Tha")
             for i, s in enumerate(score):
-                icon = "🟢" if s['is_correct'] else "🔴"
-                status = "SAHI" if s['is_correct'] else "GALAT"
+                icon = "🟢" if s.get('is_correct', False) else "🔴"
+                status = "SAHI" if s.get('is_correct', False) else "GALAT"
                 with st.expander(f"{icon} Q{i+1}: {status} - {s['q'][:70]}"):
                     st.write(f"**Q:** {s['q']}")
                     st.write(f"**Tumhara Jawaab:** {s['your']}")
                     st.write(f"**Sahi Jawaab:** {s['correct']}")
                     st.write(f"**Result:** {status}")
-                    st.write(f"**Feedback:** {s['fb']}")
-
+                    st.write(f"**Feedback:** {s.get('fb','')}")
             report_text = f"VIVA REPORT - {topic}\nTotal: {total}, Sahi: {correct}, Galat: {wrong}, Score: {perc:.1f}%\n\n"
             for i,s in enumerate(score):
-                report_text += f"Q{i+1}: {s['q']}\nYour: {s['your']}\nCorrect: {s['correct']}\nStatus: {'SAHI' if s['is_correct'] else 'GALAT'}\n\n"
-
+                report_text += f"Q{i+1}: {s['q']}\nYour: {s['your']}\nCorrect: {s['correct']}\nStatus: {'SAHI' if s.get('is_correct', False) else 'GALAT'}\n\n"
             st.download_button("⬇️ Download Viva Report", report_text, file_name=f"viva_report_{topic}.txt")
             if st.button("🔄 New Viva Start"):
                 st.session_state.viva_qs = []; st.session_state.viva_idx = 0; st.session_state.viva_score = []; st.rerun()
