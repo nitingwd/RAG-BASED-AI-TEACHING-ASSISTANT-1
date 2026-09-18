@@ -43,25 +43,14 @@ def text_to_audio_file(text, language_name="Hinglish"):
     try:
         clean_text = re.sub(r'[^\w\s\.\,\!\?\:\-\(\)\u0900-\u097F\u0A80-\u0AFF]', ' ', text)
         clean_text = re.sub(r'\s+', ' ', clean_text).strip()[:3500]
-        if len(clean_text) < 5:
-            clean_text = "Audio ke liye valid text nahi mila"
+        if len(clean_text) < 5: clean_text = "Audio ke liye valid text nahi mila"
         lang_code = get_lang_code(language_name)
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-        tmp.close()
-        try:
-            tts = gTTS(text=clean_text, lang=lang_code, slow=False)
-            tts.save(tmp.name)
-        except Exception as e:
-            print(f"gTTS {lang_code} failed, fallback to hi: {e}")
-            tts = gTTS(text=clean_text, lang='hi', slow=False)
-            tts.save(tmp.name)
-        if os.path.exists(tmp.name) and os.path.getsize(tmp.name) > 1000:
-            return tmp.name
-        else:
-            return None
-    except Exception as e:
-        print(f"Audio final error: {e}")
-        return None
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3"); tmp.close()
+        try: tts = gTTS(text=clean_text, lang=lang_code, slow=False); tts.save(tmp.name)
+        except: tts = gTTS(text=clean_text, lang='hi', slow=False); tts.save(tmp.name)
+        if os.path.exists(tmp.name) and os.path.getsize(tmp.name) > 1000: return tmp.name
+        else: return None
+    except: return None
 
 def transcribe_audio(api_key, audio_path):
     try:
@@ -110,7 +99,7 @@ def ask_question(query, k=3, mode="normal", language="Hinglish"):
     if not docs: return "PDF me nahi mila.", []
     context = "\n\n".join([f"[{d.metadata.get('source','?')}] {d.page_content}" for d in docs])
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0)
-    system = f"You are B.Tech Topper. Answer ONLY in {language}. If Gujarati, answer in Gujarati. If Hindi, Hindi. Hinglish = Hindi+English mix. Sirf PDF context se jawab do."
+    system = f"You are B.Tech Topper. Answer ONLY in {language}. Sirf PDF context se jawab do."
     if mode=="socratic": system = f"You are Socratic teacher. Answer in {language}. Sirf PDF se sawal puch ke sikhhao."
     answer = llm.invoke(f"{system}\nContext:\n{context}\nQ: {query}").content
     st.session_state.history.append({"query": query, "answer": answer, "sources": [d.metadata for d in docs], "mode": mode})
@@ -124,10 +113,7 @@ def generate_quiz(num_q=5, language="Hinglish"):
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.3)
     prompt = f"""Based ONLY on PDF Context, create {num_q} MCQs. Language: {language} Context: {context[:6000]} Return ONLY JSON array: [{{"question":"...","options":["a)...","b)...","c)...","d)..."],"answer":"a)...","explanation":"PDF se...","topic":"chapter name"}}] No extra text."""
     try:
-        txt = llm.invoke(prompt).content
-        s = txt.find('['); e = txt.rfind(']')+1
-        data = json.loads(txt[s:e])
-        return data
+        txt = llm.invoke(prompt).content; s = txt.find('['); e = txt.rfind(']')+1; return json.loads(txt[s:e])
     except:
         return [{"question": f"Q{i+1} from PDF - {language} me?", "options":["a) Option 1","b) Option 2","c) Option 3","d) Option 4"], "answer":"a) Option 1", "explanation":"As per PDF", "topic":"general"} for i in range(num_q)]
 
@@ -136,76 +122,56 @@ def check_quiz_answer(question, user_answer, correct_answer, topic="general"):
     if not ok:
         wt = st.session_state.get("weak_topics", {}); wt[topic] = wt.get(topic, 0) + 1; st.session_state.weak_topics = wt
         return False, f"❌ Galat! Correct: {correct_answer}"
-    else:
-        return True, "✅ Bilkul sahi! 🔥 Topper!"
+    else: return True, "✅ Bilkul sahi! 🔥 Topper!"
 
 def get_weak_topics(): return st.session_state.get("weak_topics", {})
-
 def generate_summary(language="Hinglish"):
     docs = hybrid_search("complete summary important points", k=8); ctx = "\n".join([d.page_content[:800] for d in docs])
-    return ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.2).invoke(f"Context se 1-page exam-ready summary banao in {language} language. Points, formulas exact PDF se:\n{ctx}").content
-
+    return ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.2).invoke(f"Context se 1-page exam-ready summary banao in {language} language:\n{ctx}").content
 def predict_important_questions(language="Hinglish"):
     docs = hybrid_search("exam important questions previous year", k=6); ctx = "\n".join([d.page_content[:800] for d in docs])
-    return ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.3).invoke(f"Context se 10 Most Important Questions predict karo with Marks. Language: {language}. GTU/SPU pattern. Context:{ctx}").content
-
+    return ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.3).invoke(f"Context se 10 Most Important Questions predict karo with Marks. Language: {language}. Context:{ctx}").content
 def load_conversation_history(): return st.session_state.get("history", [])
-
 def story_mode_learning(topic, language="Hinglish"):
     docs = hybrid_search(topic, k=8); ctx = "\n".join([d.page_content[:900] for d in docs])
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.85)
-    prompt = f"Topic {topic} ko Bollywood Movie Story me badal do. Language: {language}. 5 Scenes, characters Rancho, Raju, Virus. Full concept from PDF. Context:{ctx[:7000]}. Output in {language}."
-    return llm.invoke(prompt).content
-
+    return llm.invoke(f"Topic {topic} ko Bollywood Movie Story me badal do. Language: {language}. Context:{ctx[:7000]}").content
 def generate_story_movie_script(topic, language="Hinglish"):
     docs = hybrid_search(topic, k=6); ctx = "\n".join([d.page_content[:800] for d in docs])
-    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.8)
-    return llm.invoke(f"Topic {topic} pe Viral Reel script banao in {language}. 5 scenes, hook, CTA. Context:{ctx}").content
-
+    return ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.8).invoke(f"Topic {topic} pe Viral Reel script banao in {language}. Context:{ctx}").content
 def build_project_guide(project_idea, budget="low", language="Hinglish"):
-    return ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.4).invoke(f"Project Idea:{project_idea} Budget:{budget} Complete guide in {language}. Components, Circuit, Code, Working, Viva Qs. Context PDF based.").content
-
+    return ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.4).invoke(f"Project Idea:{project_idea} Budget:{budget} Complete guide in {language}.").content
 def generate_podcast_script(topic, language="Hinglish"):
     docs = hybrid_search(topic, k=4); ctx = "\n".join([d.page_content[:700] for d in docs])
-    return ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.8).invoke(f"Topic {topic} pe 2 doston (Naresh aur Rohit) ka 3-min {language} podcast script banao. Full explanation with concept from PDF. Context:{ctx}. Output in {language}.").content
-
+    return ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.8).invoke(f"Topic {topic} pe 2 doston ka podcast script banao in {language}. Context:{ctx}").content
 def generate_viva_questions(topic, num_q=10, language="Hinglish"):
     docs = hybrid_search(topic, k=6); ctx = "\n".join([d.page_content[:700] for d in docs])
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.2)
-    prompt = f"Topic:{topic} Language:{language}\nContext:{ctx}\n{num_q} viva questions banao JSON array: {{\"q\":\"question from PDF in {language}\",\"a\":\"correct answer from PDF in {language}\"}}\nOnly JSON."
+    prompt = f"Topic:{topic} Language:{language}\nContext:{ctx}\n{num_q} viva questions banao JSON array: {{\"q\":\"question\",\"a\":\"answer\"}} Only JSON."
     try: txt = llm.invoke(prompt).content; s = txt.find('['); e = txt.rfind(']')+1; return json.loads(txt[s:e])
     except: return [{"q": f"Explain {topic} - Q {i+1}?", "a": "As per PDF"} for i in range(num_q)]
-
 def verify_viva_answer(question, correct_ans, user_ans, language="Hinglish"):
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0)
-    prompt = f"Q:{question}\nCorrect:{correct_ans}\nStudent:{user_ans}\nLanguage:{language}\nReturn ONLY JSON {{\"verdict\":\"True/False\", \"feedback\":\"{language} me feedback + correct answer\"}}"
+    prompt = f"Q:{question}\nCorrect:{correct_ans}\nStudent:{user_ans}\nLanguage:{language}\nReturn ONLY JSON {{\"verdict\":\"True/False\", \"feedback\":\"feedback\"}}"
     try: txt = llm.invoke(prompt).content; s = txt.find('{'); e = txt.rfind('}')+1; return json.loads(txt[s:e])
     except: return {"verdict": "False", "feedback": f"Correct: {correct_ans}"}
-
 def create_ppt_file(topic, num_slides=10, language="Hinglish"):
     docs = hybrid_search(topic, k=8); ctx = "\n".join([d.page_content[:1200] for d in docs])
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.2)
-    prompt = f"Topic:{topic} Language:{language}\nContext:{ctx[:8000]}\nCreate {num_slides} slides JSON in {language}: [{{\"title\":\"\",\"points\":[\"\",\"\",\"\",\"\"],\"diagram_text\":\"visual from PDF\",\"speaker_note\":\"viva tip\"}}] Only JSON."
+    prompt = f"Topic:{topic} Language:{language}\nContext:{ctx[:8000]}\nCreate {num_slides} slides JSON: [{{\"title\":\"\",\"points\":[\"\",\"\"],\"diagram_text\":\"\",\"speaker_note\":\"\"}}] Only JSON."
     try: txt = llm.invoke(prompt).content; s = txt.find('['); e = txt.rfind(']')+1; slides_data = json.loads(txt[s:e])
-    except: slides_data = [{"title": topic, "points": ["Point 1 from PDF","Point 2","Point 3","Point 4"], "diagram_text":"Diagram", "speaker_note":"Tip"}]
+    except: slides_data = [{"title": topic, "points": ["Point 1","Point 2"], "diagram_text":"Diagram", "speaker_note":"Tip"}]
     from pptx import Presentation; from pptx.util import Inches, Pt; from pptx.dml.color import RGBColor
     prs = Presentation(); prs.slide_width = Inches(13.33); prs.slide_height = Inches(7.5)
     for i, sl in enumerate(slides_data[:num_slides]):
         slide = prs.slides.add_slide(prs.slide_layouts[6])
         slide.background.fill.solid(); slide.background.fill.fore_color.rgb=RGBColor(249,250,255)
-        header=slide.shapes.add_shape(1, Inches(0), Inches(0), Inches(13.33), Inches(1.0))
-        header.fill.solid(); header.fill.fore_color.rgb=RGBColor(13,17,38); header.line.fill.background()
-        ht=slide.shapes.add_textbox(Inches(0.6), Inches(0.15), Inches(7), Inches(0.8))
-        ht.text_frame.text=f"{i+1}. {sl.get('title','')}"; ht.text_frame.paragraphs[0].font.size=Pt(19); ht.text_frame.paragraphs[0].font.bold=True; ht.text_frame.paragraphs[0].font.color.rgb=RGBColor(255,255,255)
+        header=slide.shapes.add_shape(1, Inches(0), Inches(0), Inches(13.33), Inches(1.0)); header.fill.solid(); header.fill.fore_color.rgb=RGBColor(13,17,38)
+        ht=slide.shapes.add_textbox(Inches(0.6), Inches(0.15), Inches(7), Inches(0.8)); ht.text_frame.text=f"{i+1}. {sl.get('title','')}"; ht.text_frame.paragraphs[0].font.size=Pt(19); ht.text_frame.paragraphs[0].font.bold=True; ht.text_frame.paragraphs[0].font.color.rgb=RGBColor(255,255,255)
         ct=slide.shapes.add_textbox(Inches(0.7), Inches(1.3), Inches(7.2), Inches(5.9)); tf=ct.text_frame; tf.word_wrap=True
         for pt in sl.get('points',[])[:6]:
-            pa=tf.add_paragraph(); pa.text=f"• {pt}"; pa.space_after=Pt(12); pa.font.size=Pt(14); pa.font.color.rgb=RGBColor(30,35,60)
-        vb=slide.shapes.add_shape(1, Inches(8.8), Inches(1.4), Inches(4), Inches(5.5))
-        vb.fill.solid(); vb.fill.fore_color.rgb=RGBColor(224,231,255)
-        vtx=slide.shapes.add_textbox(Inches(9), Inches(1.6), Inches(3.6), Inches(5))
-        vtx.text_frame.text=f"📊 VISUAL\n{sl.get('diagram_text','')}\n\n💡 {sl.get('speaker_note','')}"
+            pa=tf.add_paragraph(); pa.text=f"• {pt}"; pa.space_after=Pt(12); pa.font.size=Pt(14)
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pptx"); prs.save(tmp.name); return tmp.name
-
 def transcribe_topic_with_language(audio_path):
     text = transcribe_audio(get_api_key(), audio_path)
     if not text: return None, "Hinglish"
@@ -213,24 +179,15 @@ def transcribe_topic_with_language(audio_path):
     prompt = f"Extract topic and language from: '{text}'. Return JSON {{\"topic\":\"...\",\"language\":\"Hindi/English/Hinglish/Gujarati/Marathi\"}} only."
     try: res = llm.invoke(prompt).content; s = res.find('{'); e = res.rfind('}')+1; data = json.loads(res[s:e]); return data.get('topic', text), data.get('language', 'Hinglish')
     except: return text, "Hinglish"
-
 def create_explainer_video(topic, language="Hinglish", duration_sec=150):
     if not VIDEO_AVAILABLE: return None, "Install gTTS, moviepy, Pillow"
-    api_key = get_api_key()
-    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0.2)
+    api_key = get_api_key(); llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0.2)
     docs = hybrid_search(topic, k=8)
     if not docs: return None, f"Tere PDF me '{topic}' nahi mila."
-    num_scenes = max(2, min(8, duration_sec // 30))
-    if duration_sec <= 40: num_scenes = 2
-    elif duration_sec <= 90: num_scenes = 3
-    elif duration_sec <= 160: num_scenes = 5
-    else: num_scenes = 7
-    ctx = "\n\n".join([f"DOC {i+1}: {d.page_content[:1000]}" for i, d in enumerate(docs)])
-    prompt = f"""Use ONLY PDF Context. Topic: {topic}, Language: {language}, Need {num_scenes} scenes, Duration {duration_sec} sec. Context: {ctx[:8000]} Create {num_scenes} scenes JSON: {{"title":"Sub-topic", "explain":"110 words in {language} using PDF definitions", "diagram":"PDF def", "source":"PDF"}} Only JSON array."""
-    try:
-        txt = llm.invoke(prompt).content; s = txt.find('['); e = txt.rfind(']')+1; scenes = json.loads(txt[s:e])
-    except:
-        scenes = [{"title": f"{topic} - Part {i+1}", "explain": f"PDF ke according {d.page_content[:380]}", "diagram": d.page_content[:120], "source": d.metadata.get('source','PDF')} for i, d in enumerate(docs[:num_scenes])]
+    num_scenes = max(2, min(8, duration_sec // 30)); ctx = "\n\n".join([f"DOC {i+1}: {d.page_content[:1000]}" for i, d in enumerate(docs)])
+    prompt = f"""Use ONLY PDF Context. Topic: {topic}, Language: {language}, Need {num_scenes} scenes, Duration {duration_sec} sec. Context: {ctx[:8000]} Create {num_scenes} scenes JSON: {{"title":"Sub-topic", "explain":"110 words in {language}", "diagram":"def", "source":"PDF"}} Only JSON array."""
+    try: txt = llm.invoke(prompt).content; s = txt.find('['); e = txt.rfind(']')+1; scenes = json.loads(txt[s:e])
+    except: scenes = [{"title": f"{topic} - Part {i+1}", "explain": f"{d.page_content[:380]}", "diagram": d.page_content[:120], "source": d.metadata.get('source','PDF')} for i, d in enumerate(docs[:num_scenes])]
     temp_dir = tempfile.mkdtemp(); clips = []
     def fast_avatar(name, bg_color):
         img = Image.new('RGB', (300, 300), bg_color); d = ImageDraw.Draw(img)
@@ -246,13 +203,8 @@ def create_explainer_video(topic, language="Hinglish", duration_sec=150):
         wrapped = textwrap.wrap(scene['explain'], width=58); y = 105
         for line in wrapped[:8]: draw.text((30, y), line, fill=(255,255,255)); y += 34
         draw.rectangle([(20,480),(850,545)], fill=(245,158,11)); draw.text((30,495), f"PDF: {scene['diagram'][:90]}", fill=(0,0,0))
-        draw.rectangle([(870,95),(1260,545)], fill=(10,20,45), outline=(0,220,255), width=2)
-        draw.text((880,105), "PDF BOARD", fill=(0,220,255))
-        diag = textwrap.wrap(scene['diagram'], width=30); yy = 135
-        for dline in diag[:5]: draw.text((880, yy), f"→ {dline}", fill=(200,255,200)); yy += 26
         bg_path = os.path.join(temp_dir, f"bg_{i}.png"); bg_img.save(bg_path)
-        lang_code = get_lang_code(language)
-        audio_path = os.path.join(temp_dir, f"aud_{i}.mp3")
+        lang_code = get_lang_code(language); audio_path = os.path.join(temp_dir, f"aud_{i}.mp3")
         try: tts = gTTS(text=scene['explain'], lang=lang_code, slow=False); tts.save(audio_path); audio = AudioFileClip(audio_path); dur = audio.duration + 0.4
         except: audio = None; dur = duration_sec / num_scenes
         bg_clip = ImageClip(bg_path).set_duration(dur)
@@ -266,23 +218,21 @@ def create_explainer_video(topic, language="Hinglish", duration_sec=150):
     final.write_videofile(out_path, fps=12, codec='libx264', audio_codec='aac', preset='ultrafast', threads=4, verbose=False, logger=None)
     return out_path, scenes
 
-# ========== PREMIUM RESUME + SOFTWARE BUILDER - FREE + UNICODE FIXED ==========
+# ========== PREMIUM RESUME + SOFTWARE - 100% FIXED ==========
 def generate_premium_resume_data(user_info, language="English"):
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.2)
-    prompt = f"""You are FAANG Resume Expert. Create ATS-friendly resume JSON in ENGLISH ONLY. User: {user_info} Return ONLY JSON: {{"name":"","role":"","email":"","phone":"","linkedin":"","github":"","summary":"","skills":{{"Languages":[],"Frontend":[],"Backend":[],"Tools":[]}},"experience":[{{"role":"","company":"","duration":"","points":[]}}],"projects":[{{"name":"","tech":"","points":[],"link":""}}],"education":[{{"degree":"","college":"","year":"","cgpa":""}}],"certifications":[]}} No Hindi, No emoji, only English ASCII. No extra text."""
-    try:
-        txt = llm.invoke(prompt).content; s=txt.find('{'); e=txt.rfind('}')+1; return json.loads(txt[s:e])
-    except Exception as e:
-        print(f"Resume error {e}"); return None
+    prompt = f"""You are FAANG Resume Expert. Create ATS-friendly resume JSON in ENGLISH ONLY ASCII. User: {user_info} Return ONLY JSON: {{"name":"","role":"","email":"","phone":"","linkedin":"","github":"","summary":"","skills":{{"Languages":[],"Frontend":[],"Backend":[],"Tools":[]}},"experience":[{{"role":"","company":"","duration":"","points":[]}}],"projects":[{{"name":"","tech":"","points":[],"link":""}}],"education":[{{"degree":"","college":"","year":"","cgpa":""}}],"certifications":[]}} Only English."""
+    try: txt = llm.invoke(prompt).content; s=txt.find('{'); e=txt.rfind('}')+1; return json.loads(txt[s:e])
+    except: return None
 
 def create_premium_resume_pdf(resume_data):
     from fpdf import FPDF
-    def clean_ascii(text):
+    def clean(text):
         if not text: return ""
-        text = str(text)
-        text = text.encode('ascii', 'ignore').decode('ascii')
-        text = re.sub(r'[^\x00-\x7F]+', ' ', text)
-        return text.strip()
+        text = str(text).encode('ascii','ignore').decode('ascii')
+        text = re.sub(r'[^\x20-\x7E\s]', ' ', text)
+        text = re.sub(r'\s+', ' ', text)
+        return text.strip()[:500]
 
     pdf = FPDF('P','mm','A4')
     pdf.set_auto_page_break(auto=True, margin=15)
@@ -290,78 +240,86 @@ def create_premium_resume_pdf(resume_data):
     pdf.set_fill_color(13,17,38)
     pdf.rect(0,0,210,35,'F')
 
-    name = clean_ascii(resume_data.get('name','NARESH')) or "NARESH"
-    role = clean_ascii(resume_data.get('role','Software Developer'))
-    email = clean_ascii(resume_data.get('email',''))
-    phone = clean_ascii(resume_data.get('phone',''))
+    name = clean(resume_data.get('name','NARESH')) or "NARESH"
+    role = clean(resume_data.get('role','Developer'))
+    email = clean(resume_data.get('email',''))
+    phone = clean(resume_data.get('phone',''))
 
-    pdf.set_xy(10,8); pdf.set_font("Helvetica",'B',22); pdf.set_text_color(255,255,255); pdf.cell(0,10, name.upper(), align='C')
-    pdf.set_xy(10,18); pdf.set_font("Helvetica",'',9); pdf.set_text_color(200,220,255); pdf.cell(0,6, f"{role} | {email} | {phone}", align='C')
-    pdf.ln(20); pdf.set_text_color(20,20,20)
+    pdf.set_xy(10,8)
+    pdf.set_font("Helvetica",'B',18)
+    pdf.set_text_color(255,255,255)
+    pdf.cell(0,10, name.upper()[:40], align='C')
+    pdf.set_xy(10,18)
+    pdf.set_font("Helvetica",'',9)
+    pdf.set_text_color(200,220,255)
+    pdf.cell(0,6, f"{role[:25]} | {email[:30]} | {phone[:15]}", align='C')
+    pdf.ln(25)
 
     def section(t):
-        t = clean_ascii(t)
-        pdf.set_font("Helvetica",'B',12); pdf.set_fill_color(224,231,255)
-        pdf.cell(0,8,f" {t.upper()}",fill=True,new_x="LMARGIN",new_y="NEXT"); pdf.ln(2)
+        pdf.set_fill_color(224,231,255)
+        pdf.set_font("Helvetica",'B',11)
+        pdf.set_text_color(13,17,38)
+        pdf.cell(0,8, f" {clean(t).upper()}", fill=True, new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(2)
 
-    section("Professional Summary")
-    pdf.set_font("Helvetica",'',10)
-    summary = clean_ascii(resume_data.get('summary','Topper developer with MERN skills')) or "Experienced developer"
-    pdf.multi_cell(0,5, summary); pdf.ln(3)
+    def add_text(txt):
+        txt = clean(txt)
+        if not txt: return
+        pdf.set_font("Helvetica",'',10)
+        pdf.set_text_color(30,30,30)
+        pdf.multi_cell(0,5, txt)
+        pdf.ln(2)
 
-    section("Technical Skills")
-    for cat,skills in resume_data.get('skills',{}).items():
-        cat_c = clean_ascii(cat)
-        skills_c = [clean_ascii(s) for s in skills if clean_ascii(s)]
-        if not skills_c: continue
-        pdf.set_font("Helvetica",'B',10); pdf.write(5,f"{cat_c}: ")
-        pdf.set_font("Helvetica",'',10); pdf.write(5, ", ".join(skills_c)+"\n")
-    pdf.ln(3)
+    def add_bullets(items):
+        for it in items:
+            it = clean(it)
+            if it:
+                pdf.set_font("Helvetica",'',9.5)
+                pdf.set_text_color(30,30,30)
+                pdf.multi_cell(0,5, f" - {it[:200]}")
+
+    section("Summary")
+    add_text(resume_data.get('summary','Experienced developer'))
+
+    section("Skills")
+    stxt = ""
+    for k,v in resume_data.get('skills',{}).items():
+        vv = [clean(x) for x in v if clean(x)]
+        if vv: stxt += f"{clean(k)}: {', '.join(vv[:6])}\n"
+    add_text(stxt)
 
     section("Experience")
-    for exp in resume_data.get('experience',[]):
+    for exp in resume_data.get('experience',[])[:2]:
         pdf.set_font("Helvetica",'B',10)
-        pdf.cell(0,5,f"{clean_ascii(exp.get('role',''))} @ {clean_ascii(exp.get('company',''))} | {clean_ascii(exp.get('duration',''))}",new_x="LMARGIN",new_y="NEXT")
-        pdf.set_font("Helvetica",'',9.5)
-        for p in exp.get('points',[]):
-            pc = clean_ascii(p)
-            if pc:
-                pdf.cell(5); pdf.multi_cell(0,4.5,f"- {pc}")
-        pdf.ln(2)
+        pdf.cell(0,6, f"{clean(exp.get('role',''))} at {clean(exp.get('company',''))} ({clean(exp.get('duration',''))})", new_x="LMARGIN", new_y="NEXT")
+        add_bullets(exp.get('points',[])[:3])
+        pdf.ln(1)
 
     section("Projects")
-    for proj in resume_data.get('projects',[]):
+    for proj in resume_data.get('projects',[])[:2]:
         pdf.set_font("Helvetica",'B',10)
-        pdf.cell(0,5,f"{clean_ascii(proj.get('name',''))} | {clean_ascii(proj.get('tech',''))}",new_x="LMARGIN",new_y="NEXT")
-        pdf.set_font("Helvetica",'',9.5)
-        for p in proj.get('points',[]):
-            pc = clean_ascii(p)
-            if pc:
-                pdf.cell(5); pdf.multi_cell(0,4.5,f"- {pc}")
-        pdf.ln(2)
+        pdf.cell(0,6, f"{clean(proj.get('name',''))} | {clean(proj.get('tech',''))}", new_x="LMARGIN", new_y="NEXT")
+        add_bullets(proj.get('points',[])[:3])
+        pdf.ln(1)
 
     section("Education")
-    for edu in resume_data.get('education',[]):
-        pdf.set_font("Helvetica",'',10)
-        line = f"{clean_ascii(edu.get('degree',''))} - {clean_ascii(edu.get('college',''))} ({clean_ascii(edu.get('year',''))}) {clean_ascii(edu.get('cgpa',''))}"
-        pdf.cell(0,5,line,new_x="LMARGIN",new_y="NEXT")
+    for edu in resume_data.get('education',[])[:2]:
+        add_text(f"{clean(edu.get('degree',''))} - {clean(edu.get('college',''))} ({clean(edu.get('year',''))})")
 
-    certs = [clean_ascii(c) for c in resume_data.get('certifications',[]) if clean_ascii(c)]
+    certs = [clean(c) for c in resume_data.get('certifications',[]) if clean(c)]
     if certs:
-        pdf.set_font("Helvetica",'',10)
-        pdf.cell(0,5,"Certs: " + ", ".join(certs),new_x="LMARGIN",new_y="NEXT")
+        section("Certifications")
+        add_text(", ".join(certs[:4]))
 
-    tmp=tempfile.NamedTemporaryFile(delete=False,suffix=".pdf")
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     pdf.output(tmp.name)
     return tmp.name
 
 def generate_software_project(requirement, tech_stack="MERN", language="English"):
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.2)
-    prompt = f"""You are Senior Full Stack Architect. Requirement: {requirement} Tech: {tech_stack} Create PRODUCTION READY project JSON: {{"project_name":"","description":"","tech_stack":[],"files":[{{"path":"frontend/src/App.jsx","content":"FULL React code"}},{{"path":"backend/server.js","content":"Express server"}},{{"path":"README.md","content":"Setup steps"}},{{"path":".env.example","content":"PORT=5000"}}],"setup_steps":[],"features":[]}} IMPORTANT: FULL code, no TODO, only ASCII English. Only JSON."""
-    try:
-        txt=llm.invoke(prompt).content; s=txt.find('{'); e=txt.rfind('}')+1; return json.loads(txt[s:e])
-    except Exception as e:
-        print(f"Software error {e}"); return None
+    prompt = f"""You are Senior Architect. Requirement: {requirement} Tech: {tech_stack} Create JSON: {{"project_name":"","description":"","tech_stack":[],"files":[{{"path":"frontend/src/App.jsx","content":"React code"}},{{"path":"backend/server.js","content":"Express"}}],"setup_steps":[],"features":[]}} Only JSON ASCII."""
+    try: txt=llm.invoke(prompt).content; s=txt.find('{'); e=txt.rfind('}')+1; return json.loads(txt[s:e])
+    except: return None
 
 def create_project_zip(project_data):
     import zipfile
@@ -369,10 +327,8 @@ def create_project_zip(project_data):
     project_name=project_data.get('project_name','project').replace(' ','_')
     project_name = re.sub(r'[^a-zA-Z0-9_]', '', project_name) or "project"
     for f in project_data.get('files',[]):
-        fp=os.path.join(temp_dir,project_name,f['path'])
-        os.makedirs(os.path.dirname(fp),exist_ok=True)
-        with open(fp,'w',encoding='utf-8', errors='ignore') as out:
-            out.write(f['content'])
+        fp=os.path.join(temp_dir,project_name,f['path']); os.makedirs(os.path.dirname(fp),exist_ok=True)
+        with open(fp,'w',encoding='utf-8', errors='ignore') as out: out.write(f['content'])
     zip_path=os.path.join(tempfile.gettempdir(),f"{project_name}_PRODUCTION.zip")
     with zipfile.ZipFile(zip_path,'w',zipfile.ZIP_DEFLATED) as zipf:
         for root,dirs,files in os.walk(os.path.join(temp_dir,project_name)):
