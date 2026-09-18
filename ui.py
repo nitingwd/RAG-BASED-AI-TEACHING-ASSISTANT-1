@@ -21,7 +21,7 @@ html, body, [class*="css"] {font-family: 'Inter', sans-serif;}
 .hero {background: linear-gradient(135deg, #E0E7FF 0%, #C7D2FE 100%); border-radius: 20px; padding: 30px; margin-bottom: 20px;}
 .stButton>button {border-radius: 10px; height: 48px; font-weight: 600;}
 </style>
-<div class="dev-badge">V14 LIGHT FAISS + FFMPEG | KADIYA NARESH</div>
+<div class="dev-badge">V15 REPORT BOARD | KADIYA NARESH</div>
 """, unsafe_allow_html=True)
 
 def universal_input(key, placeholder="Bolo ya likho..."):
@@ -79,16 +79,19 @@ with st.sidebar:
 st.markdown("""
 <div class="hero">
     <h1 style="margin:0; font-size: 36px; color: #111827;">RAG Based AI Teaching Assistant</h1>
-    <p style="color: #4B5563;">🔊 Audio + Quiz + Viva + PPT - V14 Light Fast | ffmpeg enabled</p>
+    <p style="color: #4B5563;">🔊 Audio + Quiz Report + Viva Report - V15</p>
 </div>
 """, unsafe_allow_html=True)
 
 if "active" not in st.session_state: st.session_state.active = "Ask"
 if "viva_qs" not in st.session_state:
     st.session_state.viva_qs = []; st.session_state.viva_idx = 0; st.session_state.viva_score = []
-if "quiz_data" not in st.session_state: st.session_state.quiz_data = None
+if "quiz_data" not in st.session_state:
+    st.session_state.quiz_data = None
+if "quiz_results" not in st.session_state:
+    st.session_state.quiz_results = []
 
-st.markdown("### ✨ Features - V14 Light")
+st.markdown("### ✨ Features - V15")
 c1,c2,c3,c4,c5,c6 = st.columns(6)
 with c1:
     if st.button("💬 Ask Q&A", use_container_width=True): st.session_state.active="Ask"; st.rerun()
@@ -183,6 +186,7 @@ elif active=="Quiz":
     if st.button("Generate Quiz", type="primary"):
         quiz_list = generate_quiz(n, language=lang)
         st.session_state.quiz_data = quiz_list
+        st.session_state.quiz_results = []
         st.rerun()
     if st.session_state.quiz_data:
         for i, qd in enumerate(st.session_state.quiz_data):
@@ -198,12 +202,47 @@ elif active=="Quiz":
                 with c2:
                     if st.button(f"Check Q{i+1}", key=f"chk_{i}"):
                         ok, fb = check_quiz_answer(qd['question'], choice, qd['answer'], qd.get('topic','general'))
+                        # SAVE FOR FINAL REPORT
+                        st.session_state.quiz_results.append({
+                            "q": qd['question'], "your": choice, "correct": qd['answer'],
+                            "is_correct": ok, "topic": qd.get('topic','general'), "explanation": qd.get('explanation','')
+                        })
                         st.success(fb) if ok else st.error(fb)
-                        exp_text = f"{fb}. Explanation: {qd.get('explanation','')}"
-                        ap2 = text_to_audio_file(exp_text, lang)
-                        if ap2 and os.path.exists(ap2):
-                            with open(ap2,"rb") as f: st.audio(f.read(), format="audio/mp3")
                         st.info(f"📖 {qd.get('explanation','')}")
+
+        # ===== QUIZ REPORT BOARD - NEW =====
+        if st.session_state.quiz_results:
+            results = st.session_state.quiz_results
+            correct = sum(1 for r in results if r['is_correct'])
+            total = len(results)
+            wrong = total - correct
+            perc = (correct/total*100) if total>0 else 0
+
+            st.divider()
+            st.markdown("## 📊 QUIZ REPORT BOARD")
+            m1,m2,m3,m4 = st.columns(4)
+            m1.metric("Total Attempted", total)
+            m2.metric("✅ Sahi", correct)
+            m3.metric("❌ Galat", wrong)
+            m4.metric("Score", f"{perc:.1f}%")
+
+            st.progress(int(perc))
+
+            st.markdown("### 📋 Detail - Kaunsa Sahi / Galat")
+            for idx, r in enumerate(results):
+                icon = "🟢" if r['is_correct'] else "🔴"
+                status = "SAHI" if r['is_correct'] else "GALAT"
+                with st.expander(f"{icon} Q{idx+1}: {status} - {r['q'][:60]}..."):
+                    st.write(f"**Question:** {r['q']}")
+                    st.write(f"**Tumhara Jawaab:** {r['your']}")
+                    st.write(f"**Sahi Jawaab:** {r['correct']}")
+                    st.write(f"**Status:** {status}")
+                    st.write(f"**Explanation:** {r['explanation']}")
+
+            if st.button("🔄 Quiz Reset"):
+                st.session_state.quiz_data = None
+                st.session_state.quiz_results = []
+                st.rerun()
 
 elif active=="Viva":
     topic=universal_input("viva_topic",f"Viva topic ({lang})")
@@ -225,15 +264,57 @@ elif active=="Viva":
             if st.button("Submit", key=f"v_sub_{idx}"):
                 if user_ans:
                     res=verify_viva_answer(curr['q'], curr['a'], user_ans, language=lang)
-                    st.session_state.viva_score.append({"q":curr['q'],"your":user_ans,"correct":curr['a'],"result":res['verdict'],"fb":res['feedback']})
+                    is_correct = "true" in str(res['verdict']).lower()
+                    st.session_state.viva_score.append({
+                        "q":curr['q'],"your":user_ans,"correct":curr['a'],
+                        "result":res['verdict'],"is_correct": is_correct, "fb":res['feedback']
+                    })
                     ap2 = text_to_audio_file(res['feedback'], lang)
                     if ap2 and os.path.exists(ap2):
                         with open(ap2,"rb") as f: st.audio(f.read(), format="audio/mp3", autoplay=True)
-                    st.write(res['feedback'])
+                    if is_correct:
+                        st.success(f"✅ SAHI - {res['feedback']}")
+                    else:
+                        st.error(f"❌ GALAT - {res['feedback']}")
+                        st.info(f"💡 Sahi Jawaab: {curr['a']}")
                     st.session_state.viva_idx+=1; st.rerun()
         else:
+            # ===== VIVA REPORT BOARD - NEW =====
             score=st.session_state.viva_score
-            st.success(f"Viva Done! {len(score)} Qs")
+            correct = sum(1 for s in score if s['is_correct'])
+            total = len(score)
+            wrong = total - correct
+            perc = (correct/total*100) if total>0 else 0
+
+            st.balloons()
+            st.success(f"Viva Done! {total} Questions")
+
+            st.markdown("## 📊 VIVA FINAL REPORT")
+            m1,m2,m3,m4 = st.columns(4)
+            m1.metric("Total", total)
+            m2.metric("✅ Sahi", correct)
+            m3.metric("❌ Galat", wrong)
+            m4.metric("Score", f"{perc:.1f}%")
+            st.progress(int(perc))
+
+            st.markdown("### 📋 Kaunsa Question Sahi Tha / Galat Tha")
+            for i, s in enumerate(score):
+                icon = "🟢" if s['is_correct'] else "🔴"
+                status = "SAHI" if s['is_correct'] else "GALAT"
+                with st.expander(f"{icon} Q{i+1}: {status} - {s['q'][:70]}"):
+                    st.write(f"**Q:** {s['q']}")
+                    st.write(f"**Tumhara Jawaab:** {s['your']}")
+                    st.write(f"**Sahi Jawaab:** {s['correct']}")
+                    st.write(f"**Result:** {status}")
+                    st.write(f"**Feedback:** {s['fb']}")
+
+            report_text = f"VIVA REPORT - {topic}\nTotal: {total}, Sahi: {correct}, Galat: {wrong}, Score: {perc:.1f}%\n\n"
+            for i,s in enumerate(score):
+                report_text += f"Q{i+1}: {s['q']}\nYour: {s['your']}\nCorrect: {s['correct']}\nStatus: {'SAHI' if s['is_correct'] else 'GALAT'}\n\n"
+
+            st.download_button("⬇️ Download Viva Report", report_text, file_name=f"viva_report_{topic}.txt")
+            if st.button("🔄 New Viva Start"):
+                st.session_state.viva_qs = []; st.session_state.viva_idx = 0; st.session_state.viva_score = []; st.rerun()
 
 elif active=="PPT":
     topic=universal_input("ppt",f"Topic in {lang} - AI")
