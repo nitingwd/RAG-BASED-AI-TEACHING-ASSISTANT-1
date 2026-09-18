@@ -382,4 +382,4 @@ elif active=="PPT":
 with st.expander("🕘 History"):
     h=load_conversation_history()
     for x in reversed(h[-10:]):
-        st.markdown(f"**Q:** {x['query']}"); st.markdown(x['answer'][:500]); st.divider() yeh lo karke do
+        st.markdown(f"**Q:** {x['query']}"); st.markdown(x['answer'][:500]); st.divider()
