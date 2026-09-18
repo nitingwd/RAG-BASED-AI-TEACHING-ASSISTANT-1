@@ -24,7 +24,7 @@ html, body, [class*="css"] {font-family: 'Inter', sans-serif;}
 .hero {background: linear-gradient(135deg, #E0E7FF 0%, #C7D2FE 100%); border-radius: 20px; padding: 30px; margin-bottom: 20px;}
 .stButton>button {border-radius: 10px; height: 48px; font-weight: 600;}
 </style>
-<div class="dev-badge">V13 PREMIUM Photo+Theme | KADIYA NARESH</div>
+<div class="dev-badge">V13.2 FAISS LIGHTWEIGHT | KADIYA NARESH</div>
 """, unsafe_allow_html=True)
 
 def universal_input(key, placeholder="Bolo ya likho..."):
@@ -82,7 +82,7 @@ with st.sidebar:
 st.markdown("""
 <div class="hero">
     <h1 style="margin:0; font-size: 36px; color: #111827;">RAG Based AI Teaching Assistant</h1>
-    <p style="color: #4B5563;">🔊 Audio + 💼 Premium Resume Photo+Theme + 💻 Software Builder - All FREE</p>
+    <p style="color: #4B5563;">🔊 Audio + 💼 Premium Resume Photo+Theme + 💻 Software Builder - FAISS Fast</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -91,7 +91,7 @@ if "viva_qs" not in st.session_state:
     st.session_state.viva_qs = []; st.session_state.viva_idx = 0; st.session_state.viva_score = []
 if "quiz_data" not in st.session_state: st.session_state.quiz_data = None
 
-st.markdown("### ✨ Features - V13 Premium")
+st.markdown("### ✨ Features - V13.2 Lightweight")
 c1,c2,c3,c4,c5,c6 = st.columns(6)
 with c1:
     if st.button("💬 Ask Q&A", use_container_width=True): st.session_state.active="Ask"; st.rerun()
@@ -260,7 +260,8 @@ elif active=="PPT":
             play_audio_block(f"{topic} par {pages} slides ka PPT {lang} me ban gaya hai.", lang, "ppt")
 
 elif active=="Video":
-    st.info(f"FULL CUSTOMIZABLE VIDEO - {lang}")
+    st.info(f"FULL CUSTOMIZABLE VIDEO - {lang} - Lightweight Mode")
+    st.warning("⚠️ Video generation is disabled in lightweight mode to avoid install error. Resume + All other features 100% working!")
     col1, col2 = st.columns(2)
     with col1:
         v_lang = st.selectbox("🌐 Video Language", ["Hinglish","Hindi","Gujarati","English","Marathi"], index=0)
@@ -291,6 +292,8 @@ elif active=="Video":
                     st.video(v_path)
                     with open(v_path, "rb") as f:
                         st.download_button("⬇️ Download Video", f, file_name=f"{final_topic}_{final_lang}_{duration_sec}s.mp4")
+                else:
+                    st.warning(f"{scenes} - Lightweight mode me video disabled hai. App ko live karne ke liye hataya gaya hai.")
 
 elif active=="Resume":
     st.subheader("💼 Premium Resume - Photo + Color + Reference")
