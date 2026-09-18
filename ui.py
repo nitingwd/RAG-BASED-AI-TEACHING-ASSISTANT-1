@@ -2,11 +2,130 @@ import streamlit as st
 import tempfile
 import os
 import io
+import sqlite3
+import json
+import hashlib
+from datetime import datetime
 from PIL import Image
 from docx import Document
 from docx.shared import Inches
 
-# ===== SAFE IMPORT - KABHI CRASH NAHI HOGA =====
+# ================= AUTH SYSTEM - USERNAME/PASSWORD ONLY =================
+DB_PATH = "data/users.db"
+PICS_PATH = "data/profile_pics"
+os.makedirs("data", exist_ok=True)
+os.makedirs(PICS_PATH, exist_ok=True)
+
+def init_db():
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS users
+    (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT, name TEXT, email TEXT, photo TEXT, bio TEXT, created_at TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS conversations
+    (id INTEGER PRIMARY KEY, user_id INTEGER, query TEXT, answer TEXT, mode TEXT, timestamp TEXT)''')
+    conn.commit(); conn.close()
+init_db()
+
+def hash_pwd(p): return hashlib.sha256(p.encode()).hexdigest()
+def get_conn(): return sqlite3.connect(DB_PATH, check_same_thread=False)
+
+def signup_user(username, password, name, email):
+    try:
+        conn = get_conn()
+        conn.execute("INSERT INTO users (username, password, name, email, photo, bio, created_at) VALUES (?,?,?,?,?,?,?)",
+                     (username, hash_pwd(password), name, email, "", "", datetime.now().isoformat()))
+        conn.commit(); conn.close()
+        return True, "Account ban gaya!"
+    except sqlite3.IntegrityError:
+        return False, "Username pehle se hai!"
+    except Exception as e:
+        return False, str(e)
+
+def login_user(username, password):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT id, username, name, email, photo, bio FROM users WHERE username=? AND password=?", (username, hash_pwd(password)))
+    u = c.fetchone(); conn.close()
+    if u:
+        return {"id": u[0], "username": u[1], "name": u[2], "email": u[3], "photo": u[4], "bio": u[5]}
+    return None
+
+def get_user_by_id(user_id):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT id, username, name, email, photo, bio FROM users WHERE id=?", (user_id,))
+    u = c.fetchone(); conn.close()
+    if u:
+        return {"id": u[0], "username": u[1], "name": u[2], "email": u[3], "photo": u[4], "bio": u[5]}
+    return None
+
+def update_profile(user_id, name, email, bio, photo_file=None):
+    photo_path = None
+    if photo_file:
+        ext = photo_file.name.split(".")[-1]
+        photo_path = f"{PICS_PATH}/{user_id}.{ext}"
+        with open(photo_path, "wb") as f:
+            f.write(photo_file.getbuffer())
+    conn = get_conn()
+    if photo_path:
+        conn.execute("UPDATE users SET name=?, email=?, bio=?, photo=? WHERE id=?", (name, email, bio, photo_path, user_id))
+    else:
+        conn.execute("UPDATE users SET name=?, email=?, bio=? WHERE id=?", (name, email, bio, user_id))
+    conn.commit(); conn.close()
+    return True
+
+def save_conversation(user_id, query, answer, mode="Ask"):
+    conn = get_conn()
+    conn.execute("INSERT INTO conversations (user_id, query, answer, mode, timestamp) VALUES (?,?,?,?,?)",
+                 (user_id, query, answer, mode, datetime.now().isoformat()))
+    conn.commit(); conn.close()
+
+def get_user_conversations(user_id):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT id, query, answer, mode, timestamp FROM conversations WHERE user_id=? ORDER BY id DESC", (user_id,))
+    rows = c.fetchall(); conn.close()
+    return rows
+
+def auth_ui():
+    if st.session_state.get("logged_in"):
+        return True
+    st.set_page_config(page_title="SUBMIT - Login", layout="centered", page_icon="🎓")
+    st.markdown("""
+    <style>.login-box {background: linear-gradient(135deg,#E0E7FF,#C7D2FE); padding:30px; border-radius:20px; text-align:center;}</style>
+    <div class="login-box"><h1>🎓 SUBMIT V16</h1><p>Username + Password Login</p></div><br>
+    """, unsafe_allow_html=True)
+    tab1, tab2 = st.tabs(["🔐 Login", "📝 Sign Up"])
+    with tab1:
+        username = st.text_input("Username", key="l_user")
+        pwd = st.text_input("Password", type="password", key="l_pwd")
+        if st.button("Login", type="primary", use_container_width=True):
+            user = login_user(username, pwd)
+            if user:
+                st.session_state.logged_in = True; st.session_state.user = user; st.rerun()
+            else:
+                st.error("Galat Username/Password")
+    with tab2:
+        name = st.text_input("Full Name", key="s_name")
+        username = st.text_input("Username (unique)", key="s_user")
+        email = st.text_input("Email", key="s_email")
+        pwd = st.text_input("Password", type="password", key="s_pwd")
+        if st.button("Account Banao", use_container_width=True):
+            if len(username) < 3:
+                st.error("Username min 3 char")
+            else:
+                ok, msg = signup_user(username, pwd, name, email)
+                if ok: st.success(msg + " Ab Login karo")
+                else: st.error(msg)
+    return False
+
+if not auth_ui():
+    st.stop()
+
+user = get_user_by_id(st.session_state.user['id'])
+st.session_state.user = user
+
+# ================= SAFE IMPORT =================
 try:
     from rag_utils import (
         process_files, ask_question, load_conversation_history, get_api_key,
@@ -17,8 +136,7 @@ try:
         text_to_audio_file, images_to_pdf, images_to_docx
     )
     RAG_OK = True
-except ImportError as e:
-    # Agar rag_utils purana hai to bhi app chalega, bas core functions import karo
+except ImportError:
     from rag_utils import (
         process_files, ask_question, load_conversation_history, get_api_key,
         generate_quiz, generate_summary, predict_important_questions,
@@ -28,7 +146,6 @@ except ImportError as e:
         text_to_audio_file
     )
     RAG_OK = False
-    # Local fallback functions - Ye toh chalenge hi
     def images_to_pdf(image_files):
         images = [Image.open(img).convert("RGB") for img in image_files]
         pdf_buffer = io.BytesIO()
@@ -38,7 +155,6 @@ except ImportError as e:
             images[0].save(pdf_buffer, format="PDF", save_all=True, append_images=images[1:])
         pdf_buffer.seek(0)
         return pdf_buffer
-
     def images_to_docx(image_files):
         doc = Document()
         doc.add_heading('SUBMIT - Converted Images Document', 0)
@@ -64,8 +180,9 @@ html, body, [class*="css"] {font-family: 'Inter', sans-serif;}
 .dev-badge {position: fixed; bottom: 15px; right: 15px; background: linear-gradient(135deg,#0D1126,#6366F1); color: white; padding: 8px 14px; border-radius: 20px; font-size: 12px; z-index: 999;}
 .hero {background: linear-gradient(135deg, #E0E7FF 0%, #C7D2FE 100%); border-radius: 20px; padding: 30px; margin-bottom: 20px;}
 .stButton>button {border-radius: 10px; height: 48px; font-weight: 600;}
+.chat-btn {text-align:left!important;}
 </style>
-<div class="dev-badge">V15.3 FIXED | KADIYA NARESH</div>
+<div class="dev-badge">V16.5 AUTH + HISTORY | KADIYA NARESH</div>
 """, unsafe_allow_html=True)
 
 def universal_input(key, placeholder="Bolo ya likho..."):
@@ -100,7 +217,22 @@ def play_audio_block(text, lang, key):
             else:
                 st.error("Audio fail - net check karo")
 
+# ================= SIDEBAR WITH CLICKABLE HISTORY =================
 with st.sidebar:
+    if user['photo'] and os.path.exists(user['photo']):
+        st.image(user['photo'], width=100)
+    st.markdown(f"### 👤 {user['name']}")
+    st.caption(f"@{user['username']} | {user['email']}")
+    colA, colB = st.columns(2)
+    with colA:
+        if st.button("➕ New", use_container_width=True):
+            st.session_state.selected_conv = None
+            st.session_state.active = "Ask"; st.rerun()
+    with colB:
+        if st.button("🚪 Logout", use_container_width=True):
+            st.session_state.clear(); st.rerun()
+    st.divider()
+
     st.markdown("### 📁 File Upload")
     uploaded_files = st.file_uploader("PDF, CSV, TXT", type=["pdf","csv","txt"], accept_multiple_files=True, label_visibility="collapsed")
     if st.button("🚀 Upload & Process", type="primary", use_container_width=True):
@@ -108,12 +240,30 @@ with st.sidebar:
             with st.spinner("Processing..."):
                 process_files(uploaded_files, 1000, 100)
     st.divider()
+
+    st.markdown("### 💬 Tumhari Chats - Click Karo")
+    search = st.text_input("Search chats", placeholder="Search...", label_visibility="collapsed", key="search_chat")
+    convs = get_user_conversations(user['id'])
+    if not convs:
+        st.info("Koi chat nahi")
+    else:
+        for cid, q, a, mode, ts in convs:
+            if search and search.lower() not in q.lower():
+                continue
+            title = q[:28] + ".." if len(q) > 28 else q
+            label = f"[{mode}] {title}"
+            if st.button(label, key=f"hist_{cid}", use_container_width=True):
+                st.session_state.selected_conv = {"id": cid, "query": q, "answer": a, "mode": mode, "timestamp": ts}
+                st.session_state.active = "ChatView"
+                st.rerun()
+
+    st.divider()
     st.markdown("### 🌐 Global Language")
     selected_language = st.selectbox("Output Language", ["Hinglish","Hindi","Gujarati","English"], index=0, key="glang")
     st.session_state.selected_language = selected_language
     st.success(f"Active: {selected_language}")
     if not RAG_OK:
-        st.warning("⚠️ rag_utils.py purana hai - Image feature local mode me chal raha hai. Naya rag_utils.py push karo.")
+        st.warning("⚠️ rag_utils.py purana hai")
     st.divider()
     st.markdown("### 📊 Weak Topics")
     weak = get_weak_topics()
@@ -122,10 +272,10 @@ with st.sidebar:
             st.write(f"🔴 {t}: {c}")
     chunk_size, chunk_overlap, top_k = 1000, 100, 8
 
-st.markdown("""
+st.markdown(f"""
 <div class="hero">
-    <h1 style="margin:0; font-size: 36px; color: #111827;">RAG Based AI Teaching Assistant</h1>
-    <p style="color: #4B5563;">🔊 Audio + Quiz Report + Viva Report + Image2PDF - V15.3 FIXED</p>
+    <h1 style="margin:0; font-size: 32px; color: #111827;">Welcome {user['name']}! RAG AI Teaching Assistant</h1>
+    <p style="color: #4B5563;">🔊 Audio + Quiz + Viva + Image2PDF + Profile History - V16.5</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -137,7 +287,7 @@ if "quiz_data" not in st.session_state:
 if "quiz_results" not in st.session_state:
     st.session_state.quiz_results = []
 
-st.markdown("### ✨ Features - V15.3")
+st.markdown("### ✨ Features")
 c1,c2,c3,c4,c5,c6 = st.columns(6)
 with c1:
     if st.button("💬 Ask Q&A", use_container_width=True): st.session_state.active="Ask"; st.rerun()
@@ -152,7 +302,7 @@ with c5:
 with c6:
     if st.button("📊 PPT", use_container_width=True): st.session_state.active="PPT"; st.rerun()
 
-c7,c8,c9,c10 = st.columns(4)
+c7,c8,c9,c10,c11,c12 = st.columns(6)
 with c7:
     if st.button("📄 Summary", use_container_width=True): st.session_state.active="Summary"; st.rerun()
 with c8:
@@ -161,21 +311,20 @@ with c9:
     if st.button("🎙️ Podcast", use_container_width=True): st.session_state.active="Podcast"; st.rerun()
 with c10:
     if st.button("🖼️ Image to PDF", use_container_width=True): st.session_state.active="Image2PDF"; st.rerun()
+with c11:
+    if st.button("👤 Profile", use_container_width=True): st.session_state.active="Profile"; st.rerun()
+with c12:
+    if st.button("🕘 All History", use_container_width=True): st.session_state.active="History"; st.rerun()
 
 st.divider()
 active = st.session_state.active
 lang = st.session_state.get('selected_language','Hinglish')
-st.header(f"▶ {active} Mode | 🌐 {lang} | 🔊 Audio Enabled")
+st.header(f"▶ {active} Mode | 🌐 {lang}")
 
+# ================= MODES =================
 if active=="Image2PDF":
     st.markdown("### 🖼️ Image to PDF / DOCX Converter")
-    st.info("Single ya Multiple Images upload karo -> PDF aur DOCX banake download karo.")
-    uploaded_images = st.file_uploader(
-        "Images Upload Karo (JPG, PNG, JPEG)",
-        type=["jpg","jpeg","png"],
-        accept_multiple_files=True,
-        key="img_upload"
-    )
+    uploaded_images = st.file_uploader("Images Upload Karo (JPG, PNG, JPEG)", type=["jpg","jpeg","png"], accept_multiple_files=True, key="img_upload")
     if uploaded_images:
         st.success(f"✅ {len(uploaded_images)} images selected")
         cols = st.columns(5)
@@ -197,25 +346,54 @@ if active=="Image2PDF":
                     st.session_state.docx_ready = docx_data
                 st.success("DOCX Ready!")
         if "pdf_ready" in st.session_state:
-            st.download_button(
-                label="⬇️ PDF Download Karo",
-                data=st.session_state.pdf_ready,
-                file_name=f"SUBMIT_Images_{len(uploaded_images)}_pages.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-                key="dl_pdf_final"
-            )
+            st.download_button(label="⬇️ PDF Download Karo", data=st.session_state.pdf_ready, file_name=f"SUBMIT_Images_{len(uploaded_images)}_pages.pdf", mime="application/pdf", use_container_width=True, key="dl_pdf_final")
         if "docx_ready" in st.session_state:
-            st.download_button(
-                label="⬇️ DOCX Download Karo",
-                data=st.session_state.docx_ready,
-                file_name=f"SUBMIT_Images_{len(uploaded_images)}_pages.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                use_container_width=True,
-                key="dl_docx_final"
-            )
+            st.download_button(label="⬇️ DOCX Download Karo", data=st.session_state.docx_ready, file_name=f"SUBMIT_Images_{len(uploaded_images)}_pages.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True, key="dl_docx_final")
     else:
         st.warning("Pehle images upload karo")
+
+elif active=="ChatView":
+    conv = st.session_state.get("selected_conv")
+    if not conv:
+        st.info("Sidebar se koi chat select karo")
+    else:
+        st.markdown(f"### 💬 {conv['mode']} | {conv['timestamp'][:16]}")
+        st.markdown(f"#### ❓ Q: {conv['query']}")
+        st.divider()
+        st.markdown(conv['answer'])
+        play_audio_block(conv['answer'], lang, f"hist_{conv['id']}")
+        if st.button("⬅️ Back"):
+            st.session_state.active = "Ask"; st.rerun()
+
+elif active=="Profile":
+    st.markdown(f"## 👤 {user['name']} ki Profile")
+    col1, col2 = st.columns([1,2])
+    with col1:
+        if user['photo'] and os.path.exists(user['photo']):
+            st.image(user['photo'], caption="Profile Photo", width=200)
+        new_photo = st.file_uploader("Photo Badlo / Add Karo", type=["jpg","png","jpeg"], key="photo_up")
+    with col2:
+        new_name = st.text_input("Name", value=user['name'])
+        new_email = st.text_input("Email", value=user['email'])
+        new_bio = st.text_area("Bio", value=user['bio'] if user['bio'] else "", placeholder="I am a student...")
+        if st.button("Profile Update Karo", type="primary"):
+            update_profile(user['id'], new_name, new_email, new_bio, new_photo)
+            st.success("Profile Updated!"); st.rerun()
+    st.divider()
+    st.write(f"**Username:** {user['username']}")
+    st.write(f"**Total Chats:** {len(get_user_conversations(user['id']))}")
+
+elif active=="History":
+    st.markdown(f"## 🕘 {user['name']} ka Saara Data")
+    convs = get_user_conversations(user['id'])
+    if not convs:
+        st.info("Koi history nahi")
+    else:
+        st.metric("Total Conversations", len(convs))
+        for cid, q, a, mode, ts in convs:
+            with st.expander(f"[{mode}] {q} - {ts[:16]}"):
+                st.markdown(f"**Q:** {q}")
+                st.markdown(a)
 
 elif active=="Ask":
     mode = st.radio("Mode:", ["Normal","Socratic"], horizontal=True)
@@ -225,46 +403,57 @@ elif active=="Ask":
         if q:
             ans,src = ask_question(q, top_k, mode=sel, language=lang)
             st.session_state.last_ask = ans
+            save_conversation(user['id'], q, ans, f"Ask-{sel}")
             st.markdown(ans)
             with st.expander("📚 Source"): st.write(src)
     if "last_ask" in st.session_state:
         play_audio_block(st.session_state.last_ask, lang, "ask")
+
 elif active=="Important":
     if st.button(f"Generate Important Qs in {lang}",type="primary"):
         imp = predict_important_questions(language=lang)
         st.session_state.last_imp = imp
+        save_conversation(user['id'], f"Important Qs {lang}", imp, "Important")
         st.markdown(imp)
     if "last_imp" in st.session_state:
         play_audio_block(st.session_state.last_imp, lang, "imp")
+
 elif active=="Summary":
     if st.button(f"Generate Summary in {lang}",type="primary"):
         summ = generate_summary(language=lang)
         st.session_state.last_summ = summ
+        save_conversation(user['id'], f"Summary {lang}", summ, "Summary")
         st.markdown(summ)
     if "last_summ" in st.session_state:
         play_audio_block(st.session_state.last_summ, lang, "summ")
+
 elif active=="Story":
     tp=universal_input("story",f"Topic in {lang} - Stack")
     if st.button("🎬 Create Story + Audio",type="primary") and tp:
         story_text = story_mode_learning(tp, language=lang)
         st.session_state.last_story = story_text
+        save_conversation(user['id'], tp, story_text, "Story")
         st.markdown(story_text)
     if "last_story" in st.session_state:
         play_audio_block(st.session_state.last_story, lang, "story")
+
 elif active=="Projects":
     idea=universal_input("proj",f"Project idea ({lang})")
     bud=st.selectbox("Budget",["low (under ₹1500)","medium (₹1500-5000)","high (₹5000+)"])
     if st.button("Generate Guide",type="primary") and idea:
         guide = build_project_guide(idea,bud, language=lang)
         st.session_state.last_proj = guide
+        save_conversation(user['id'], idea, guide, "Project")
         st.markdown(guide)
     if "last_proj" in st.session_state:
         play_audio_block(st.session_state.last_proj, lang, "proj")
+
 elif active=="Podcast":
     tp=universal_input("pod",f"Topic for Podcast in {lang}")
     if st.button("🎙️ Create Podcast + Audio",type="primary") and tp:
         pod_text = generate_podcast_script(tp, language=lang)
         st.session_state.last_pod = pod_text
+        save_conversation(user['id'], tp, pod_text, "Podcast")
         st.markdown(pod_text)
         ap = text_to_audio_file(pod_text, lang)
         if ap and os.path.exists(ap):
@@ -273,6 +462,7 @@ elif active=="Podcast":
             st.success(f"🔊 {lang} Podcast Auto Play")
     if "last_pod" in st.session_state:
         play_audio_block(st.session_state.last_pod, lang, "pod")
+
 elif active=="Quiz":
     n = st.number_input("Kitne Q?",3,15,5)
     if st.button("Generate Quiz", type="primary"):
@@ -294,10 +484,7 @@ elif active=="Quiz":
                 with c2:
                     if st.button(f"Check Q{i+1}", key=f"chk_{i}"):
                         ok, fb = check_quiz_answer(qd['question'], choice, qd['answer'], qd.get('topic','general'))
-                        st.session_state.quiz_results.append({
-                            "q": qd['question'], "your": choice, "correct": qd['answer'],
-                            "is_correct": ok, "topic": qd.get('topic','general'), "explanation": qd.get('explanation','')
-                        })
+                        st.session_state.quiz_results.append({"q": qd['question'], "your": choice, "correct": qd['answer'], "is_correct": ok, "topic": qd.get('topic','general'), "explanation": qd.get('explanation','')})
                         st.success(fb) if ok else st.error(fb)
                         st.info(f"📖 {qd.get('explanation','')}")
         if st.session_state.quiz_results:
@@ -318,6 +505,7 @@ elif active=="Quiz":
                 st.session_state.quiz_data = None
                 st.session_state.quiz_results = []
                 st.rerun()
+
 elif active=="Viva":
     topic=universal_input("viva_topic",f"Viva topic ({lang})")
     num=st.slider("Questions?",3,20,5)
@@ -339,10 +527,7 @@ elif active=="Viva":
                 if user_ans:
                     res=verify_viva_answer(curr['q'], curr['a'], user_ans, language=lang)
                     is_correct = "true" in str(res.get('verdict','')).lower()
-                    st.session_state.viva_score.append({
-                        "q":curr['q'],"your":user_ans,"correct":curr['a'],
-                        "result":res.get('verdict',''),"is_correct": is_correct, "fb":res.get('feedback','')
-                    })
+                    st.session_state.viva_score.append({"q":curr['q'],"your":user_ans,"correct":curr['a'],"result":res.get('verdict',''),"is_correct": is_correct, "fb":res.get('feedback','')})
                     ap2 = text_to_audio_file(res.get('feedback',''), lang)
                     if ap2 and os.path.exists(ap2):
                         with open(ap2,"rb") as f: st.audio(f.read(), format="audio/mp3", autoplay=True)
@@ -369,6 +554,7 @@ elif active=="Viva":
             st.progress(int(perc))
             if st.button("🔄 New Viva Start"):
                 st.session_state.viva_qs = []; st.session_state.viva_idx = 0; st.session_state.viva_score = []; st.rerun()
+
 elif active=="PPT":
     topic=universal_input("ppt",f"Topic in {lang} - AI")
     pages=st.slider("Slides?",5,25,10)
@@ -378,8 +564,3 @@ elif active=="PPT":
             with open(ppt_path,"rb") as f:
                 st.download_button("⬇️ Download PPT", f, file_name=f"{topic}_{lang}.pptx")
             st.success("Ban gaya!")
-
-with st.expander("🕘 History"):
-    h=load_conversation_history()
-    for x in reversed(h[-10:]):
-        st.markdown(f"**Q:** {x['query']}"); st.markdown(x['answer'][:500]); st.divider()
