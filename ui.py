@@ -30,18 +30,14 @@ def init_db():
     conn.close()
 init_db()
 
-def hash_pwd(p):
-    return hashlib.sha256(p.encode()).hexdigest()
-
-def get_conn():
-    return sqlite3.connect(DB_PATH, check_same_thread=False)
+def hash_pwd(p): return hashlib.sha256(p.encode()).hexdigest()
+def get_conn(): return sqlite3.connect(DB_PATH, check_same_thread=False)
 
 def signup_user(username, password, name, email):
     try:
         conn = get_conn()
         conn.execute("INSERT INTO users (username, password, name, email, photo, bio, created_at) VALUES (?,?,?,?,?,?,?)",(username.lower().strip(), hash_pwd(password), name, email, "", "", datetime.now().isoformat()))
-        conn.commit()
-        conn.close()
+        conn.commit(); conn.close()
         return True, "Account ban gaya!"
     except sqlite3.IntegrityError:
         return False, "Username pehle se hai!"
@@ -49,26 +45,19 @@ def signup_user(username, password, name, email):
         return False, str(e)
 
 def login_user(username, password):
-    conn = get_conn()
-    c = conn.cursor()
+    conn = get_conn(); c = conn.cursor()
     c.execute("SELECT id, username, name, email, photo, bio FROM users WHERE username=? AND password=?", (username.lower().strip(), hash_pwd(password)))
-    u = c.fetchone()
-    conn.close()
-    if u:
-        return {"id": u[0], "username": u[1], "name": u[2], "email": u[3], "photo": u[4], "bio": u[5]}
+    u = c.fetchone(); conn.close()
+    if u: return {"id": u[0], "username": u[1], "name": u[2], "email": u[3], "photo": u[4], "bio": u[5]}
     return None
 
 def get_user_by_id(user_id):
     try:
-        conn = get_conn()
-        c = conn.cursor()
+        conn = get_conn(); c = conn.cursor()
         c.execute("SELECT id, username, name, email, photo, bio FROM users WHERE id=?", (user_id,))
-        u = c.fetchone()
-        conn.close()
-        if u:
-            return {"id": u[0], "username": u[1], "name": u[2], "email": u[3], "photo": u[4], "bio": u[5]}
-    except:
-        return None
+        u = c.fetchone(); conn.close()
+        if u: return {"id": u[0], "username": u[1], "name": u[2], "email": u[3], "photo": u[4], "bio": u[5]}
+    except: return None
     return None
 
 def update_profile(user_id, name, email, bio, photo_file=None):
@@ -76,108 +65,62 @@ def update_profile(user_id, name, email, bio, photo_file=None):
     if photo_file:
         ext = photo_file.name.split(".")[-1]
         photo_path = f"{PICS_PATH}/{user_id}_{int(datetime.now().timestamp())}.{ext}"
-        with open(photo_path, "wb") as f:
-            f.write(photo_file.getbuffer())
+        with open(photo_path, "wb") as f: f.write(photo_file.getbuffer())
     conn = get_conn()
-    if photo_path:
-        conn.execute("UPDATE users SET name=?, email=?, bio=?, photo=? WHERE id=?", (name, email, bio, photo_path, user_id))
-    else:
-        conn.execute("UPDATE users SET name=?, email=?, bio=? WHERE id=?", (name, email, bio, user_id))
-    conn.commit()
-    conn.close()
-    return True
+    if photo_path: conn.execute("UPDATE users SET name=?, email=?, bio=?, photo=? WHERE id=?", (name, email, bio, photo_path, user_id))
+    else: conn.execute("UPDATE users SET name=?, email=?, bio=? WHERE id=?", (name, email, bio, user_id))
+    conn.commit(); conn.close(); return True
 
 def save_conversation(user_id, query, answer, mode="Ask"):
-    conn = get_conn()
-    conn.execute("INSERT INTO conversations (user_id, query, answer, mode, timestamp) VALUES (?,?,?,?,?)",(user_id, query, answer, mode, datetime.now().isoformat()))
-    conn.commit()
-    conn.close()
+    conn = get_conn(); conn.execute("INSERT INTO conversations (user_id, query, answer, mode, timestamp) VALUES (?,?,?,?,?)",(user_id, query, answer, mode, datetime.now().isoformat())); conn.commit(); conn.close()
 
 def get_user_conversations(user_id):
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("SELECT id, query, answer, mode, timestamp FROM conversations WHERE user_id=? ORDER BY id DESC", (user_id,))
-    rows = c.fetchall()
-    conn.close()
-    return rows
+    conn = get_conn(); c = conn.cursor(); c.execute("SELECT id, query, answer, mode, timestamp FROM conversations WHERE user_id=? ORDER BY id DESC", (user_id,)); rows = c.fetchall(); conn.close(); return rows
 
 def auth_ui():
     cookies = None
     if COOKIE_OK:
         cookies = EncryptedCookieManager(prefix="rag_final_light_", password="kadiya_naresh_final_2024")
-        if not cookies.ready():
-            st.stop()
-    if st.session_state.get("logged_in") and st.session_state.get("user"):
-        return True, cookies
+        if not cookies.ready(): st.stop()
+    if st.session_state.get("logged_in") and st.session_state.get("user"): return True, cookies
     if COOKIE_OK and cookies:
         uid_val = cookies.get("uid")
         if uid_val:
             try:
-                uid = int(uid_val)
-                u = get_user_by_id(uid)
-                if u:
-                    st.session_state.logged_in = True
-                    st.session_state.user = u
-                    return True, cookies
-            except:
-                pass
-    st.set_page_config(page_title="RAG Based AI Teaching Assistant", layout="centered", page_icon="🎓")
-    st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
-    header[data-testid="stHeader"] {background: transparent!important; height: 60px!important;}
-    header[data-testid="stHeader"] button {background: white!important; border: 1.5px solid #7DD3FC!important; border-radius: 12px!important;}
-  .stApp {background: #E0F2FE; background-image: radial-gradient(at 15% 15%, rgba(14,165,233,0.18) 0%, transparent 45%), radial-gradient(at 85% 15%, rgba(251,191,36,0.12) 0%, transparent 45%); background-attachment: fixed;}
-  .login-card {background: white; padding: 36px; border-radius: 28px; text-align:center; border: 1px solid #BAE6FD; box-shadow: 0 24px 80px rgba(14,165,233,0.12);}
-  .login-title {font-family:'Space Grotesk'; font-size:28px; font-weight:700; color:#0F172A;}
-    </style>
-    """, unsafe_allow_html=True)
+                uid = int(uid_val); u = get_user_by_id(uid)
+                if u: st.session_state.logged_in = True; st.session_state.user = u; return True, cookies
+            except: pass
+    st.set_page_config(page_title="RAG Based AI Teaching Assistant", layout="centered", page_icon="🎓", initial_sidebar_state="expanded")
+    st.markdown("""<style>#MainMenu, footer {display:none!important;}.stApp {background: #E0F2FE;}.login-card {background: white; padding: 36px; border-radius: 28px; text-align:center; border: 1px solid #BAE6FD;}</style>""", unsafe_allow_html=True)
     _, col, _ = st.columns([1,2,1])
     with col:
-        st.markdown("""<div class="login-card"><div style="font-size:52px;">🎓</div><div class="login-title">RAG Based AI<br>Teaching Assistant</div></div><br>""", unsafe_allow_html=True)
+        st.markdown("""<div class="login-card"><div style="font-size:52px;">🎓</div><h2 style="color:#0F172A;">RAG Based AI Teaching Assistant</h2></div><br>""", unsafe_allow_html=True)
         t1, t2 = st.tabs(["🔐 Login", "✨ Sign Up"])
         with t1:
-            username = st.text_input("Username", key="l_user")
-            pwd = st.text_input("Password", type="password", key="l_pwd")
+            username = st.text_input("Username", key="l_user"); pwd = st.text_input("Password", type="password", key="l_pwd")
             if st.button("🚀 Login", type="primary", use_container_width=True, key="login_btn"):
                 u = login_user(username, pwd)
                 if u:
-                    st.session_state.logged_in = True
-                    st.session_state.user = u
-                    if COOKIE_OK:
-                        cookies["uid"] = str(u['id'])
-                        cookies.save()
+                    st.session_state.logged_in = True; st.session_state.user = u
+                    if COOKIE_OK: cookies["uid"] = str(u['id']); cookies.save()
                     st.rerun()
-                else:
-                    st.error("Galat Username/Password")
+                else: st.error("Galat")
         with t2:
-            name = st.text_input("Full Name", key="s_name")
-            username_s = st.text_input("Username", key="s_user")
-            email = st.text_input("Email", key="s_email")
-            pwd_s = st.text_input("Password", key="s_pwd", type="password")
+            name = st.text_input("Full Name", key="s_name"); username_s = st.text_input("Username", key="s_user"); email = st.text_input("Email", key="s_email"); pwd_s = st.text_input("Password", key="s_pwd", type="password")
             if st.button("Create Account", use_container_width=True, key="signup_btn"):
-                if len(username_s) < 3 or len(pwd_s) < 4:
-                    st.error("Min 3/4")
+                if len(username_s) < 3 or len(pwd_s) < 4: st.error("Min 3/4")
                 else:
                     ok, msg = signup_user(username_s, pwd_s, name, email)
-                    if ok:
-                        st.success(msg)
-                        st.balloons()
-                    else:
-                        st.error(msg)
+                    if ok: st.success(msg); st.balloons()
+                    else: st.error(msg)
     return False, cookies
 
 logged_in, cookies = auth_ui()
-if not logged_in:
-    st.stop()
-
+if not logged_in: st.stop()
 user = get_user_by_id(st.session_state.user['id'])
 if not user:
-    if COOKIE_OK and cookies:
-        cookies["uid"] = ""
-        cookies.save()
-    st.session_state.clear()
-    st.rerun()
+    if COOKIE_OK and cookies: cookies["uid"] = ""; cookies.save()
+    st.session_state.clear(); st.rerun()
 st.session_state.user = user
 
 try:
@@ -185,67 +128,81 @@ try:
 except:
     from rag_utils import (process_files, ask_question, get_api_key, generate_quiz, generate_summary, predict_important_questions, check_quiz_answer, get_weak_topics, transcribe_audio, story_mode_learning, build_project_guide, generate_podcast_script, generate_viva_questions, verify_viva_answer, create_ppt_file, text_to_audio_file)
     def images_to_pdf(image_files):
-        images = [Image.open(img).convert("RGB") for img in image_files]
-        buf = io.BytesIO()
-        if len(images) > 1:
-            images[0].save(buf, format="PDF", save_all=True, append_images=images[1:])
-        else:
-            images[0].save(buf, format="PDF")
-        buf.seek(0)
-        return buf
+        images = [Image.open(img).convert("RGB") for img in image_files]; buf=io.BytesIO()
+        if len(images) > 1: images[0].save(buf, format="PDF", save_all=True, append_images=images[1:])
+        else: images[0].save(buf, format="PDF")
+        buf.seek(0); return buf
     def images_to_docx(image_files):
-        doc = Document()
-        doc.add_heading('RAG', 0)
-        buf = io.BytesIO()
+        doc=Document(); doc.add_heading('RAG',0); buf=io.BytesIO()
         for img_file in image_files:
-            image = Image.open(img_file)
-            t = io.BytesIO()
-            image.save(t, format='PNG')
-            t.seek(0)
-            doc.add_picture(t, width=Inches(5.5))
-        doc.save(buf)
-        buf.seek(0)
-        return buf
+            image=Image.open(img_file); t=io.BytesIO(); image.save(t, format='PNG'); t.seek(0); doc.add_picture(t, width=Inches(5.5))
+        doc.save(buf); buf.seek(0); return buf
 
-st.set_page_config(page_title="RAG Based AI Teaching Assistant", layout="wide", page_icon="🎓")
+st.set_page_config(page_title="RAG Based AI Teaching Assistant", layout="wide", page_icon="🎓", initial_sidebar_state="expanded")
 
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
 
-/* SIDEBAR TOGGLE FIX - HEADER KO HIDE NAHI KARNA */
-#MainMenu, footer, div[data-testid="stDecoration"], div[data-testid="stToolbar"] {display:none!important;}
+/* ONLY HIDE MENU/FOOTER - DO NOT HIDE HEADER */
+#MainMenu, footer {display:none!important;}
+div[data-testid="stToolbar"] {display:none!important;}
+div[data-testid="stDecoration"] {display:none!important;}
 
+/* HEADER VISIBLE - SIDEBAR BUTTON ALWAYS VISIBLE */
 header[data-testid="stHeader"] {
-    background: transparent!important;
-    background-color: transparent!important;
-    height: 70px!important;
-    display: flex!important;
-    visibility: visible!important;
-    z-index: 999!important;
-}
-header[data-testid="stHeader"] button[kind="header"],
-header[data-testid="stHeader"] button[data-testid="stSidebarCollapseButton"],
-header[data-testid="stHeader"] button[data-testid="baseButton-header"] {
     display: flex!important;
     visibility: visible!important;
     opacity: 1!important;
+    background: rgba(224,242,254,0.85)!important;
+    backdrop-filter: blur(10px)!important;
+    height: 70px!important;
+    z-index: 999999!important;
+}
+header[data-testid="stHeader"] button {
+    display: flex!important;
+    visibility: visible!important;
+    opacity: 1!important;
+}
+
+/* THIS IS THE ARROW WHEN SIDEBAR IS CLOSED - FORCE SHOW */
+div[data-testid="collapsedControl"] {
+    display: flex!important;
+    visibility: visible!important;
+    opacity: 1!important;
+    position: fixed!important;
+    top: 14px!important;
+    left: 14px!important;
     background: #FFFFFF!important;
     color: #0F172A!important;
-    border: 1.5px solid #7DD3FC!important;
+    border: 2px solid #7DD3FC!important;
     border-radius: 12px!important;
-    box-shadow: 0 4px 14px rgba(14,165,233,0.15)!important;
     width: 44px!important;
     height: 44px!important;
-    margin-top: 12px!important;
-    margin-left: 12px!important;
+    z-index: 1000000!important;
+    box-shadow: 0 4px 16px rgba(14,165,233,0.20)!important;
+    align-items: center!important;
+    justify-content: center!important;
 }
-header[data-testid="stHeader"] button * {
+div[data-testid="collapsedControl"] * {
     color: #0F172A!important;
     fill: #0F172A!important;
 }
+div[data-testid="collapsedControl"] button {
+    background: white!important;
+    color: #0F172A!important;
+}
 
-.main.block-container {padding-top: 1.5rem!important;}
+/* SIDEBAR ALWAYS PRESENT */
+section[data-testid="stSidebar"] {
+    display: block!important;
+    visibility: visible!important;
+    background: linear-gradient(180deg, #FFFFFF 0%, #E0F2FE 22%, #BAE6FD 42%, #FFF7ED 68%, #FFEDD5 85%, #E0F2FE 100%)!important;
+    border-right: 1px solid rgba(125,211,252,0.30)!important;
+}
+section[data-testid="stSidebar"] * {color: #0F172A!important;}
+
+.main.block-container {padding-top: 2.5rem!important;}
 
 .stApp {
     background: linear-gradient(180deg, #E0F2FE 0%, #BAE6FD 18%, #E0F2FE 38%, #FFF7ED 62%, #FFEDD5 82%, #E0F2FE 100%)!important;
@@ -260,12 +217,6 @@ header[data-testid="stHeader"] button * {
 }
 h1, h2, h3 {color: #0F172A!important; font-family:'Space Grotesk'!important;}
 p,.stMarkdown {color: #1E293B!important;}
-
-section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #FFFFFF 0%, #E0F2FE 22%, #BAE6FD 42%, #FFF7ED 68%, #FFEDD5 85%, #E0F2FE 100%)!important;
-    border-right: 1px solid rgba(125,211,252,0.30)!important;
-}
-section[data-testid="stSidebar"] * {color: #0F172A!important;}
 
 .hero-pro {
     background: linear-gradient(135deg, #0EA5E9 0%, #38BDF8 20%, #FB923C 40%, #FBBF24 60%, #F472B6 80%, #A78BFA 100%);
@@ -308,7 +259,6 @@ section.main div[data-testid="stButton"]:nth-of-type(9) button {background: line
 section.main div[data-testid="stButton"]:nth-of-type(10) button {background: linear-gradient(135deg, #FEF3C7, #FFEDD5)!important; color: #78350F!important;}
 section.main div[data-testid="stButton"]:nth-of-type(11) button {background: linear-gradient(135deg, #F0F9FF, #E0F2FE)!important; color: #0C4A6E!important;}
 section.main div[data-testid="stButton"]:nth-of-type(12) button {background: linear-gradient(135deg, #FFF7ED, #FFEDD5)!important; color: #7C2D12!important;}
-div[data-testid="stButton"] > button:hover {transform: translateY(-3px)!important; box-shadow: 0 10px 28px rgba(14,165,233,0.18)!important;}
 
 div[data-testid="stTextInput"] > div > div > input,
 div[data-testid="stNumberInput"] input,
@@ -316,7 +266,6 @@ div[data-testid="stSelectbox"] > div > div {
     background: #FFFFFF!important; border: 1.5px solid #7DD3FC!important;
     border-radius: 12px!important; color: #0F172A!important;
 }
-
 div[data-testid="stFileUploader"] {
     background: #FFFFFF!important; border: 1.5px solid #7DD3FC!important;
     border-radius: 16px!important; padding: 14px!important;
@@ -331,28 +280,15 @@ div[data-testid="stFileUploader"] button {
     background: #FFFFFF!important; color: #0F172A!important;
     border: 1.5px solid #7DD3FC!important; border-radius: 10px!important;
 }
-
 div[data-testid="stTextArea"] textarea {
-    background: #FFFFFF!important; background-color: #FFFFFF!important;
-    color: #0F172A!important; border: 1.5px solid #7DD3FC!important; border-radius: 12px!important;
+    background: #FFFFFF!important; color: #0F172A!important; border: 1.5px solid #7DD3FC!important; border-radius: 12px!important;
 }
-
 div[data-testid="stAudioInput"] {
     background: #FFFFFF!important; border: 1.5px solid #7DD3FC!important;
     border-radius: 16px!important; padding: 12px!important;
 }
-div[data-testid="stAudioInput"] * {color: #0C4A6E!important;}
 div[data-testid="stAudioInput"] button {
-    background: #FFFFFF!important; border: 1.5px solid #7DD3FC!important;
-    color: #0F172A!important; border-radius: 12px!important;
-}
-
-div[data-testid="stRadio"] label {
-    background: #FFFFFF!important; border: 1.5px solid #7DD3FC!important;
-    border-radius: 12px!important; padding: 8px 14px!important;
-}
-div[data-testid="stExpander"] {
-    background: rgba(255,255,255,0.9)!important; border: 1px solid #BAE6FD!important; border-radius: 14px!important;
+    background: #FFFFFF!important; border: 1.5px solid #7DD3FC!important; color: #0F172A!important; border-radius: 12px!important;
 }
 </style>
 <div class="dev-badge">Developer : KADIYA NARESH</div>
