@@ -8,7 +8,7 @@ from rag_utils import (
     story_mode_learning, build_project_guide, generate_podcast_script,
     generate_viva_questions, verify_viva_answer, create_ppt_file,
     create_explainer_video, transcribe_topic_with_language,
-    text_to_audio_file, get_lang_code, generate_story_movie_script
+    text_to_audio_file, generate_story_movie_script
 )
 
 st.set_page_config(page_title="Advance RAG - AI Teaching Assistant", layout="wide", page_icon="🎓")
@@ -22,7 +22,7 @@ html, body, [class*="css"] {font-family: 'Inter', sans-serif;}
 .hero {background: linear-gradient(135deg, #E0E7FF 0%, #C7D2FE 100%); border-radius: 20px; padding: 30px; margin-bottom: 20px;}
 .stButton>button {border-radius: 10px; height: 48px; font-weight: 600;}
 </style>
-<div class="dev-badge">Production V11 | KADIYA NARESH</div>
+<div class="dev-badge">V11.2 Audio Fixed | KADIYA NARESH</div>
 """, unsafe_allow_html=True)
 
 def universal_input(key, placeholder="Bolo ya likho..."):
@@ -42,6 +42,22 @@ def universal_input(key, placeholder="Bolo ya likho..."):
             st.success(f"🎧 {vt}"); return vt
     return txt
 
+def play_audio_block(text, lang, key):
+    """PERFECT AUDIO - Har feature ke liye"""
+    if not text: return
+    st.markdown(f"#### 🔊 {lang} Audio - Poora Output Suno")
+    if st.button(f"▶️ {lang} me Suno", key=f"play_{key}", type="primary"):
+        with st.spinner(f"{lang} me audio bana raha hu..."):
+            audio_path = text_to_audio_file(text, lang)
+            if audio_path and os.path.exists(audio_path) and os.path.getsize(audio_path) > 500:
+                with open(audio_path, "rb") as f:
+                    audio_bytes = f.read()
+                st.audio(audio_bytes, format="audio/mp3", autoplay=True)
+                st.download_button(f"⬇️ Download {lang} MP3", audio_bytes, file_name=f"{key}_{lang}.mp3", mime="audio/mp3", key=f"dl_{key}")
+                st.success(f"✅ {lang} Audio Ready - Poora text bolega!")
+            else:
+                st.error("Audio fail - Internet slow hai, dobara try karo. gTTS ko net chahiye.")
+
 with st.sidebar:
     st.markdown("### 📁 File Upload")
     uploaded_files = st.file_uploader("PDF, CSV, TXT", type=["pdf","csv","txt"], accept_multiple_files=True, label_visibility="collapsed")
@@ -49,12 +65,11 @@ with st.sidebar:
         if uploaded_files:
             with st.spinner("Processing..."):
                 process_files(uploaded_files, 1000, 100)
-            st.success(f"{len(uploaded_files)} files ready!")
     st.divider()
     st.markdown("### 🌐 Global Language")
-    selected_language = st.selectbox("Output Language", ["Hinglish","Hindi","Gujarati","English"], index=0)
+    selected_language = st.selectbox("Output Language", ["Hinglish","Hindi","Gujarati","English"], index=0, key="glang")
     st.session_state.selected_language = selected_language
-    st.info(f"Active: {selected_language} | Sab features isi me ayenge")
+    st.success(f"Active: {selected_language} - Har feature isi me bolega")
     st.divider()
     st.markdown("### 📊 Weak Topics")
     weak = get_weak_topics()
@@ -66,7 +81,7 @@ with st.sidebar:
 st.markdown("""
 <div class="hero">
     <h1 style="margin:0; font-size: 36px; color: #111827;">RAG Based AI Teaching Assistant</h1>
-    <p style="color: #4B5563;">All FREE | Multilingual | Audio + Video | 100% PDF Based</p>
+    <p style="color: #4B5563;">🔊 Har Feature me Audio - Jo Language Select Karoge Usi me Bolega</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -75,7 +90,7 @@ if "viva_qs" not in st.session_state:
     st.session_state.viva_qs = []; st.session_state.viva_idx = 0; st.session_state.viva_score = []
 if "quiz_data" not in st.session_state: st.session_state.quiz_data = None
 
-st.markdown("### ✨ Features - All FREE")
+st.markdown("### ✨ Features - All FREE + Audio")
 c1,c2,c3,c4,c5 = st.columns(5)
 with c1:
     if st.button("💬 Ask Q&A", use_container_width=True): st.session_state.active="Ask"; st.rerun()
@@ -102,171 +117,178 @@ with c10:
 st.divider()
 active = st.session_state.active
 lang = st.session_state.get('selected_language','Hinglish')
-st.header(f"▶ {active} Mode | 🌐 {lang}")
+st.header(f"▶ {active} Mode | 🌐 {lang} | 🔊 Audio Enabled")
 
+# ========== ALL FEATURES WITH PERFECT AUDIO ==========
 if active=="Ask":
     mode = st.radio("Mode:", ["Normal","Socratic"], horizontal=True)
     sel = "socratic" if "Socratic" in mode else "normal"
-    q = universal_input("ask",f"Sawal bolo ({lang} me) - What is IoT?")
+    q = universal_input("ask",f"Sawal bolo ({lang} me)...")
     if st.button("Ask Question", type="primary"):
         if q:
             ans,src = ask_question(q, top_k, mode=sel, language=lang)
+            st.session_state.last_ask = ans
             st.markdown(ans)
-            if st.button("🔊 Suno Answer"):
-                ap = text_to_audio_file(ans, lang)
-                if ap: st.audio(ap)
             with st.expander("📚 Source"): st.write(src)
+    if "last_ask" in st.session_state:
+        play_audio_block(st.session_state.last_ask, lang, "ask")
+
+elif active=="Important":
+    if st.button(f"Generate Important Qs in {lang}",type="primary"):
+        imp = predict_important_questions(language=lang)
+        st.session_state.last_imp = imp
+        st.markdown(imp)
+    if "last_imp" in st.session_state:
+        play_audio_block(st.session_state.last_imp, lang, "imp")
+
+elif active=="Summary":
+    if st.button(f"Generate Summary in {lang}",type="primary"):
+        summ = generate_summary(language=lang)
+        st.session_state.last_summ = summ
+        st.markdown(summ)
+    if "last_summ" in st.session_state:
+        play_audio_block(st.session_state.last_summ, lang, "summ")
+
+elif active=="Story":
+    tp=universal_input("story",f"Topic in {lang} - Stack")
+    if st.button("🎬 Create Story + Audio",type="primary") and tp:
+        story_text = story_mode_learning(tp, language=lang)
+        st.session_state.last_story = story_text
+        st.markdown(story_text)
+        st.divider()
+        reel = generate_story_movie_script(tp, language=lang)
+        st.markdown(reel)
+        st.session_state.last_story = story_text + "\n\n" + reel
+    if "last_story" in st.session_state:
+        play_audio_block(st.session_state.last_story, lang, "story")
+
+elif active=="Projects":
+    idea=universal_input("proj",f"Project idea ({lang})")
+    bud=st.selectbox("Budget",["low (under ₹1500)","medium (₹1500-5000)","high (₹5000+)"])
+    if st.button("Generate Guide",type="primary") and idea:
+        guide = build_project_guide(idea,bud, language=lang)
+        st.session_state.last_proj = guide
+        st.markdown(guide)
+    if "last_proj" in st.session_state:
+        play_audio_block(st.session_state.last_proj, lang, "proj")
+
+elif active=="Podcast":
+    tp=universal_input("pod",f"Topic for Podcast in {lang}")
+    if st.button("🎙️ Create Podcast + Audio",type="primary") and tp:
+        pod_text = generate_podcast_script(tp, language=lang)
+        st.session_state.last_pod = pod_text
+        st.markdown(pod_text)
+        # Auto audio
+        ap = text_to_audio_file(pod_text, lang)
+        if ap and os.path.exists(ap):
+            with open(ap,"rb") as f:
+                st.audio(f.read(), format="audio/mp3", autoplay=True)
+            st.success(f"🔊 {lang} Podcast Auto Play")
+    if "last_pod" in st.session_state:
+        play_audio_block(st.session_state.last_pod, lang, "pod")
 
 elif active=="Quiz":
-    st.info(f"Quiz ab perfect hai - {lang} me")
     n = st.number_input("Kitne Q?",3,15,5)
     if st.button("Generate Quiz", type="primary"):
-        with st.spinner("PDF se quiz bana raha hu..."):
-            quiz_list = generate_quiz(n, language=lang)
-            st.session_state.quiz_data = quiz_list
-            st.rerun()
+        quiz_list = generate_quiz(n, language=lang)
+        st.session_state.quiz_data = quiz_list
+        st.rerun()
     if st.session_state.quiz_data:
         for i, qd in enumerate(st.session_state.quiz_data):
             with st.container(border=True):
                 st.markdown(f"**Q{i+1}. {qd['question']}**")
                 choice = st.radio(f"Select {i}", qd['options'], key=f"quiz_{i}", label_visibility="collapsed")
-                if st.button(f"Check Q{i+1}", key=f"chk_{i}"):
-                    ok, fb = check_quiz_answer(qd['question'], choice, qd['answer'], qd.get('topic','general'))
-                    st.success(fb) if ok else st.error(fb)
-                    if qd.get('explanation'):
-                        st.info(f"📖 PDF se Explanation: {qd['explanation']}")
+                c1,c2 = st.columns(2)
+                with c1:
+                    if st.button(f"🔊 Suno Q{i+1}", key=f"aud_{i}"):
+                        ap = text_to_audio_file(f"{qd['question']} Options: {', '.join(qd['options'])}", lang)
+                        if ap and os.path.exists(ap):
+                            with open(ap,"rb") as f: st.audio(f.read(), format="audio/mp3")
+                with c2:
+                    if st.button(f"Check Q{i+1}", key=f"chk_{i}"):
+                        ok, fb = check_quiz_answer(qd['question'], choice, qd['answer'], qd.get('topic','general'))
+                        st.success(fb) if ok else st.error(fb)
+                        # Explanation audio
+                        exp_text = f"{fb}. Explanation: {qd.get('explanation','')}"
+                        ap2 = text_to_audio_file(exp_text, lang)
+                        if ap2 and os.path.exists(ap2):
+                            with open(ap2,"rb") as f: st.audio(f.read(), format="audio/mp3")
+                        st.info(f"📖 {qd.get('explanation','')}")
 
 elif active=="Viva":
-    topic=universal_input("viva_topic",f"Viva topic ({lang}) - DBMS")
+    topic=universal_input("viva_topic",f"Viva topic ({lang})")
     num=st.slider("Questions?",3,20,5)
     if st.button("Start Viva",type="primary"):
         if topic:
-            with st.spinner("PDF se questions..."):
-                qs=generate_viva_questions(topic,num, language=lang)
-                st.session_state.viva_qs=qs; st.session_state.viva_idx=0; st.session_state.viva_score=[]; st.rerun()
+            qs=generate_viva_questions(topic,num, language=lang)
+            st.session_state.viva_qs=qs; st.session_state.viva_idx=0; st.session_state.viva_score=[]; st.rerun()
     if st.session_state.viva_qs:
         idx=st.session_state.viva_idx
         if idx < len(st.session_state.viva_qs):
             curr=st.session_state.viva_qs[idx]
-            st.subheader(f"Q{idx+1}/{len(st.session_state.viva_qs)}: {curr['q']}")
+            st.subheader(f"Q{idx+1}: {curr['q']}")
+            if st.button(f"🔊 Suno Question in {lang}", key=f"v_aud_{idx}"):
+                ap = text_to_audio_file(curr['q'], lang)
+                if ap and os.path.exists(ap):
+                    with open(ap,"rb") as f: st.audio(f.read(), format="audio/mp3")
             user_ans=universal_input(f"v_ans_{idx}",f"Answer in {lang}")
-            c1,c2=st.columns(2)
-            with c1:
-                if st.button("Submit"):
-                    if user_ans:
-                        res=verify_viva_answer(curr['q'], curr['a'], user_ans, language=lang)
-                        is_true=res['verdict'].lower()=="true"
-                        st.session_state.viva_score.append({"q":curr['q'],"your":user_ans,"correct":curr['a'],"result":"✅" if is_true else "❌","fb":res['feedback']})
-                        st.success(res['feedback']) if is_true else st.error(res['feedback'])
-                        st.session_state.viva_idx+=1; st.rerun()
-            with c2:
-                if st.button("Stop"): st.session_state.viva_idx=len(st.session_state.viva_qs); st.rerun()
+            if st.button("Submit", key=f"v_sub_{idx}"):
+                if user_ans:
+                    res=verify_viva_answer(curr['q'], curr['a'], user_ans, language=lang)
+                    st.session_state.viva_score.append({"q":curr['q'],"your":user_ans,"correct":curr['a'],"result":res['verdict'],"fb":res['feedback']})
+                    # Feedback audio in selected lang
+                    ap2 = text_to_audio_file(res['feedback'], lang)
+                    if ap2 and os.path.exists(ap2):
+                        with open(ap2,"rb") as f: st.audio(f.read(), format="audio/mp3", autoplay=True)
+                    st.write(res['feedback'])
+                    st.session_state.viva_idx+=1; st.rerun()
         else:
             score=st.session_state.viva_score
-            true_c=sum(1 for x in score if "✅" in x['result'])
-            st.success(f"Viva Done! Sahi: {true_c}/{len(score)}")
-            for i,s in enumerate(score):
-                with st.expander(f"{i+1}. {s['q']} - {s['result']}"):
-                    st.write(f"Your: {s['your']}"); st.write(f"Correct: {s['correct']}")
+            st.success(f"Viva Done! {len(score)} Qs")
 
 elif active=="PPT":
     topic=universal_input("ppt",f"Topic in {lang} - AI")
     pages=st.slider("Slides?",5,25,10)
-    if st.button("Create Premium PPT",type="primary"):
+    if st.button("Create PPT",type="primary"):
         if topic:
-            with st.spinner(f"{pages} slides {lang} me bana raha hu..."):
-                ppt_path=create_ppt_file(topic, pages, language=lang)
-                with open(ppt_path,"rb") as f:
-                    st.download_button("⬇️ Download PPT", f, file_name=f"{topic}_{lang}_{pages}_slides.pptx")
-                st.success("Premium PPT Ban gaya!")
+            ppt_path=create_ppt_file(topic, pages, language=lang)
+            with open(ppt_path,"rb") as f:
+                st.download_button("⬇️ Download PPT", f, file_name=f"{topic}_{lang}.pptx")
+            st.success("Ban gaya!")
+            play_audio_block(f"{topic} par {pages} slides ka PPT {lang} me ban gaya hai.", lang, "ppt")
 
 elif active=="Video":
     st.info(f"FULL CUSTOMIZABLE VIDEO - {lang}")
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
     with col1:
         v_lang = st.selectbox("🌐 Video Language", ["Hinglish","Hindi","Gujarati","English","Marathi"], index=0)
     with col2:
         duration_option = st.selectbox("⏱️ Duration", ["30 sec","60 sec","90 sec","2 min","2.5 min","5 min","Custom"])
         if duration_option=="Custom":
-            custom_sec = st.number_input("Seconds likho", 20, 600, 150)
-            duration_sec = custom_sec
+            duration_sec = st.number_input("Seconds", 20, 600, 150)
         else:
             mapping = {"30 sec":30,"60 sec":60,"90 sec":90,"2 min":120,"2.5 min":150,"5 min":300}
             duration_sec = mapping[duration_option]
-    with col3:
-        voice = st.selectbox("🎙️ Voice", ["Auto (Lang wise)","Male Deep","Female Soft"])
-
-    topic_text = st.text_input(f"Topic (PDF me ho) - {v_lang} me", placeholder="e.g. Deadlock in OS")
-    st.write("Ya Voice me bolo:")
+    topic_text = st.text_input(f"Topic - {v_lang} me", placeholder="Deadlock")
     audio_val = st.audio_input("🎤 Topic bolo", key="vid_audio")
     final_topic = topic_text; final_lang = v_lang
     if audio_val:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
             tmp.write(audio_val.getvalue()); ap = tmp.name
-        with st.spinner("Voice sun raha hu..."):
+        with st.spinner("Sun raha hu..."):
             t, l = transcribe_topic_with_language(ap)
             if os.path.exists(ap): os.remove(ap)
-            if t: final_topic = t; final_lang = l; st.success(f"🎧 Topic = {t} | Language = {l}")
-
-    st.caption(f"Selected: {duration_sec} sec video in {final_lang} - {duration_sec//30} scenes banenge")
+            if t: final_topic = t; final_lang = l; st.success(f"Topic = {t} | Lang = {l}")
     if st.button(f"🚀 Generate {duration_sec} sec Video", type="primary"):
-        if not final_topic: st.warning("Topic likho ya bolo!")
+        if not final_topic: st.warning("Topic likho!")
         else:
-            with st.spinner(f"{final_topic} pe {final_lang} me {duration_sec} sec video..."):
-                try:
-                    v_path, scenes = create_explainer_video(final_topic, final_lang, duration_sec=duration_sec)
-                    if v_path and os.path.exists(v_path):
-                        st.success("VIDEO BAN GAYA!"); st.video(v_path)
-                        with open(v_path, "rb") as f:
-                            st.download_button("⬇️ Download Video", f, file_name=f"{final_topic}_{final_lang}_{duration_sec}s.mp4")
-                        with st.expander("📜 Scenes Detail"): st.json(scenes)
-                    else: st.error(f"❌ {scenes}")
-                except Exception as e:
-                    st.error(f"Error: {e}"); import traceback; st.code(traceback.format_exc())
-
-elif active=="Story":
-    tp=universal_input("story",f"Topic in {lang} - Stack")
-    if st.button("🎬 Create Blockbuster Movie",type="primary") and tp:
-        with st.spinner(f"{lang} me story bana raha hu..."):
-            story_text = story_mode_learning(tp, language=lang)
-            st.markdown(story_text)
-            st.divider()
-            col1,col2 = st.columns(2)
-            with col1:
-                if st.button("🔊 Movie Script Suno", key="story_audio"):
-                    ap = text_to_audio_file(story_text, lang)
-                    if ap: st.audio(ap); st.success("Audio ready!")
-            with col2:
-                if st.button("🎥 Viral Reel Script"):
-                    st.markdown(generate_story_movie_script(tp, language=lang))
-
-elif active=="Projects":
-    idea=universal_input("proj",f"Project idea ({lang}) - Smart Dustbin")
-    bud=st.selectbox("Budget",["low (under ₹1500)","medium (₹1500-5000)","high (₹5000+)"])
-    if st.button("Generate Guide",type="primary") and idea:
-        st.markdown(build_project_guide(idea,bud, language=lang))
-
-elif active=="Podcast":
-    tp=universal_input("pod",f"Topic for Podcast in {lang}")
-    if st.button("🎙️ Create Podcast + Audio",type="primary") and tp:
-        with st.spinner(f"{lang} me podcast..."):
-            pod_text = generate_podcast_script(tp, language=lang)
-            st.markdown(pod_text)
-            st.divider()
-            ap = text_to_audio_file(pod_text, lang)
-            if ap:
-                st.success(f"🔊 {lang} Podcast Audio Ready!")
-                st.audio(ap, format="audio/mp3")
-                with open(ap,"rb") as f:
-                    st.download_button("⬇️ Download Podcast MP3", f, file_name=f"{tp}_{lang}_podcast.mp3")
-
-elif active=="Summary":
-    if st.button(f"Generate Summary in {lang}",type="primary"):
-        st.markdown(generate_summary(language=lang))
-
-elif active=="Important":
-    if st.button(f"Predict Important Qs in {lang}",type="primary"):
-        st.markdown(predict_important_questions(language=lang))
+            with st.spinner(f"{final_topic} pe {final_lang} me {duration_sec}s video..."):
+                v_path, scenes = create_explainer_video(final_topic, final_lang, duration_sec=duration_sec)
+                if v_path and os.path.exists(v_path):
+                    st.success(f"VIDEO BAN GAYA! Audio {final_lang} me hai")
+                    st.video(v_path)
+                    with open(v_path, "rb") as f:
+                        st.download_button("⬇️ Download Video", f, file_name=f"{final_topic}_{final_lang}_{duration_sec}s.mp4")
 
 with st.expander("🕘 History"):
     h=load_conversation_history()
