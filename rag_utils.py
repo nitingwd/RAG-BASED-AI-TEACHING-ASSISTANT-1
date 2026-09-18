@@ -266,10 +266,10 @@ def create_explainer_video(topic, language="Hinglish", duration_sec=150):
     final.write_videofile(out_path, fps=12, codec='libx264', audio_codec='aac', preset='ultrafast', threads=4, verbose=False, logger=None)
     return out_path, scenes
 
-# ========== PREMIUM RESUME + SOFTWARE BUILDER - FREE FOR NOW ==========
+# ========== PREMIUM RESUME + SOFTWARE BUILDER - FREE + UNICODE FIXED ==========
 def generate_premium_resume_data(user_info, language="English"):
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.2)
-    prompt = f"""You are FAANG Resume Expert. Create ATS-friendly resume JSON. User: {user_info} Return ONLY JSON: {{"name":"","role":"","email":"","phone":"","linkedin":"","github":"","summary":"","skills":{{"Languages":[],"Frontend":[],"Backend":[],"Tools":[]}},"experience":[{{"role":"","company":"","duration":"","points":[]}}],"projects":[{{"name":"","tech":"","points":[],"link":""}}],"education":[{{"degree":"","college":"","year":"","cgpa":""}}],"certifications":[]}} No extra text."""
+    prompt = f"""You are FAANG Resume Expert. Create ATS-friendly resume JSON in ENGLISH ONLY. User: {user_info} Return ONLY JSON: {{"name":"","role":"","email":"","phone":"","linkedin":"","github":"","summary":"","skills":{{"Languages":[],"Frontend":[],"Backend":[],"Tools":[]}},"experience":[{{"role":"","company":"","duration":"","points":[]}}],"projects":[{{"name":"","tech":"","points":[],"link":""}}],"education":[{{"degree":"","college":"","year":"","cgpa":""}}],"certifications":[]}} No Hindi, No emoji, only English ASCII. No extra text."""
     try:
         txt = llm.invoke(prompt).content; s=txt.find('{'); e=txt.rfind('}')+1; return json.loads(txt[s:e])
     except Exception as e:
@@ -277,47 +277,102 @@ def generate_premium_resume_data(user_info, language="English"):
 
 def create_premium_resume_pdf(resume_data):
     from fpdf import FPDF
-    pdf = FPDF('P','mm','A4'); pdf.set_auto_page_break(auto=True, margin=15); pdf.add_page()
-    pdf.set_fill_color(13,17,38); pdf.rect(0,0,210,35,'F')
-    pdf.set_xy(10,8); pdf.set_font("Helvetica",'B',22); pdf.set_text_color(255,255,255); pdf.cell(0,10,resume_data.get('name','NARESH').upper(),align='C')
-    pdf.set_xy(10,18); pdf.set_font("Helvetica",'',11); pdf.set_text_color(200,220,255); pdf.cell(0,6,f"{resume_data.get('role','')} | {resume_data.get('email','')} | {resume_data.get('phone','')}",align='C')
+    def clean_ascii(text):
+        if not text: return ""
+        text = str(text)
+        text = text.encode('ascii', 'ignore').decode('ascii')
+        text = re.sub(r'[^\x00-\x7F]+', ' ', text)
+        return text.strip()
+
+    pdf = FPDF('P','mm','A4')
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+    pdf.set_fill_color(13,17,38)
+    pdf.rect(0,0,210,35,'F')
+
+    name = clean_ascii(resume_data.get('name','NARESH')) or "NARESH"
+    role = clean_ascii(resume_data.get('role','Software Developer'))
+    email = clean_ascii(resume_data.get('email',''))
+    phone = clean_ascii(resume_data.get('phone',''))
+
+    pdf.set_xy(10,8); pdf.set_font("Helvetica",'B',22); pdf.set_text_color(255,255,255); pdf.cell(0,10, name.upper(), align='C')
+    pdf.set_xy(10,18); pdf.set_font("Helvetica",'',9); pdf.set_text_color(200,220,255); pdf.cell(0,6, f"{role} | {email} | {phone}", align='C')
     pdf.ln(20); pdf.set_text_color(20,20,20)
+
     def section(t):
-        pdf.set_font("Helvetica",'B',12); pdf.set_fill_color(224,231,255); pdf.cell(0,8,f" {t.upper()}",fill=True,new_x="LMARGIN",new_y="NEXT"); pdf.ln(2)
-    section("Professional Summary"); pdf.set_font("Helvetica",'',10); pdf.multi_cell(0,5,resume_data.get('summary','')); pdf.ln(3)
-    section("Technical Skills"); pdf.set_font("Helvetica",'',10)
+        t = clean_ascii(t)
+        pdf.set_font("Helvetica",'B',12); pdf.set_fill_color(224,231,255)
+        pdf.cell(0,8,f" {t.upper()}",fill=True,new_x="LMARGIN",new_y="NEXT"); pdf.ln(2)
+
+    section("Professional Summary")
+    pdf.set_font("Helvetica",'',10)
+    summary = clean_ascii(resume_data.get('summary','Topper developer with MERN skills')) or "Experienced developer"
+    pdf.multi_cell(0,5, summary); pdf.ln(3)
+
+    section("Technical Skills")
     for cat,skills in resume_data.get('skills',{}).items():
-        pdf.set_font("Helvetica",'B',10); pdf.write(5,f"{cat}: "); pdf.set_font("Helvetica",'',10); pdf.write(5,", ".join(skills)+"\n")
+        cat_c = clean_ascii(cat)
+        skills_c = [clean_ascii(s) for s in skills if clean_ascii(s)]
+        if not skills_c: continue
+        pdf.set_font("Helvetica",'B',10); pdf.write(5,f"{cat_c}: ")
+        pdf.set_font("Helvetica",'',10); pdf.write(5, ", ".join(skills_c)+"\n")
     pdf.ln(3)
+
     section("Experience")
     for exp in resume_data.get('experience',[]):
-        pdf.set_font("Helvetica",'B',10); pdf.cell(0,5,f"{exp.get('role','')} @ {exp.get('company','')} | {exp.get('duration','')}",new_x="LMARGIN",new_y="NEXT"); pdf.set_font("Helvetica",'',9.5)
-        for p in exp.get('points',[]): pdf.cell(5); pdf.multi_cell(0,4.5,f"• {p}")
+        pdf.set_font("Helvetica",'B',10)
+        pdf.cell(0,5,f"{clean_ascii(exp.get('role',''))} @ {clean_ascii(exp.get('company',''))} | {clean_ascii(exp.get('duration',''))}",new_x="LMARGIN",new_y="NEXT")
+        pdf.set_font("Helvetica",'',9.5)
+        for p in exp.get('points',[]):
+            pc = clean_ascii(p)
+            if pc:
+                pdf.cell(5); pdf.multi_cell(0,4.5,f"- {pc}")
         pdf.ln(2)
+
     section("Projects")
     for proj in resume_data.get('projects',[]):
-        pdf.set_font("Helvetica",'B',10); pdf.cell(0,5,f"{proj.get('name','')} | {proj.get('tech','')}",new_x="LMARGIN",new_y="NEXT"); pdf.set_font("Helvetica",'',9.5)
-        for p in proj.get('points',[]): pdf.cell(5); pdf.multi_cell(0,4.5,f"• {p}")
+        pdf.set_font("Helvetica",'B',10)
+        pdf.cell(0,5,f"{clean_ascii(proj.get('name',''))} | {clean_ascii(proj.get('tech',''))}",new_x="LMARGIN",new_y="NEXT")
+        pdf.set_font("Helvetica",'',9.5)
+        for p in proj.get('points',[]):
+            pc = clean_ascii(p)
+            if pc:
+                pdf.cell(5); pdf.multi_cell(0,4.5,f"- {pc}")
         pdf.ln(2)
-    section("Education & Certifications")
+
+    section("Education")
     for edu in resume_data.get('education',[]):
-        pdf.set_font("Helvetica",'',10); pdf.cell(0,5,f"{edu.get('degree','')} - {edu.get('college','')} ({edu.get('year','')}) - {edu.get('cgpa','')}",new_x="LMARGIN",new_y="NEXT")
-    pdf.set_font("Helvetica",'',10); pdf.cell(0,5,"Certs: " + ", ".join(resume_data.get('certifications',[])),new_x="LMARGIN",new_y="NEXT")
-    tmp=tempfile.NamedTemporaryFile(delete=False,suffix=".pdf"); pdf.output(tmp.name); return tmp.name
+        pdf.set_font("Helvetica",'',10)
+        line = f"{clean_ascii(edu.get('degree',''))} - {clean_ascii(edu.get('college',''))} ({clean_ascii(edu.get('year',''))}) {clean_ascii(edu.get('cgpa',''))}"
+        pdf.cell(0,5,line,new_x="LMARGIN",new_y="NEXT")
+
+    certs = [clean_ascii(c) for c in resume_data.get('certifications',[]) if clean_ascii(c)]
+    if certs:
+        pdf.set_font("Helvetica",'',10)
+        pdf.cell(0,5,"Certs: " + ", ".join(certs),new_x="LMARGIN",new_y="NEXT")
+
+    tmp=tempfile.NamedTemporaryFile(delete=False,suffix=".pdf")
+    pdf.output(tmp.name)
+    return tmp.name
 
 def generate_software_project(requirement, tech_stack="MERN", language="English"):
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.2)
-    prompt = f"""You are Senior Full Stack Architect. Requirement: {requirement} Tech: {tech_stack} Create PRODUCTION READY project JSON: {{"project_name":"","description":"","tech_stack":[],"files":[{{"path":"frontend/src/App.jsx","content":"FULL React code with Tailwind"}},{{"path":"backend/server.js","content":"Express server"}},{{"path":"README.md","content":"Setup"}},{{"path":".env.example","content":"PORT=5000"}},{{"path":"package.json","content":"{{}}"}}],"setup_steps":[],"features":[]}} IMPORTANT: FULL code, no TODO. Only JSON."""
+    prompt = f"""You are Senior Full Stack Architect. Requirement: {requirement} Tech: {tech_stack} Create PRODUCTION READY project JSON: {{"project_name":"","description":"","tech_stack":[],"files":[{{"path":"frontend/src/App.jsx","content":"FULL React code"}},{{"path":"backend/server.js","content":"Express server"}},{{"path":"README.md","content":"Setup steps"}},{{"path":".env.example","content":"PORT=5000"}}],"setup_steps":[],"features":[]}} IMPORTANT: FULL code, no TODO, only ASCII English. Only JSON."""
     try:
         txt=llm.invoke(prompt).content; s=txt.find('{'); e=txt.rfind('}')+1; return json.loads(txt[s:e])
     except Exception as e:
         print(f"Software error {e}"); return None
 
 def create_project_zip(project_data):
-    import zipfile; temp_dir=tempfile.mkdtemp(); project_name=project_data.get('project_name','project').replace(' ','_')
+    import zipfile
+    temp_dir=tempfile.mkdtemp()
+    project_name=project_data.get('project_name','project').replace(' ','_')
+    project_name = re.sub(r'[^a-zA-Z0-9_]', '', project_name) or "project"
     for f in project_data.get('files',[]):
-        fp=os.path.join(temp_dir,project_name,f['path']); os.makedirs(os.path.dirname(fp),exist_ok=True)
-        with open(fp,'w',encoding='utf-8') as out: out.write(f['content'])
+        fp=os.path.join(temp_dir,project_name,f['path'])
+        os.makedirs(os.path.dirname(fp),exist_ok=True)
+        with open(fp,'w',encoding='utf-8', errors='ignore') as out:
+            out.write(f['content'])
     zip_path=os.path.join(tempfile.gettempdir(),f"{project_name}_PRODUCTION.zip")
     with zipfile.ZipFile(zip_path,'w',zipfile.ZIP_DEFLATED) as zipf:
         for root,dirs,files in os.walk(os.path.join(temp_dir,project_name)):
