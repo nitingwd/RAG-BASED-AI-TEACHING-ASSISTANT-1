@@ -7,7 +7,7 @@ from rag_utils import (
     check_quiz_answer, get_weak_topics, transcribe_audio,
     story_mode_learning, build_project_guide, generate_podcast_script,
     generate_viva_questions, verify_viva_answer, create_ppt_file,
-    text_to_audio_file
+    text_to_audio_file, images_to_pdf, images_to_docx
 )
 
 st.set_page_config(page_title="Advance RAG - AI Teaching Assistant", layout="wide", page_icon="🎓")
@@ -21,7 +21,7 @@ html, body, [class*="css"] {font-family: 'Inter', sans-serif;}
 .hero {background: linear-gradient(135deg, #E0E7FF 0%, #C7D2FE 100%); border-radius: 20px; padding: 30px; margin-bottom: 20px;}
 .stButton>button {border-radius: 10px; height: 48px; font-weight: 600;}
 </style>
-<div class="dev-badge">V15.1 FIXED REPORT | KADIYA NARESH</div>
+<div class="dev-badge">V15.2 + IMAGE2PDF | KADIYA NARESH</div>
 """, unsafe_allow_html=True)
 
 def universal_input(key, placeholder="Bolo ya likho..."):
@@ -79,7 +79,7 @@ with st.sidebar:
 st.markdown("""
 <div class="hero">
     <h1 style="margin:0; font-size: 36px; color: #111827;">RAG Based AI Teaching Assistant</h1>
-    <p style="color: #4B5563;">🔊 Audio + Quiz Report + Viva Report - V15.1 Fixed</p>
+    <p style="color: #4B5563;">🔊 Audio + Quiz Report + Viva Report + Image2PDF - V15.2</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -91,7 +91,7 @@ if "quiz_data" not in st.session_state:
 if "quiz_results" not in st.session_state:
     st.session_state.quiz_results = []
 
-st.markdown("### ✨ Features - V15")
+st.markdown("### ✨ Features - V15.2")
 c1,c2,c3,c4,c5,c6 = st.columns(6)
 with c1:
     if st.button("💬 Ask Q&A", use_container_width=True): st.session_state.active="Ask"; st.rerun()
@@ -106,20 +106,72 @@ with c5:
 with c6:
     if st.button("📊 PPT", use_container_width=True): st.session_state.active="PPT"; st.rerun()
 
-c7,c8,c9 = st.columns(3)
+c7,c8,c9,c10 = st.columns(4)
 with c7:
     if st.button("📄 Summary", use_container_width=True): st.session_state.active="Summary"; st.rerun()
 with c8:
     if st.button("📖 Story", use_container_width=True): st.session_state.active="Story"; st.rerun()
 with c9:
     if st.button("🎙️ Podcast", use_container_width=True): st.session_state.active="Podcast"; st.rerun()
+with c10:
+    if st.button("🖼️ Image to PDF", use_container_width=True): st.session_state.active="Image2PDF"; st.rerun()
 
 st.divider()
 active = st.session_state.active
 lang = st.session_state.get('selected_language','Hinglish')
 st.header(f"▶ {active} Mode | 🌐 {lang} | 🔊 Audio Enabled")
 
-if active=="Ask":
+if active=="Image2PDF":
+    st.markdown("### 🖼️ Image to PDF / DOCX Converter - Game Changer")
+    st.info("Single ya Multiple Images upload karo -> PDF aur DOCX banake download karo. Ye feature NotebookLM me bhi nahi hai!")
+    uploaded_images = st.file_uploader(
+        "Images Upload Karo (JPG, PNG, JPEG)",
+        type=["jpg","jpeg","png"],
+        accept_multiple_files=True,
+        key="img_upload"
+    )
+    if uploaded_images:
+        st.success(f"✅ {len(uploaded_images)} images selected")
+        cols = st.columns(5)
+        for idx, img in enumerate(uploaded_images):
+            with cols[idx % 5]:
+                st.image(img, caption=f"Img {idx+1}", use_container_width=True)
+        st.divider()
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("📄 PDF me Convert Karo", type="primary", use_container_width=True):
+                with st.spinner("PDF bana raha hu..."):
+                    pdf_data = images_to_pdf(uploaded_images)
+                    st.session_state.pdf_ready = pdf_data
+                st.success("PDF Ready!")
+        with col2:
+            if st.button("📝 DOCX me Convert Karo", type="primary", use_container_width=True):
+                with st.spinner("DOCX bana raha hu..."):
+                    docx_data = images_to_docx(uploaded_images)
+                    st.session_state.docx_ready = docx_data
+                st.success("DOCX Ready!")
+        if "pdf_ready" in st.session_state:
+            st.download_button(
+                label="⬇️ PDF Download Karo",
+                data=st.session_state.pdf_ready,
+                file_name=f"SUBMIT_Images_{len(uploaded_images)}_pages.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+                key="dl_pdf_final"
+            )
+        if "docx_ready" in st.session_state:
+            st.download_button(
+                label="⬇️ DOCX Download Karo",
+                data=st.session_state.docx_ready,
+                file_name=f"SUBMIT_Images_{len(uploaded_images)}_pages.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True,
+                key="dl_docx_final"
+            )
+    else:
+        st.warning("Pehle images upload karo")
+
+elif active=="Ask":
     mode = st.radio("Mode:", ["Normal","Socratic"], horizontal=True)
     sel = "socratic" if "Socratic" in mode else "normal"
     q = universal_input("ask",f"Sawal bolo ({lang} me)...")
