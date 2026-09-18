@@ -20,11 +20,11 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
 html, body, [class*="css"] {font-family: 'Inter', sans-serif;}
 .main {background-color: #F8F9FF;}
-.dev-badge {position: fixed; bottom: 15px; right: 15px; background: #111; color: white; padding: 8px 14px; border-radius: 20px; font-size: 12px; z-index: 999;}
+.dev-badge {position: fixed; bottom: 15px; right: 15px; background: linear-gradient(135deg,#0D1126,#6366F1); color: white; padding: 8px 14px; border-radius: 20px; font-size: 12px; z-index: 999;}
 .hero {background: linear-gradient(135deg, #E0E7FF 0%, #C7D2FE 100%); border-radius: 20px; padding: 30px; margin-bottom: 20px;}
 .stButton>button {border-radius: 10px; height: 48px; font-weight: 600;}
 </style>
-<div class="dev-badge">V12 FREE Premium | KADIYA NARESH</div>
+<div class="dev-badge">V13 PREMIUM Photo+Theme | KADIYA NARESH</div>
 """, unsafe_allow_html=True)
 
 def universal_input(key, placeholder="Bolo ya likho..."):
@@ -45,7 +45,6 @@ def universal_input(key, placeholder="Bolo ya likho..."):
     return txt
 
 def play_audio_block(text, lang, key):
-    """PERFECT AUDIO - Har feature ke liye"""
     if not text: return
     st.markdown(f"#### 🔊 {lang} Audio - Poora Output Suno")
     if st.button(f"▶️ {lang} me Suno", key=f"play_{key}", type="primary"):
@@ -56,9 +55,9 @@ def play_audio_block(text, lang, key):
                     audio_bytes = f.read()
                 st.audio(audio_bytes, format="audio/mp3", autoplay=True)
                 st.download_button(f"⬇️ Download {lang} MP3", audio_bytes, file_name=f"{key}_{lang}.mp3", mime="audio/mp3", key=f"dl_{key}")
-                st.success(f"✅ {lang} Audio Ready - Poora text bolega!")
+                st.success(f"✅ {lang} Audio Ready!")
             else:
-                st.error("Audio fail - Internet slow hai, dobara try karo. gTTS ko net chahiye.")
+                st.error("Audio fail - net check karo")
 
 with st.sidebar:
     st.markdown("### 📁 File Upload")
@@ -71,7 +70,7 @@ with st.sidebar:
     st.markdown("### 🌐 Global Language")
     selected_language = st.selectbox("Output Language", ["Hinglish","Hindi","Gujarati","English"], index=0, key="glang")
     st.session_state.selected_language = selected_language
-    st.success(f"Active: {selected_language} - Har feature isi me bolega")
+    st.success(f"Active: {selected_language}")
     st.divider()
     st.markdown("### 📊 Weak Topics")
     weak = get_weak_topics()
@@ -83,7 +82,7 @@ with st.sidebar:
 st.markdown("""
 <div class="hero">
     <h1 style="margin:0; font-size: 36px; color: #111827;">RAG Based AI Teaching Assistant</h1>
-    <p style="color: #4B5563;">🔊 Audio + 💼 Resume + 💻 Software Builder - All FREE</p>
+    <p style="color: #4B5563;">🔊 Audio + 💼 Premium Resume Photo+Theme + 💻 Software Builder - All FREE</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -92,7 +91,7 @@ if "viva_qs" not in st.session_state:
     st.session_state.viva_qs = []; st.session_state.viva_idx = 0; st.session_state.viva_score = []
 if "quiz_data" not in st.session_state: st.session_state.quiz_data = None
 
-st.markdown("### ✨ Features - All FREE + Audio")
+st.markdown("### ✨ Features - V13 Premium")
 c1,c2,c3,c4,c5,c6 = st.columns(6)
 with c1:
     if st.button("💬 Ask Q&A", use_container_width=True): st.session_state.active="Ask"; st.rerun()
@@ -294,31 +293,73 @@ elif active=="Video":
                         st.download_button("⬇️ Download Video", f, file_name=f"{final_topic}_{final_lang}_{duration_sec}s.mp4")
 
 elif active=="Resume":
-    st.subheader("💼 Premium Resume Maker - FAANG Level - FREE")
-    st.success("ATS 95% Score | Recruiter Ready | FREE Download")
-    col1,col2 = st.columns(2)
-    with col1:
+    st.subheader("💼 Premium Resume - Photo + Color + Reference")
+    st.success("✅ Premium Sidebar | Photo | 5 Colors | Reference | ATS 95% | FREE")
+
+    col_up1, col_up2 = st.columns(2)
+    with col_up1:
+        photo = st.file_uploader("📸 Photo Upload (Optional)", type=['jpg','png','jpeg'], key="resume_photo")
+        theme = st.selectbox("🎨 Theme Color", ["0D1126 - Dark Blue Premium","0F172A - Sky Blue","1E293B - Emerald Green","7C2D12 - Sunset Orange","581C87 - Royal Purple"])
+        theme_code = theme.split(" - ")[0]
+        if photo:
+            st.image(photo, width=120, caption="Your Photo")
+    with col_up2:
+        st.markdown("**Theme Preview:**")
+        st.markdown(f"""
+        <div style="display:flex;gap:8px;margin-top:10px">
+        <div style="width:35px;height:35px;background:#0D1126;border-radius:8px;border:2px solid #6366F1" title="Dark Blue"></div>
+        <div style="width:35px;height:35px;background:#0F172A;border-radius:8px;border:2px solid #0EA5E9" title="Sky"></div>
+        <div style="width:35px;height:35px;background:#1E293B;border-radius:8px;border:2px solid #10B981" title="Green"></div>
+        <div style="width:35px;height:35px;background:#7C2D12;border-radius:8px;border:2px solid #F97316" title="Orange"></div>
+        <div style="width:35px;height:35px;background:#581C87;border-radius:8px;border:2px solid #A855F7" title="Purple"></div>
+        </div>
+        <p style="font-size:12px;color:gray;margin-top:8px">Selected: {theme}</p>
+        """, unsafe_allow_html=True)
+
+    st.divider()
+    c1,c2 = st.columns(2)
+    with c1:
         name = st.text_input("Full Name", "Kadiya Naresh")
         role = st.text_input("Target Role", "Full Stack Developer")
         email = st.text_input("Email", "naresh@example.com")
         phone = st.text_input("Phone", "+91 98765 43210")
-    with col2:
+        location = st.text_input("Location", "Ahmedabad, Gujarat")
+    with c2:
         linkedin = st.text_input("LinkedIn", "linkedin.com/in/naresh")
         github = st.text_input("GitHub", "github.com/naresh")
-        skills_input = st.text_area("Skills / Projects / Experience Detail", "MERN, Python, 2 Projects - E-commerce, Chat App, GTU 8.5 CGPA, Internship at XYZ")
-    if st.button("🚀 Generate FAANG Resume", type="primary"):
-        with st.spinner("FAANG level resume bana raha hu..."):
-            user_info = f"Name:{name}, Role:{role}, Email:{email}, Phone:{phone}, LinkedIn:{linkedin}, Github:{github}, Details:{skills_input}"
+        portfolio = st.text_input("Portfolio / Website", "naresh.dev")
+        languages_input = st.text_input("Languages (comma)", "English, Hindi, Gujarati")
+
+    st.markdown("### 📝 Full Details - Sab kuch detail me likh do")
+    skills_input = st.text_area("Experience + Projects + Skills + Education + Awards + References",
+        "Experience: Intern at XYZ 6 months, built dashboard with 40% improvement, Led team\nProjects: E-commerce MERN 1000 users, Chat App with Socket.io 500 users\nSkills: MERN, Python, AWS, Docker\nEducation: B.Tech CSE GTU SPCE 2021-25 8.5 CGPA\nCertifications: AWS Certified, Google Cloud\nAwards: Hackathon Winner 2024, Topper\nReferences: Prof. Shah - HOD SPCE - shah@spce.edu, Dr. Patel - Manager XYZ - patel@xyz.com",
+        height=180)
+
+    if st.button("🚀 Generate PREMIUM Resume with Photo & Theme", type="primary", use_container_width=True):
+        photo_path = None
+        if photo:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
+                tmp.write(photo.getvalue())
+                photo_path = tmp.name
+
+        with st.spinner(f"Premium resume bana raha hu - {theme} me..."):
+            user_info = f"Name:{name}, Role:{role}, Email:{email}, Phone:{phone}, Location:{location}, LinkedIn:{linkedin}, Github:{github}, Portfolio:{portfolio}, Languages:{languages_input}, Details:{skills_input}"
             resume_data = generate_premium_resume_data(user_info, lang)
             if resume_data:
-                st.session_state.resume_data = resume_data
-                pdf_path = create_premium_resume_pdf(resume_data)
-                st.success("✅ Resume Ready!")
+                resume_data['location'] = location
+                resume_data['portfolio'] = portfolio
+                resume_data['languages'] = [x.strip() for x in languages_input.split(",") if x.strip()]
+
+                pdf_path = create_premium_resume_pdf(resume_data, photo_path=photo_path, theme_color=theme_code)
+                st.success(f"✅ Premium Resume Ready! Theme: {theme}")
                 with open(pdf_path,"rb") as f:
-                    pdf_bytes = f.read()
-                    st.download_button("⬇️ Download Premium Resume PDF", pdf_bytes, file_name=f"{name.replace(' ','_')}_FAANG_Resume.pdf", mime="application/pdf", type="primary")
-                with st.expander("📄 Resume JSON"): st.json(resume_data)
-                play_audio_block(f"{name} ka resume ban gaya hai {role} ke liye", lang, "resume")
+                    st.download_button("⬇️ Download PREMIUM PDF - Photo + Sidebar", f, file_name=f"{name.replace(' ','_')}_PREMIUM_{theme_code}.pdf", mime="application/pdf", type="primary", use_container_width=True)
+                with st.expander("📄 Resume Data JSON"):
+                    st.json(resume_data)
+                st.balloons()
+                play_audio_block(f"{name} ka premium resume ban gaya hai {role} ke liye {theme} theme me photo ke saath", lang, "resume")
+            else:
+                st.error("Failed - GROQ API key check karo")
 
 elif active=="Software":
     st.subheader("💻 Software Builder - Production Ready - FREE")
@@ -345,7 +386,7 @@ elif active=="Software":
         with open(zip_path,"rb") as f:
             zip_bytes = f.read()
             st.download_button(f"⬇️ Download FULL Production ZIP ({len(proj.get('files',[]))} Files)", zip_bytes, file_name=f"{proj.get('project_name')}_PRODUCTION.zip", mime="application/zip", type="primary", use_container_width=True)
-        st.info("✅ Frontend + Backend + package.json +.env.example + README + Docker - Direct VS Code me `npm install`")
+        st.info("✅ Frontend + Backend + package.json +.env.example + README - Direct VS Code me npm install")
         play_audio_block(f"{proj.get('project_name')} ka production code ready hai", lang, "software")
 
 with st.expander("🕘 History"):
