@@ -6,7 +6,6 @@ groq
 gTTS
 python-pptx
 
-# --- RAG Stack - No Strict Pin (Cloud khud sahi wala lega) ---
 langchain
 langchain-community
 langchain-groq
@@ -15,7 +14,6 @@ langchain-text-splitters
 sentence-transformers
 chromadb
 
-# --- Video ke liye - Ye fix hai ---
 moviepy==1.0.3
 imageio==2.34.1
 imageio-ffmpeg==0.5.1
