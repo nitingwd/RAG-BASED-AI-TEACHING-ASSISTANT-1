@@ -213,104 +213,155 @@ def create_explainer_video(topic, language="Hinglish", duration_sec=150):
     final.write_videofile(out_path, fps=12, codec='libx264', audio_codec='aac', preset='ultrafast', threads=4, verbose=False, logger=None)
     return out_path, scenes
 
-# ========== RESUME + SOFTWARE - FINAL FIXED VERSION ==========
+# ========== PREMIUM RESUME V13.1 - PHOTO + THEME + SIDEBAR ==========
 def generate_premium_resume_data(user_info, language="English"):
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.2)
-    prompt = f"You are FAANG Resume Expert. JSON ENGLISH ONLY ASCII. User: {user_info} Return ONLY JSON: {{\"name\":\"\",\"role\":\"\",\"email\":\"\",\"phone\":\"\",\"linkedin\":\"\",\"github\":\"\",\"summary\":\"\",\"skills\":{{\"Languages\":[],\"Frontend\":[],\"Backend\":[],\"Tools\":[]}},\"experience\":[{{\"role\":\"\",\"company\":\"\",\"duration\":\"\",\"points\":[]}}],\"projects\":[{{\"name\":\"\",\"tech\":\"\",\"points\":[],\"link\":\"\"}}],\"education\":[{{\"degree\":\"\",\"college\":\"\",\"year\":\"\",\"cgpa\":\"\"}}],\"certifications\":[]}}"
+    prompt = f"You are FAANG Resume Expert. User: {user_info} Create JSON ENGLISH ASCII ONLY: {{\"name\":\"\",\"role\":\"\",\"email\":\"\",\"phone\":\"\",\"location\":\"\",\"linkedin\":\"\",\"github\":\"\",\"portfolio\":\"\",\"summary\":\"\",\"skills\":{{\"Languages\":[],\"Frontend\":[],\"Backend\":[],\"Tools\":[],\"Database\":[]}},\"experience\":[{{\"role\":\"\",\"company\":\"\",\"duration\":\"\",\"location\":\"\",\"points\":[]}}],\"projects\":[{{\"name\":\"\",\"tech\":\"\",\"points\":[],\"link\":\"\"}}],\"education\":[{{\"degree\":\"\",\"college\":\"\",\"year\":\"\",\"cgpa\":\"\"}}],\"certifications\":[],\"awards\":[],\"languages\":[],\"references\":[{{\"name\":\"\",\"role\":\"\",\"company\":\"\",\"contact\":\"\"}}]}} Only JSON"
     try: txt = llm.invoke(prompt).content; s=txt.find('{'); e=txt.rfind('}')+1; return json.loads(txt[s:e])
     except: return None
 
-def create_premium_resume_pdf(resume_data):
+def create_premium_resume_pdf(resume_data, photo_path=None, theme_color="0D1126"):
     from fpdf import FPDF
-    def clean(text):
-        if not text: return ""
-        text = str(text).encode('ascii','ignore').decode('ascii')
-        text = re.sub(r'[^\x20-\x7E\s]', ' ', text)
-        text = re.sub(r'\s+', ' ', text)
-        return text.strip()
+    def clean(t):
+        if not t: return ""
+        t = str(t).encode('ascii','ignore').decode('ascii')
+        t = re.sub(r'[^\x20-\x7E\s]', ' ', t)
+        t = re.sub(r'\s+', ' ', t)
+        return t.strip()
+
+    themes = {
+        "0D1126": {"primary":(13,17,38), "accent":(99,102,241), "light":(224,231,255)},
+        "0F172A": {"primary":(15,23,42), "accent":(14,165,233), "light":(186,230,253)},
+        "1E293B": {"primary":(30,41,59), "accent":(16,185,129), "light":(167,243,208)},
+        "7C2D12": {"primary":(124,45,18), "accent":(249,115,22), "light":(254,215,170)},
+        "581C87": {"primary":(88,28,135), "accent":(168,85,247), "light":(233,213,255)},
+    }
+    colors = themes.get(theme_color, themes["0D1126"])
 
     pdf = FPDF('P','mm','A4')
-    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.set_auto_page_break(auto=True, margin=5)
     pdf.add_page()
-    W = 190
+    W=210; H=297; SIDEBAR_W=70
 
-    pdf.set_fill_color(13,17,38)
-    pdf.rect(0,0,210,35,'F')
-    name = clean(resume_data.get('name','NARESH')) or "NARESH KADIYA"
-    role = clean(resume_data.get('role','Developer'))
-    email = clean(resume_data.get('email',''))
-    phone = clean(resume_data.get('phone',''))
+    pdf.set_fill_color(*colors["primary"])
+    pdf.rect(0,0,SIDEBAR_W,H,'F')
+    y=8
+    if photo_path and os.path.exists(photo_path):
+        try:
+            im = Image.open(photo_path).convert("RGB")
+            im = im.resize((400,400))
+            temp_photo = os.path.join(tempfile.gettempdir(), "resume_photo.jpg")
+            im.save(temp_photo)
+            pdf.image(temp_photo, x=15, y=y, w=40, h=40)
+            y+=48
+        except: y+=5
 
-    pdf.set_xy(10,8)
-    pdf.set_font("Helvetica",'B',18)
-    pdf.set_text_color(255,255,255)
-    pdf.cell(W,10, name.upper()[:40], align='C', new_x="LMARGIN", new_y="NEXT")
-    pdf.set_x(10)
-    pdf.set_font("Helvetica",'',9)
-    pdf.set_text_color(200,220,255)
-    pdf.cell(W,6, f"{role[:25]} | {email[:30]} | {phone[:15]}", align='C', new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(15)
+    def sidebar_title(title, y_pos):
+        pdf.set_xy(4, y_pos)
+        pdf.set_font("Helvetica",'B',9)
+        pdf.set_text_color(*colors["accent"])
+        pdf.cell(SIDEBAR_W-8,6, clean(title).upper(), new_x="LMARGIN", new_y="NEXT")
+        pdf.set_x(4); pdf.set_draw_color(*colors["accent"]); pdf.line(4, pdf.get_y(), SIDEBAR_W-8, pdf.get_y()); pdf.ln(2)
+        return pdf.get_y()
 
-    def section(title):
-        pdf.set_x(10)
-        pdf.set_fill_color(224,231,255)
-        pdf.set_font("Helvetica",'B',11)
-        pdf.set_text_color(13,17,38)
-        pdf.cell(W,8, f" {clean(title).upper()}", fill=True, new_x="LMARGIN", new_y="NEXT")
-        pdf.ln(2)
+    def sidebar_text(txt, y_pos, bold=False):
+        pdf.set_xy(4, y_pos)
+        pdf.set_font("Helvetica",'B' if bold else '',7.5)
+        pdf.set_text_color(220,230,255)
+        pdf.multi_cell(SIDEBAR_W-8,4, clean(txt)[:180], new_x="LMARGIN", new_y="NEXT")
+        return pdf.get_y()+1
 
-    def para(txt):
-        txt = clean(txt)
-        if not txt: return
-        pdf.set_x(10)
-        pdf.set_font("Helvetica",'',10)
-        pdf.set_text_color(30,30,30)
-        pdf.multi_cell(W,5, txt, new_x="LMARGIN", new_y="NEXT")
-        pdf.ln(1)
-
-    section("Summary")
-    para(resume_data.get('summary','Experienced developer'))
-
-    section("Skills")
-    skills_text = ""
-    for k,v in resume_data.get('skills',{}).items():
-        vv = [clean(x) for x in v if clean(x)]
-        if vv: skills_text += f"{clean(k)}: {', '.join(vv[:6])}\n"
-    para(skills_text or "MERN, Python, SQL")
-
-    section("Experience")
-    for exp in resume_data.get('experience',[])[:2]:
-        pdf.set_x(10)
-        pdf.set_font("Helvetica",'B',10)
-        pdf.cell(W,6, f"{clean(exp.get('role','Dev'))} at {clean(exp.get('company','Company'))} ({clean(exp.get('duration','2023'))})", new_x="LMARGIN", new_y="NEXT")
-        for p in exp.get('points',[])[:3]:
-            p = clean(p)
-            if p:
-                pdf.set_x(12)
-                pdf.set_font("Helvetica",'',9.5)
-                pdf.multi_cell(W-2,5, f"- {p[:150]}", new_x="LMARGIN", new_y="NEXT")
-        pdf.ln(2)
-
-    section("Projects")
-    for proj in resume_data.get('projects',[])[:2]:
-        pdf.set_x(10)
-        pdf.set_font("Helvetica",'B',10)
-        pdf.cell(W,6, f"{clean(proj.get('name','Project'))} | {clean(proj.get('tech','MERN'))}", new_x="LMARGIN", new_y="NEXT")
-        for p in proj.get('points',[])[:3]:
-            p = clean(p)
-            if p:
-                pdf.set_x(12)
-                pdf.set_font("Helvetica",'',9.5)
-                pdf.multi_cell(W-2,5, f"- {p[:150]}", new_x="LMARGIN", new_y="NEXT")
-        pdf.ln(2)
-
-    section("Education")
+    y=sidebar_title("Contact", y)
+    y=sidebar_text(clean(resume_data.get('email','')), y)
+    y=sidebar_text(clean(resume_data.get('phone','')), y)
+    y=sidebar_text(clean(resume_data.get('location','')), y)
+    y=sidebar_text(clean(resume_data.get('linkedin','')), y)
+    y=sidebar_text(clean(resume_data.get('github','')), y)
+    y=sidebar_text(clean(resume_data.get('portfolio','')), y)
+    y+=3
+    y=sidebar_title("Skills", y)
+    for cat, vals in resume_data.get('skills',{}).items():
+        vals_clean=[clean(v) for v in vals if clean(v)][:6]
+        if not vals_clean: continue
+        y=sidebar_text(f"{clean(cat)}:", y, bold=True)
+        for v in vals_clean:
+            pdf.set_x(6); pdf.set_font("Helvetica",'',7); pdf.set_text_color(255,255,255)
+            pdf.cell(SIDEBAR_W-10,4, f"- {v[:22]}", new_x="LMARGIN", new_y="NEXT"); y=pdf.get_y()
+        y+=1
+    y=sidebar_title("Education", y)
     for edu in resume_data.get('education',[])[:2]:
-        para(f"{clean(edu.get('degree','B.Tech'))} - {clean(edu.get('college','GTU'))} ({clean(edu.get('year','2024'))})")
+        y=sidebar_text(clean(edu.get('degree','')), y, bold=True)
+        y=sidebar_text(clean(edu.get('college','')), y)
+        y=sidebar_text(f"{clean(edu.get('year',''))} {clean(edu.get('cgpa',''))}", y); y+=1
+    if resume_data.get('languages'):
+        y=sidebar_title("Languages", y)
+        for lang in resume_data.get('languages',[])[:4]:
+            y=sidebar_text(f"- {lang}", y)
 
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-    pdf.output(tmp.name)
-    return tmp.name
+    main_x=SIDEBAR_W+4; main_w=W-SIDEBAR_W-8
+    pdf.set_xy(main_x,10)
+    pdf.set_font("Helvetica",'B',20)
+    pdf.set_text_color(*colors["primary"])
+    pdf.cell(main_w,10, clean(resume_data.get('name','NARESH')).upper()[:35], new_x="LMARGIN", new_y="NEXT")
+    pdf.set_x(main_x); pdf.set_font("Helvetica",'B',11); pdf.set_text_color(*colors["accent"])
+    pdf.cell(main_w,6, clean(resume_data.get('role','Developer')).upper()[:45], new_x="LMARGIN", new_y="NEXT"); pdf.ln(3)
+
+    def main_section(title):
+        pdf.set_x(main_x); pdf.set_fill_color(*colors["light"])
+        pdf.set_font("Helvetica",'B',10); pdf.set_text_color(*colors["primary"])
+        pdf.cell(main_w,7, f" {clean(title).upper()}", fill=True, new_x="LMARGIN", new_y="NEXT"); pdf.ln(1)
+
+    def main_para(txt):
+        pdf.set_x(main_x); pdf.set_font("Helvetica",'',9.5); pdf.set_text_color(40,40,40)
+        pdf.multi_cell(main_w,4.5, clean(txt)[:600], new_x="LMARGIN", new_y="NEXT"); pdf.ln(1)
+
+    main_section("Summary"); main_para(resume_data.get('summary','Developer'))
+    main_section("Experience")
+    for exp in resume_data.get('experience',[])[:3]:
+        pdf.set_x(main_x); pdf.set_font("Helvetica",'B',9.5); pdf.set_text_color(20,20,20)
+        pdf.cell(main_w,5, f"{clean(exp.get('role',''))} | {clean(exp.get('company',''))}", new_x="LMARGIN", new_y="NEXT")
+        pdf.set_x(main_x); pdf.set_font("Helvetica",'I',7.5); pdf.set_text_color(100,100,100)
+        pdf.cell(main_w,4, f"{clean(exp.get('duration',''))} | {clean(exp.get('location',''))}", new_x="LMARGIN", new_y="NEXT")
+        for p in exp.get('points',[])[:3]:
+            p=clean(p)
+            if p:
+                pdf.set_x(main_x+2); pdf.set_font("Helvetica",'',8.5); pdf.set_text_color(50,50,50)
+                pdf.multi_cell(main_w-2,4, f"• {p[:150]}", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(1)
+    main_section("Projects")
+    for proj in resume_data.get('projects',[])[:3]:
+        pdf.set_x(main_x); pdf.set_font("Helvetica",'B',9.5)
+        pdf.cell(main_w,5, f"{clean(proj.get('name',''))} | {clean(proj.get('tech',''))}", new_x="LMARGIN", new_y="NEXT")
+        for p in proj.get('points',[])[:2]:
+            p=clean(p)
+            if p:
+                pdf.set_x(main_x+2); pdf.set_font("Helvetica",'',8.5)
+                pdf.multi_cell(main_w-2,4, f"• {p[:150]}", new_x="LMARGIN", new_y="NEXT")
+        if proj.get('link'):
+            pdf.set_x(main_x+2); pdf.set_font("Helvetica",'',7); pdf.set_text_color(*colors["accent"])
+            pdf.cell(main_w,3, f"Link: {clean(proj.get('link',''))[:60]}", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(1)
+    if resume_data.get('certifications'):
+        main_section("Certifications")
+        for c in resume_data.get('certifications',[])[:4]:
+            pdf.set_x(main_x+2); pdf.set_font("Helvetica",'',8.5); pdf.set_text_color(50,50,50)
+            pdf.cell(main_w,4, f"• {clean(c)[:80]}", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(1)
+    if resume_data.get('awards'):
+        main_section("Awards")
+        for a in resume_data.get('awards',[])[:3]:
+            pdf.set_x(main_x+2); pdf.set_font("Helvetica",'',8.5)
+            pdf.cell(main_w,4, f"• {clean(a)[:80]}", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(1)
+    if resume_data.get('references'):
+        main_section("References")
+        for ref in resume_data.get('references',[])[:2]:
+            pdf.set_x(main_x); pdf.set_font("Helvetica",'B',8.5); pdf.set_text_color(20,20,20)
+            pdf.cell(main_w,4, f"{clean(ref.get('name',''))} - {clean(ref.get('role',''))} @ {clean(ref.get('company',''))}", new_x="LMARGIN", new_y="NEXT")
+            pdf.set_x(main_x); pdf.set_font("Helvetica",'',7.5); pdf.set_text_color(80,80,80)
+            pdf.cell(main_w,4, f"{clean(ref.get('contact',''))}", new_x="LMARGIN", new_y="NEXT"); pdf.ln(1)
+
+    tmp=tempfile.NamedTemporaryFile(delete=False, suffix=".pdf"); pdf.output(tmp.name); return tmp.name
 
 def generate_software_project(requirement, tech_stack="MERN", language="English"):
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.2)
