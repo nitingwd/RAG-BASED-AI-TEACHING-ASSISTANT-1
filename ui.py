@@ -94,19 +94,14 @@ def get_user_conversations(user_id):
     rows = c.fetchall(); conn.close()
     return rows
 
-# ================= PERSISTENT LOGIN - FINAL FIX =================
 def auth_ui():
     cookies = None
     if COOKIE_OK:
-        cookies = EncryptedCookieManager(prefix="rag_v22_final_", password="kadiya_naresh_2024_secure_key_v22_final")
+        cookies = EncryptedCookieManager(prefix="rag_v23_best_", password="kadiya_naresh_final_v23_best_color_2024")
         if not cookies.ready():
             st.stop()
-
-    # 1. Session me already hai to direct andar
     if st.session_state.get("logged_in") and st.session_state.get("user"):
         return True, cookies
-
-    # 2. Cookie me uid hai to auto-login - sidha dashboard khulega
     if COOKIE_OK and cookies:
         uid_val = cookies.get("uid")
         if uid_val:
@@ -119,17 +114,16 @@ def auth_ui():
                     return True, cookies
             except:
                 pass
-
     st.set_page_config(page_title="RAG Based AI Teaching Assistant", layout="centered", page_icon="🎓")
     st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
- .stApp {background: radial-gradient(1000px at 20% 10%, #E0E7FF 0%, #F0F4FF 40%, #FFFFFF 100%);}
- .login-card {background: rgba(255,255,255,0.95); backdrop-filter: blur(24px); border: 1px solid rgba(99,102,241,0.12); padding: 36px; border-radius: 28px; box-shadow: 0 24px 80px rgba(99,102,241,0.18); text-align:center; max-width:440px; width:100%;}
- .login-title {font-family:'Space Grotesk'; font-size:28px; font-weight:700; color:#111827; line-height:1.2;}
- .login-sub {color:#6B7280; font-size:13px; margin-top:6px;}
- .pill {display:inline-block; background:linear-gradient(135deg,#EEF2FF,#E0E7FF); color:#6366F1; padding:6px 12px; border-radius:20px; font-size:11px; font-weight:700; margin:3px; border:1px solid #C7D2FE;}
- .stButton>button {border-radius:12px; height:48px; font-weight:700;}
+.stApp {background: radial-gradient(1000px at 20% 10%, #E0E7FF 0%, #F0F4FF 40%, #FFFFFF 100%);}
+.login-card {background: rgba(255,255,255,0.95); backdrop-filter: blur(24px); border: 1px solid rgba(99,102,241,0.12); padding: 36px; border-radius: 28px; box-shadow: 0 24px 80px rgba(99,102,241,0.18); text-align:center; max-width:440px; width:100%;}
+.login-title {font-family:'Space Grotesk'; font-size:28px; font-weight:700; color:#111827; line-height:1.2;}
+.login-sub {color:#6B7280; font-size:13px; margin-top:6px;}
+.pill {display:inline-block; background:linear-gradient(135deg,#EEF2FF,#E0E7FF); color:#6366F1; padding:6px 12px; border-radius:20px; font-size:11px; font-weight:700; margin:3px; border:1px solid #C7D2FE;}
+.stButton>button {border-radius:12px; height:48px; font-weight:700;}
     </style>
     """, unsafe_allow_html=True)
     _, col, _ = st.columns([1,2,1])
@@ -195,7 +189,6 @@ except:
 
 st.set_page_config(page_title="RAG Based AI Teaching Assistant", layout="wide", page_icon="🎓")
 
-# ================= FINAL PREMIUM CSS - 100% WORKING =================
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
@@ -206,37 +199,61 @@ st.markdown("""
 .avatar-letter {width:85px; height:85px; border-radius:50%; background: linear-gradient(135deg,#6366F1 0%, #8B5CF6 50%, #EC4899 100%); display:flex; align-items:center; justify-content:center; margin:0 auto; color:white; font-size:32px; font-weight:700; font-family:Space Grotesk;}
 .dev-badge {position: fixed; bottom: 14px; right: 14px; background: #111827; color: white; padding: 7px 12px; border-radius: 20px; font-size: 10px; z-index: 999; font-weight:600;}
 
-/* ===== PREMIUM DASHBOARD - DIRECT TARGET MAIN BUTTONS ===== */
-section.main div[data-testid="stButton"] button {
-    border-radius:16px!important;
-    height:62px!important;
+/* ===== BEST COLOR + HOVER POP EFFECT ===== */
+section.main div[data-testid="stButton"] > button {
+    border-radius:14px!important;
+    height:58px!important;
     font-weight:700!important;
     font-size:13px!important;
-    border:none!important;
-    color:white!important;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.14)!important;
-    transition: all 0.25s ease!important;
+    border:1.5px solid rgba(0,0,0,0.06)!important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06)!important;
+    transition: all 0.32s cubic-bezier(0.34, 1.56, 0.64, 1)!important;
 }
-section.main div[data-testid="stButton"] button:hover {
-    transform: translateY(-3px) scale(1.02)!important;
-    box-shadow: 0 14px 28px rgba(0,0,0,0.22)!important;
+section.main div[data-testid="stButton"] > button:hover {
+    transform: translateY(-7px) scale(1.05)!important;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.20)!important;
+    z-index: 20!important;
+    border-color: transparent!important;
 }
 
-/* First 12 buttons in main = Dashboard buttons */
-section.main div[data-testid="stButton"]:nth-of-type(1) button {background: linear-gradient(135deg,#4F46E5,#06B6D4)!important;}
-section.main div[data-testid="stButton"]:nth-of-type(2) button {background: linear-gradient(135deg,#F59E0B,#EF4444)!important;}
-section.main div[data-testid="stButton"]:nth-of-type(3) button {background: linear-gradient(135deg,#10B981,#059669)!important;}
-section.main div[data-testid="stButton"]:nth-of-type(4) button {background: linear-gradient(135deg,#EC4899,#8B5CF6)!important;}
-section.main div[data-testid="stButton"]:nth-of-type(5) button {background: linear-gradient(135deg,#3B82F6,#6366F1)!important;}
-section.main div[data-testid="stButton"]:nth-of-type(6) button {background: linear-gradient(135deg,#7C3AED,#EC4899)!important;}
-section.main div[data-testid="stButton"]:nth-of-type(7) button {background: linear-gradient(135deg,#F97316,#EF4444)!important;}
-section.main div[data-testid="stButton"]:nth-of-type(8) button {background: linear-gradient(135deg,#06B6D4,#10B981)!important;}
-section.main div[data-testid="stButton"]:nth-of-type(9) button {background: linear-gradient(135deg,#EC4899,#F43F5E)!important;}
-section.main div[data-testid="stButton"]:nth-of-type(10) button {background: linear-gradient(135deg,#8B5CF6,#6366F1)!important;}
-section.main div[data-testid="stButton"]:nth-of-type(11) button {background: linear-gradient(135deg,#1F2937,#4B5563)!important;}
-section.main div[data-testid="stButton"]:nth-of-type(12) button {background: linear-gradient(135deg,#F59E0B,#D97706)!important;}
+/* 12 Best Colors - Normal soft tint, Hover full gradient + pop */
+section.main div[data-testid="stButton"]:nth-of-type(1) button {background: linear-gradient(135deg,#EEF2FF,#E0E7FF)!important; border-color:#C7D2FE!important; color:#4F46E5!important;}
+section.main div[data-testid="stButton"]:nth-of-type(1) button:hover {background: linear-gradient(135deg,#4F46E5 0%,#06B6D4 100%)!important; color:white!important;}
+
+section.main div[data-testid="stButton"]:nth-of-type(2) button {background: linear-gradient(135deg,#FEF3C7,#FDE68A)!important; border-color:#FCD34D!important; color:#D97706!important;}
+section.main div[data-testid="stButton"]:nth-of-type(2) button:hover {background: linear-gradient(135deg,#F59E0B 0%,#EF4444 100%)!important; color:white!important;}
+
+section.main div[data-testid="stButton"]:nth-of-type(3) button {background: linear-gradient(135deg,#D1FAE5,#A7F3D0)!important; border-color:#6EE7B7!important; color:#059669!important;}
+section.main div[data-testid="stButton"]:nth-of-type(3) button:hover {background: linear-gradient(135deg,#10B981 0%,#06B6D4 100%)!important; color:white!important;}
+
+section.main div[data-testid="stButton"]:nth-of-type(4) button {background: linear-gradient(135deg,#FCE7F3,#FBCFE8)!important; border-color:#F9A8D4!important; color:#DB2777!important;}
+section.main div[data-testid="stButton"]:nth-of-type(4) button:hover {background: linear-gradient(135deg,#EC4899 0%,#8B5CF6 100%)!important; color:white!important;}
+
+section.main div[data-testid="stButton"]:nth-of-type(5) button {background: linear-gradient(135deg,#DBEAFE,#BFDBFE)!important; border-color:#93C5FD!important; color:#2563EB!important;}
+section.main div[data-testid="stButton"]:nth-of-type(5) button:hover {background: linear-gradient(135deg,#3B82F6 0%,#6366F1 100%)!important; color:white!important;}
+
+section.main div[data-testid="stButton"]:nth-of-type(6) button {background: linear-gradient(135deg,#EDE9FE,#DDD6FE)!important; border-color:#C4B5FD!important; color:#7C3AED!important;}
+section.main div[data-testid="stButton"]:nth-of-type(6) button:hover {background: linear-gradient(135deg,#7C3AED 0%,#EC4899 100%)!important; color:white!important;}
+
+section.main div[data-testid="stButton"]:nth-of-type(7) button {background: linear-gradient(135deg,#FFEDD5,#FED7AA)!important; border-color:#FDBA74!important; color:#EA580C!important;}
+section.main div[data-testid="stButton"]:nth-of-type(7) button:hover {background: linear-gradient(135deg,#F97316 0%,#EF4444 100%)!important; color:white!important;}
+
+section.main div[data-testid="stButton"]:nth-of-type(8) button {background: linear-gradient(135deg,#CCFBF1,#99F6E0)!important; border-color:#5EEAD4!important; color:#0D9488!important;}
+section.main div[data-testid="stButton"]:nth-of-type(8) button:hover {background: linear-gradient(135deg,#14B8A6 0%,#10B981 100%)!important; color:white!important;}
+
+section.main div[data-testid="stButton"]:nth-of-type(9) button {background: linear-gradient(135deg,#F3E8FF,#E9D5FF)!important; border-color:#D8B4FE!important; color:#9333EA!important;}
+section.main div[data-testid="stButton"]:nth-of-type(9) button:hover {background: linear-gradient(135deg,#A855F7 0%,#EC4899 100%)!important; color:white!important;}
+
+section.main div[data-testid="stButton"]:nth-of-type(10) button {background: linear-gradient(135deg,#CFFAFE,#A5F3FC)!important; border-color:#67E8F9!important; color:#0891B2!important;}
+section.main div[data-testid="stButton"]:nth-of-type(10) button:hover {background: linear-gradient(135deg,#06B6D4 0%,#3B82F6 100%)!important; color:white!important;}
+
+section.main div[data-testid="stButton"]:nth-of-type(11) button {background: linear-gradient(135deg,#F3F4F6,#E5E7EB)!important; border-color:#D1D5DB!important; color:#374151!important;}
+section.main div[data-testid="stButton"]:nth-of-type(11) button:hover {background: linear-gradient(135deg,#111827 0%,#4B5563 100%)!important; color:white!important;}
+
+section.main div[data-testid="stButton"]:nth-of-type(12) button {background: linear-gradient(135deg,#FEF3C7,#FFEDD5)!important; border-color:#FCD34D!important; color:#B45309!important;}
+section.main div[data-testid="stButton"]:nth-of-type(12) button:hover {background: linear-gradient(135deg,#F59E0B 0%,#F97316 100%)!important; color:white!important;}
 </style>
-<div class="dev-badge">V22 FINAL PREMIUM | KADIYA NARESH</div>
+<div class="dev-badge">V23 BEST COLOR + HOVER POP | KADIYA NARESH</div>
 """, unsafe_allow_html=True)
 
 def universal_input(key, placeholder="Bolo ya likho..."):
@@ -319,7 +336,6 @@ with st.sidebar:
     st.session_state.selected_language = selected_language
     chunk_size, chunk_overlap, top_k = 1000, 100, 8
 
-# HERO - CLEAN
 st.markdown(f"""
 <div class="hero-pro">
     <div style="position:relative; z-index:2;">
