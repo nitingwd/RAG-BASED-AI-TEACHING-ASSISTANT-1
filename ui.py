@@ -10,12 +10,17 @@ from rag_utils import (
     create_explainer_video, transcribe_topic_with_language
 )
 
-st.set_page_config(page_title="Advance RAG", layout="wide")
+# --- CONFIG FOR PAID ---
+IS_PAID_MODE = False # Abhi False rakha hai, baad me True kar dena
+PAID_FEATURES = ["Video", "PPT", "Podcast"]
+
+st.set_page_config(page_title="Advance RAG - KADIYA NARESH", layout="wide", page_icon="🚀")
 st.markdown("""
 <style>
-.dev-corner {position: fixed; bottom: 20px; right: 20px; background: linear-gradient(135deg, #3f51b5, #9c27b0, #e91e63); padding: 10px 20px; border-radius: 20px; color: white; font-size: 14px; font-weight: bold; z-index: 999;}
+.dev-corner {position: fixed; bottom: 20px; right: 20px; background: linear-gradient(135deg, #3f51b5, #9c27b0, #e91e63); padding: 10px 20px; border-radius: 20px; color: white; font-size: 14px; font-weight: bold; z-index: 999; box-shadow: 0 4px 15px rgba(0,0,0,0.3);}
+.stButton>button {border-radius: 10px; font-weight: 600;}
 </style>
-<div class="dev-corner">Developer : KADIYA NARESH</div>
+<div class="dev-corner">Developer : KADIYA NARESH | V7 NotebookLM Killer</div>
 """, unsafe_allow_html=True)
 
 def universal_input(key, placeholder="Bolo ya likho..."):
@@ -31,22 +36,26 @@ def universal_input(key, placeholder="Bolo ya likho..."):
             path = tmp.name
         with st.spinner("Sun raha hu..."):
             vt = transcribe_audio(api_key, path)
-        os.remove(path)
+        if os.path.exists(path):
+            os.remove(path)
         if vt:
             st.success(f"🎧 {vt}")
             return vt
     return txt
 
+# --- SIDEBAR (Tera wala same hai) ---
 st.sidebar.header("Configuration")
 uploaded_files = st.sidebar.file_uploader("Upload PDF/CSV/TXT", type=["pdf","csv","txt"], accept_multiple_files=True)
 chunk_size = st.sidebar.number_input("Chunk Size", 200, 2000, 1000, 100)
 chunk_overlap = st.sidebar.number_input("Chunk Overlap", 0, 500, 100, 10)
 top_k = st.sidebar.number_input("Docs to Retrieve", 1, 10, 8)
-if st.sidebar.button("Submit & Process"):
+if st.sidebar.button("Submit & Process", type="primary"):
     if uploaded_files:
-        process_files(uploaded_files, chunk_size, chunk_overlap)
+        with st.spinner("Processing PDFs..."):
+            process_files(uploaded_files, chunk_size, chunk_overlap)
+        st.sidebar.success("Done! Ab koi bhi feature use karo.")
     else:
-        st.warning("Upload karo pehle.")
+        st.sidebar.warning("Upload karo pehle.")
 st.sidebar.divider()
 weak = get_weak_topics()
 st.sidebar.subheader("📊 Weak Topics")
@@ -54,8 +63,9 @@ if weak:
     for t,c in sorted(weak.items(), key=lambda x:x[1], reverse=True):
         st.sidebar.write(f"- {t}: {c}")
 else:
-    st.sidebar.info("Quiz do!")
+    st.sidebar.info("Quiz do to weak topics yaha ayenge!")
 
+# --- SESSION ---
 if "active" not in st.session_state:
     st.session_state.active = "Ask"
 if "viva_qs" not in st.session_state:
@@ -64,39 +74,35 @@ if "viva_qs" not in st.session_state:
     st.session_state.viva_score = []
 
 st.title("RAG Based AI Teaching Assistant")
-st.caption("Har feature me Type + Voice dono hai | V6 PDF Accurate")
-st.subheader("📦 Features")
+st.caption("Har feature me Type + Voice dono hai | V7 PDF Accurate | NotebookLM Killer")
+st.subheader("📦 All Features - Sab Free Hai Abhi")
 
 c1,c2,c3,c4 = st.columns(4)
 with c1:
-    if st.button("⌨️ Ask Q&A", use_container_width=True):
-        st.session_state.active="Ask"; st.rerun()
-    if st.button("📝 Quiz", use_container_width=True):
-        st.session_state.active="Quiz"; st.rerun()
-    if st.button("📄 Summary", use_container_width=True):
-        st.session_state.active="Summary"; st.rerun()
+    if st.button("⌨️ Ask Q&A", use_container_width=True): st.session_state.active="Ask"; st.rerun()
+    if st.button("📝 Quiz", use_container_width=True): st.session_state.active="Quiz"; st.rerun()
+    if st.button("📄 Summary", use_container_width=True): st.session_state.active="Summary"; st.rerun()
 with c2:
-    if st.button("⭐ Important Qs", use_container_width=True):
-        st.session_state.active="Important"; st.rerun()
-    if st.button("🎤 Viva Mode", use_container_width=True):
-        st.session_state.active="Viva"; st.rerun()
-    if st.button("📖 Story Movie", use_container_width=True):
-        st.session_state.active="Story"; st.rerun()
+    if st.button("⭐ Important Qs", use_container_width=True): st.session_state.active="Important"; st.rerun()
+    if st.button("🎤 Viva Mode", use_container_width=True): st.session_state.active="Viva"; st.rerun()
+    if st.button("📖 Story Movie", use_container_width=True): st.session_state.active="Story"; st.rerun()
 with c3:
-    if st.button("🔧 Project Builder", use_container_width=True):
-        st.session_state.active="Projects"; st.rerun()
-    if st.button("📊 PPT Maker Pro", use_container_width=True):
-        st.session_state.active="PPT"; st.rerun()
-    if st.button("🎙️ Podcast", use_container_width=True):
-        st.session_state.active="Podcast"; st.rerun()
+    if st.button("🔧 Project Builder", use_container_width=True): st.session_state.active="Projects"; st.rerun()
+    if st.button("📊 PPT Maker Pro", use_container_width=True): st.session_state.active="PPT"; st.rerun()
+    if st.button("🎙️ Podcast", use_container_width=True): st.session_state.active="Podcast"; st.rerun()
 with c4:
-    if st.button("🎬 AI Video", use_container_width=True):
-        st.session_state.active="Video"; st.rerun()
+    if st.button("🎬 AI Video", use_container_width=True): st.session_state.active="Video"; st.rerun()
 
 st.divider()
 active = st.session_state.active
+
+# Paid Check
+if IS_PAID_MODE and active in PAID_FEATURES:
+    st.warning(f"🔒 {active} is Paid Feature. Abhi ke liye IS_PAID_MODE = False rakha hai isliye chal raha hai.")
+
 st.header(f"▶ {active}")
 
+# --- TERA SARA LOGIC SAME HAI, KUCH DELETE NAHI KIYA ---
 if active=="Ask":
     mode = st.radio("Mode:", ["Normal","Socratic"], horizontal=True)
     sel = "socratic" if "Socratic" in mode else "normal"
@@ -105,6 +111,8 @@ if active=="Ask":
         if q:
             ans,src = ask_question(q, top_k, mode=sel)
             st.markdown(ans)
+            with st.expander("📚 Source Documents"): st.write(src)
+
 elif active=="Quiz":
     n = st.number_input("Kitne Q?",3,10,5)
     if st.button("Quiz Banao"):
@@ -118,6 +126,7 @@ elif active=="Quiz":
     if st.button("Check Karo"):
         ok,fb=check_quiz_answer(qq,ua,ca,tp)
         st.success(fb) if ok else st.error(fb)
+
 elif active=="Viva":
     st.info("PDF se auto questions ayenge one-by-one. 100% PDF based.")
     topic=universal_input("viva_topic","Viva topic bolo - DBMS")
@@ -159,6 +168,7 @@ elif active=="Viva":
                     st.write(f"**Feedback:** {s['fb']}")
             if st.button("Naya Viva Start Karo"):
                 st.session_state.viva_qs=[]; st.session_state.viva_idx=0; st.session_state.viva_score=[]; st.rerun()
+
 elif active=="PPT":
     st.info("English me premium PPT with visualization - direct download. PDF Based.")
     topic=universal_input("ppt","Topic bolo - AI")
@@ -170,43 +180,37 @@ elif active=="PPT":
                 with open(ppt_path,"rb") as f:
                     st.download_button("⬇️ PPT Download Karo", f, file_name=f"{topic}_{pages}_slides.pdf_based.pptx", mime="application/vnd.openxmlformats-officedocument.presentationml.presentation")
                 st.success("Ban gaya! 100% PDF se")
+
 elif active=="Video":
-    st.info("✅ V6 ACCURATE - PDF ke according bolega, apne man se nahi. 2.5 MIN, 30-40 sec me banega!")
+    st.info("✅ V7 ACCURATE - PDF ke according bolega, apne man se nahi. 2.5 MIN, 30-40 sec me banega!")
     st.warning("⚠️ Pehle PDF upload + Submit & Process karna zaruri hai, warna 'PDF me nahi mila' bolega.")
     col1, col2 = st.columns(2)
     with col1:
         lang = st.selectbox("Video ki Language chuno", ["Hinglish", "Hindi", "English", "Marathi"], key="vid_lang")
     with col2:
         topic_text = st.text_input("Topic likho (jo PDF me hai)", placeholder="e.g. Deadlock in OS", key="vid_topic_text")
-
     st.write("Ya Voice me bolo:")
     audio_val = st.audio_input("🎤 Topic bolo - jaise 'Mujhe deadlock samjha do'", key="vid_audio")
-
     final_topic = topic_text
     final_lang = lang
-
     if audio_val:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
             tmp.write(audio_val.getvalue())
             ap = tmp.name
         with st.spinner("Voice sun raha hu..."):
             t, l = transcribe_topic_with_language(ap)
-            os.remove(ap)
+            if os.path.exists(ap): os.remove(ap)
             if t:
                 final_topic = t
                 final_lang = l
                 st.success(f"🎧 Samajh gaya: **Topic = {t}** | **Language = {l}**")
-
     if st.button("🚀 PDF BASED 2.5 MIN VIDEO Banao", type="primary"):
         if not final_topic:
             st.warning("Pehle topic likho ya bolo!")
         else:
-            with st.spinner(f"✅ {final_topic} pe {final_lang} me PDF se accurate 2.5 MIN video bana raha hu... 30-40 sec lagega..."):
+            with st.spinner(f"✅ {final_topic} pe {final_lang} me PDF se accurate 2.5 MIN video bana raha hu..."):
                 try:
-                    import importlib
-                    import rag_utils
-                    importlib.reload(rag_utils)
-                    v_path, scenes = rag_utils.create_explainer_video(final_topic, final_lang, duration_sec=150)
+                    v_path, scenes = create_explainer_video(final_topic, final_lang, duration_sec=150)
                     if v_path and os.path.exists(v_path):
                         st.success("🔥 PDF BASED VIDEO BAN GAYA! 100% Accurate!")
                         st.video(v_path)
