@@ -97,7 +97,7 @@ def get_user_conversations(user_id):
 def auth_ui():
     cookies = None
     if COOKIE_OK:
-        cookies = EncryptedCookieManager(prefix="rag_v26_light_", password="kadiya_naresh_v26_light_mix_2024")
+        cookies = EncryptedCookieManager(prefix="rag_v27_daybreak_", password="kadiya_naresh_v27_daybreak_final_2024")
         if not cookies.ready():
             st.stop()
     if st.session_state.get("logged_in") and st.session_state.get("user"):
@@ -114,33 +114,33 @@ def auth_ui():
                     return True, cookies
             except:
                 pass
-    st.set_page_config(page_title="RAG Based AI Teaching Assistant", layout="centered", page_icon="🎓")
+    st.set_page_config(page_title="RAG Based AI Teaching Assistant", layout="centered", page_icon="🌅")
     st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
-    header[data-testid="stHeader"] {display:none!important;}
+    header[data-testid="stHeader"]{display:none!important;}
    .stApp {
-        background: #FDFDFF;
+        background: #FFFBF2;
         background-image:
-            radial-gradient(at 10% 10%, rgba(99,102,241,0.18) 0%, transparent 40%),
-            radial-gradient(at 90% 10%, rgba(236,72,153,0.15) 0%, transparent 40%),
-            radial-gradient(at 15% 90%, rgba(6,182,214,0.14) 0%, transparent 40%),
-            radial-gradient(at 85% 90%, rgba(245,158,11,0.12) 0%, transparent 40%);
+            radial-gradient(at 10% 10%, rgba(249,115,22,0.16) 0%, transparent 45%),
+            radial-gradient(at 90% 10%, rgba(236,72,153,0.14) 0%, transparent 45%),
+            radial-gradient(at 20% 90%, rgba(251,191,36,0.12) 0%, transparent 45%),
+            radial-gradient(at 80% 90%, rgba(99,102,241,0.08) 0%, transparent 45%);
         background-attachment: fixed;
     }
-  .login-card {background: rgba(255,255,255,0.9); backdrop-filter: blur(30px); border: 1px solid rgba(255,255,255,0.7); padding: 36px; border-radius: 28px; box-shadow: 0 24px 80px rgba(99,102,241,0.12), inset 0 1px 0 rgba(255,255,255,0.9); text-align:center; max-width:440px; width:100%;}
-  .login-title {font-family:'Space Grotesk'; font-size:28px; font-weight:700; color:#111827; line-height:1.2;}
-  .login-sub {color:#6B7280; font-size:13px; margin-top:6px;}
-  .pill {display:inline-block; background:linear-gradient(135deg,#EEF2FF,#E0E7FF); color:#6366F1; padding:6px 12px; border-radius:20px; font-size:11px; font-weight:700; margin:3px; border:1px solid #C7D2FE;}
+   .login-card {background: rgba(255,255,255,0.92); backdrop-filter: blur(30px); border: 1px solid rgba(251,146,60,0.15); padding: 36px; border-radius: 28px; box-shadow: 0 24px 80px rgba(249,115,22,0.12), inset 0 1px 0 rgba(255,255,255,0.9); text-align:center; max-width:440px; width:100%;}
+   .login-title {font-family:'Space Grotesk'; font-size:28px; font-weight:700; color:#111827; line-height:1.2;}
+   .login-sub {color:#6B7280; font-size:13px; margin-top:6px;}
+   .pill {display:inline-block; background:linear-gradient(135deg,#FFF7ED,#FFEDD5); color:#EA580C; padding:6px 12px; border-radius:20px; font-size:11px; font-weight:700; margin:3px; border:1px solid #FED7AA;}
     </style>
     """, unsafe_allow_html=True)
     _, col, _ = st.columns([1,2,1])
     with col:
         st.markdown("""
         <div class="login-card">
-            <div style="font-size:52px; margin-bottom:8px;">🎓</div>
+            <div style="font-size:52px; margin-bottom:8px;">🌅</div>
             <div class="login-title">RAG Based AI<br>Teaching Assistant</div>
-            <div class="login-sub">Light Premium Mesh • 30 Days Login</div>
+            <div class="login-sub">Daybreak Premium • Warm Sunrise</div>
             <div style="margin-top:14px;">
                 <span class="pill">💬 Q&A</span><span class="pill">🎤 VIVA</span><span class="pill">📝 QUIZ</span><span class="pill">🔊 AUDIO</span>
             </div>
@@ -199,131 +199,121 @@ except:
             image=Image.open(img_file); t=io.BytesIO(); image.save(t, format='PNG'); t.seek(0); doc.add_picture(t, width=Inches(5.5))
         doc.save(buf); buf.seek(0); return buf
 
-st.set_page_config(page_title="RAG Based AI Teaching Assistant", layout="wide", page_icon="🎓")
+st.set_page_config(page_title="RAG Based AI Teaching Assistant", layout="wide", page_icon="🌅")
 
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
 
-/* ===== FIX BLACK PATTI + TOOLBAR ===== */
+/* ===== HIDE BLACK PATTI ===== */
 header[data-testid="stHeader"], header, div[data-testid="stToolbar"] {display:none!important; height:0!important;}
-div[data-testid="stDecoration"] {display:none!important;}
-div[data-testid="stStatusWidget"] {display:none!important;}
-#MainMenu {visibility:hidden;}
-footer {visibility:hidden;}
-.main.block-container {padding-top: 1rem!important; margin-top: 0!important;}
+div[data-testid="stDecoration"], div[data-testid="stStatusWidget"], #MainMenu, footer {display:none!important;}
+.main.block-container {padding-top: 0.8rem!important; margin-top: 0!important;}
 
-/* ===== V26 LIGHT MIX - TRUE PREMIUM ===== */
+/* ===== DAYBREAK - WARM SUNRISE THEME ===== */
 .stApp {
-    background: #FCFDFF;
+    background: #FFFBF0;
     background-image:
-        radial-gradient(ellipse 900px 600px at 10% 15%, rgba(99,102,241,0.14), transparent 60%),
-        radial-gradient(ellipse 800px 500px at 90% 10%, rgba(236,72,153,0.12), transparent 60%),
-        radial-gradient(ellipse 700px 600px at 15% 85%, rgba(6,182,214,0.12), transparent 60%),
-        radial-gradient(ellipse 900px 600px at 85% 90%, rgba(168,85,247,0.10), transparent 60%),
-        radial-gradient(ellipse 1200px 800px at 50% 50%, rgba(99,102,241,0.04), transparent 70%);
+        radial-gradient(ellipse 900px 600px at 12% 12%, rgba(249,115,22,0.15), transparent 60%),
+        radial-gradient(ellipse 800px 500px at 88% 10%, rgba(236,72,153,0.13), transparent 60%),
+        radial-gradient(ellipse 800px 600px at 18% 88%, rgba(251,191,36,0.14), transparent 60%),
+        radial-gradient(ellipse 900px 600px at 88% 88%, rgba(249,115,22,0.10), transparent 60%),
+        radial-gradient(ellipse 1100px 700px at 50% 50%, rgba(251,146,60,0.05), transparent 70%);
     background-attachment: fixed;
 }
 .main {background: transparent!important;}
 .block-container {
-    background: rgba(255,255,255,0.78);
-    backdrop-filter: blur(28px) saturate(160%);
-    border-radius: 28px;
-    border: 1px solid rgba(255,255,255,0.75);
-    box-shadow: 0 12px 40px rgba(99,102,241,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
-    padding-top: 1rem!important;
+    background: rgba(255,255,255,0.82);
+    backdrop-filter: blur(24px) saturate(150%);
+    border-radius: 26px;
+    border: 1px solid rgba(251,146,60,0.12);
+    box-shadow: 0 10px 40px rgba(249,115,22,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
+    padding-top: 0.8rem!important;
 }
 
-/* ===== SIDEBAR LIGHT MIX COLOUR ===== */
+/* ===== TEXT FIX - SAB DIKHEGA ===== */
+h1, h2, h3, h4, h5, h6 {color: #1F2937!important; font-family: 'Space Grotesk', sans-serif!important;}
+p,.stMarkdown, li, span {color: #1F2937!important;}
+label,.stCaption, small {color: #4B5563!important;}
+.stTextInput input,.stTextArea textarea,.stSelectbox div[data-baseweb="select"] {
+    color: #111827!important; background: rgba(255,255,255,0.9)!important; border: 1px solid rgba(251,146,60,0.18)!important;
+}
+
+/* ===== SIDEBAR DAYBREAK MIX ===== */
 section[data-testid="stSidebar"] {
     background: linear-gradient(180deg,
-        rgba(255,255,255,0.96) 0%,
-        rgba(238,242,255,0.92) 25%,
-        rgba(253,242,248,0.90) 50%,
-        rgba(236,254,255,0.92) 75%,
-        rgba(255,255,255,0.96) 100%)!important;
-    backdrop-filter: blur(30px) saturate(160%);
-    border-right: 1px solid rgba(99,102,241,0.10);
-    box-shadow: 4px 0 30px rgba(99,102,241,0.06);
+        rgba(255,255,255,0.98) 0%,
+        rgba(255,247,237,0.96) 20%,
+        rgba(255,237,213,0.92) 40%,
+        rgba(254,243,199,0.90) 60%,
+        rgba(255,247,237,0.94) 80%,
+        rgba(255,255,255,0.98) 100%)!important;
+    backdrop-filter: blur(28px);
+    border-right: 1px solid rgba(251,146,60,0.14);
+    box-shadow: 6px 0 30px rgba(249,115,22,0.07);
 }
-section[data-testid="stSidebar"]::before {
-    content: '';
-    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-    background:
-        radial-gradient(at 20% 20%, rgba(99,102,241,0.08), transparent 50%),
-        radial-gradient(at 80% 70%, rgba(236,72,153,0.06), transparent 50%),
-        radial-gradient(at 50% 90%, rgba(6,182,214,0.05), transparent 50%);
-    pointer-events: none;
-}
+section[data-testid="stSidebar"] * {color: #1F2937!important;}
+section[data-testid="stSidebar"] small {color: #6B7280!important;}
 
-/* Hero - NO BLACK PATTI, Premium Light Gradient */
 .hero-pro {
-    background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 25%, #EC4899 55%, #06B6D4 85%, #F59E0B 100%);
-    border-radius: 24px; padding: 28px 32px; color:white;
-    box-shadow: 0 16px 40px rgba(99,102,241,0.22), inset 0 1px 0 rgba(255,255,255,0.25);
-    border: 1px solid rgba(255,255,255,0.25);
-    position: relative; overflow: hidden;
+    background: linear-gradient(135deg, #F97316 0%, #FB923C 20%, #F59E0B 40%, #EC4899 65%, #8B5CF6 90%);
+    border-radius: 24px; padding: 26px 30px; color:white!important;
+    box-shadow: 0 14px 36px rgba(249,115,22,0.22), inset 0 1px 0 rgba(255,255,255,0.28);
+    border: 1px solid rgba(255,255,255,0.30);
     margin-top: 0!important;
 }
-.hero-pro::before {
-    content: ''; position: absolute; inset: 0;
-    background: radial-gradient(circle at 20% 20%, rgba(255,255,255,0.18) 0%, transparent 50%);
-    pointer-events: none;
-}
-.hero-pro h1,.hero-pro h2 {color: white!important; position: relative; z-index: 2;}
+.hero-pro h1,.hero-pro h2 {color: white!important;}
 
 .profile-card-pro {
-    background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(248,250,255,0.90) 100%);
-    backdrop-filter: blur(20px);
-    border-radius:20px; padding:18px; border:1px solid rgba(99,102,241,0.12);
-    text-align:center; box-shadow: 0 10px 30px rgba(99,102,241,0.10), inset 0 1px 0 rgba(255,255,255,0.9);
+    background: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(255,247,237,0.94) 100%);
+    backdrop-filter: blur(18px);
+    border-radius:20px; padding:18px; border:1px solid rgba(251,146,60,0.16);
+    text-align:center; box-shadow: 0 8px 24px rgba(249,115,22,0.10), inset 0 1px 0 rgba(255,255,255,0.9);
 }
-.img-circle {width:85px; height:85px; border-radius:50%; object-fit:cover; border:3px solid white; box-shadow: 0 6px 24px rgba(99,102,241,0.20), 0 0 0 3px rgba(99,102,241,0.12); display:block; margin:0 auto;}
-.avatar-letter {width:85px; height:85px; border-radius:50%; background: linear-gradient(135deg,#6366F1 0%, #8B5CF6 50%, #EC4899 100%); display:flex; align-items:center; justify-content:center; margin:0 auto; color:white; font-size:32px; font-weight:700; font-family:Space Grotesk; box-shadow: 0 8px 24px rgba(99,102,241,0.25);}
-.dev-badge {position: fixed; bottom: 14px; right: 14px; background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); color: #4F46E5; padding: 7px 12px; border-radius: 20px; font-size: 10px; z-index: 999; font-weight:700; border: 1px solid rgba(99,102,241,0.15); box-shadow: 0 4px 12px rgba(0,0,0,0.08);}
+.img-circle {width:85px; height:85px; border-radius:50%; object-fit:cover; border:3px solid white; box-shadow: 0 6px 20px rgba(249,115,22,0.18), 0 0 0 3px rgba(251,146,60,0.12); display:block; margin:0 auto;}
+.avatar-letter {width:85px; height:85px; border-radius:50%; background: linear-gradient(135deg,#F97316 0%, #FB923C 40%, #EC4899 100%); display:flex; align-items:center; justify-content:center; margin:0 auto; color:white; font-size:32px; font-weight:700; font-family:Space Grotesk; box-shadow: 0 8px 20px rgba(249,115,22,0.28);}
+.dev-badge {position: fixed; bottom: 14px; right: 14px; background: rgba(255,255,255,0.90); backdrop-filter: blur(12px); color: #EA580C; padding: 7px 12px; border-radius: 20px; font-size: 10px; z-index: 999; font-weight:700; border: 1px solid rgba(251,146,60,0.18); box-shadow: 0 4px 12px rgba(0,0,0,0.08);}
 
-/* ===== BUTTONS LIGHT PREMIUM + POP ===== */
+/* ===== BUTTONS DAYBREAK ===== */
 section.main div[data-testid="stButton"] > button {
-    background: rgba(255,255,255,0.88)!important;
-    backdrop-filter: blur(16px)!important;
-    border-radius:16px!important; height:60px!important; font-weight:700!important; font-size:13px!important;
-    border:1.5px solid rgba(255,255,255,0.8)!important;
-    box-shadow: 0 4px 16px rgba(99,102,241,0.06), inset 0 1px 0 rgba(255,255,255,0.9)!important;
-    color: #374151!important;
-    transition: all 0.34s cubic-bezier(0.34, 1.56, 0.64, 1)!important;
+    background: rgba(255,255,255,0.92)!important;
+    border-radius:15px!important; height:58px!important; font-weight:700!important; font-size:13px!important;
+    border:1.5px solid rgba(251,146,60,0.12)!important;
+    box-shadow: 0 3px 12px rgba(249,115,22,0.06), inset 0 1px 0 rgba(255,255,255,0.9)!important;
+    color: #7C2D12!important;
+    transition: all 0.30s cubic-bezier(0.34, 1.56, 0.64, 1)!important;
 }
 section.main div[data-testid="stButton"] > button:hover {
-    transform: translateY(-6px) scale(1.04)!important;
-    box-shadow: 0 18px 36px rgba(99,102,241,0.16), inset 0 1px 0 rgba(255,255,255,0.9)!important;
-    color: white!important;
-    border-color: transparent!important;
+    transform: translateY(-5px) scale(1.04)!important;
+    box-shadow: 0 14px 30px rgba(249,115,22,0.18)!important;
+    color: white!important; border-color: transparent!important;
 }
-section.main div[data-testid="stButton"]:nth-of-type(1) button {background: linear-gradient(135deg, #EEF2FF, #E0E7FF)!important; border-color: #C7D2FE!important; color: #4F46E5!important;}
-section.main div[data-testid="stButton"]:nth-of-type(1) button:hover {background: linear-gradient(135deg, #4F46E5, #06B6D4)!important; color:white!important; box-shadow: 0 18px 36px rgba(79,70,229,0.28)!important;}
-section.main div[data-testid="stButton"]:nth-of-type(2) button {background: linear-gradient(135deg, #FEF3C7, #FDE68A)!important; border-color: #FCD34D!important; color: #B45309!important;}
-section.main div[data-testid="stButton"]:nth-of-type(2) button:hover {background: linear-gradient(135deg, #F59E0B, #EF4444)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(3) button {background: linear-gradient(135deg, #D1FAE5, #A7F3D0)!important; border-color: #6EE7B7!important; color: #065F46!important;}
-section.main div[data-testid="stButton"]:nth-of-type(3) button:hover {background: linear-gradient(135deg, #10B981, #06B6D4)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(4) button {background: linear-gradient(135deg, #FCE7F3, #FBCFE8)!important; border-color: #F9A8D4!important; color: #BE185D!important;}
-section.main div[data-testid="stButton"]:nth-of-type(4) button:hover {background: linear-gradient(135deg, #EC4899, #8B5CF6)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(5) button {background: linear-gradient(135deg, #DBEAFE, #BFDBFE)!important; border-color: #93C5FD!important; color: #1E40AF!important;}
-section.main div[data-testid="stButton"]:nth-of-type(5) button:hover {background: linear-gradient(135deg, #3B82F6, #6366F1)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(6) button {background: linear-gradient(135deg, #EDE9FE, #DDD6FE)!important; border-color: #C4B5FD!important; color: #6D28D9!important;}
-section.main div[data-testid="stButton"]:nth-of-type(6) button:hover {background: linear-gradient(135deg, #7C3AED, #EC4899)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(7) button {background: linear-gradient(135deg, #FFEDD5, #FED7AA)!important; border-color: #FDBA74!important; color: #9C4221!important;}
-section.main div[data-testid="stButton"]:nth-of-type(7) button:hover {background: linear-gradient(135deg, #F97316, #EF4444)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(8) button {background: linear-gradient(135deg, #CCFBF1, #99F6E0)!important; border-color: #5EEAD4!important; color: #115E59!important;}
-section.main div[data-testid="stButton"]:nth-of-type(8) button:hover {background: linear-gradient(135deg, #14B8A6, #10B981)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(9) button {background: linear-gradient(135deg, #F3E8FF, #E9D5FF)!important; border-color: #D8B4FE!important; color: #7E22CE!important;}
-section.main div[data-testid="stButton"]:nth-of-type(9) button:hover {background: linear-gradient(135deg, #A855F7, #EC4899)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(10) button {background: linear-gradient(135deg, #CFFAFE, #A5F3FC)!important; border-color: #67E8F9!important; color: #0E7490!important;}
-section.main div[data-testid="stButton"]:nth-of-type(10) button:hover {background: linear-gradient(135deg, #06B6D4, #3B82F6)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(11) button {background: linear-gradient(135deg, #F3F4F6, #E5E7EB)!important; border-color: #D1D5DB!important; color: #374151!important;}
-section.main div[data-testid="stButton"]:nth-of-type(11) button:hover {background: linear-gradient(135deg, #374151, #111827)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(12) button {background: linear-gradient(135deg, #FEF3C7, #FFEDD5)!important; border-color: #FCD34D!important; color: #92400E!important;}
-section.main div[data-testid="stButton"]:nth-of-type(12) button:hover {background: linear-gradient(135deg, #F59E0B, #F97316)!important; color:white!important;}
+section.main div[data-testid="stButton"]:nth-of-type(1) button {background: linear-gradient(135deg, #FFF7ED, #FFEDD5)!important; border-color: #FDBA74!important; color: #9A3412!important;}
+section.main div[data-testid="stButton"]:nth-of-type(1) button:hover {background: linear-gradient(135deg, #F97316, #FB923C)!important; color:white!important;}
+section.main div[data-testid="stButton"]:nth-of-type(2) button {background: linear-gradient(135deg, #FEF3C7, #FDE68A)!important; border-color: #FCD34D!important; color: #92400E!important;}
+section.main div[data-testid="stButton"]:nth-of-type(2) button:hover {background: linear-gradient(135deg, #F59E0B, #F97316)!important; color:white!important;}
+section.main div[data-testid="stButton"]:nth-of-type(3) button {background: linear-gradient(135deg, #FCE7F3, #FBCFE8)!important; border-color: #F9A8D4!important; color: #9D174D!important;}
+section.main div[data-testid="stButton"]:nth-of-type(3) button:hover {background: linear-gradient(135deg, #EC4899, #F97316)!important; color:white!important;}
+section.main div[data-testid="stButton"]:nth-of-type(4) button {background: linear-gradient(135deg, #FFEDD5, #FED7AA)!important; border-color: #FDBA74!important; color: #7C2D12!important;}
+section.main div[data-testid="stButton"]:nth-of-type(4) button:hover {background: linear-gradient(135deg, #FB923C, #F59E0B)!important; color:white!important;}
+section.main div[data-testid="stButton"]:nth-of-type(5) button {background: linear-gradient(135deg, #FEF9C3, #FEF08A)!important; border-color: #FDE047!important; color: #854D0E!important;}
+section.main div[data-testid="stButton"]:nth-of-type(5) button:hover {background: linear-gradient(135deg, #EAB308, #F97316)!important; color:white!important;}
+section.main div[data-testid="stButton"]:nth-of-type(6) button {background: linear-gradient(135deg, #FFF7ED, #FFE4E6)!important; border-color: #FECACA!important; color: #9F1239!important;}
+section.main div[data-testid="stButton"]:nth-of-type(6) button:hover {background: linear-gradient(135deg, #F43F5E, #F97316)!important; color:white!important;}
+section.main div[data-testid="stButton"]:nth-of-type(7) button {background: linear-gradient(135deg, #FFEDD5, #FDE68A)!important; border-color: #FDBA74!important; color: #7C2D12!important;}
+section.main div[data-testid="stButton"]:nth-of-type(7) button:hover {background: linear-gradient(135deg, #F97316, #EAB308)!important; color:white!important;}
+section.main div[data-testid="stButton"]:nth-of-type(8) button {background: linear-gradient(135deg, #FFF7ED, #FFEDD5)!important; border-color: #FED7AA!important; color: #9A3412!important;}
+section.main div[data-testid="stButton"]:nth-of-type(8) button:hover {background: linear-gradient(135deg, #F97316, #EC4899)!important; color:white!important;}
+section.main div[data-testid="stButton"]:nth-of-type(9) button {background: linear-gradient(135deg, #FEF3C7, #FFEDD5)!important; border-color: #FCD34D!important; color: #92400E!important;}
+section.main div[data-testid="stButton"]:nth-of-type(9) button:hover {background: linear-gradient(135deg, #F59E0B, #FB923C)!important; color:white!important;}
+section.main div[data-testid="stButton"]:nth-of-type(10) button {background: linear-gradient(135deg, #FFF7ED, #FDE68A)!important; border-color: #FDBA74!important; color: #9A3412!important;}
+section.main div[data-testid="stButton"]:nth-of-type(10) button:hover {background: linear-gradient(135deg, #F97316, #F59E0B)!important; color:white!important;}
+section.main div[data-testid="stButton"]:nth-of-type(11) button {background: linear-gradient(135deg, #FFF7ED, #FEF3C7)!important; border-color: #FED7AA!important; color: #78350F!important;}
+section.main div[data-testid="stButton"]:nth-of-type(11) button:hover {background: linear-gradient(135deg, #D97706, #F59E0B)!important; color:white!important;}
+section.main div[data-testid="stButton"]:nth-of-type(12) button {background: linear-gradient(135deg, #FFEDD5, #FEF3C7)!important; border-color: #FDBA74!important; color: #92400E!important;}
+section.main div[data-testid="stButton"]:nth-of-type(12) button:hover {background: linear-gradient(135deg, #F97316, #FBBF24)!important; color:white!important;}
 </style>
-<div class="dev-badge">V26 LIGHT MIX PREMIUM FIXED | KADIYA NARESH</div>
+<div class="dev-badge">🌅 V27 DAYBREAK WARM PREMIUM | KADIYA NARESH</div>
 """, unsafe_allow_html=True)
 
 def universal_input(key, placeholder="Bolo ya likho..."):
@@ -367,10 +357,10 @@ with st.sidebar:
     <div class="profile-card-pro">
         {photo_html}
         <h4 style="margin:12px 0 2px 0; font-family:Space Grotesk; font-size:16px; color:#111827;">{user['name']}</h4>
-        <p style="margin:0; color:#6366F1; font-size:12px; font-weight:600;">@{user['username']}</p>
+        <p style="margin:0; color:#EA580C; font-size:12px; font-weight:600;">@{user['username']}</p>
         <div style="margin-top:10px; display:flex; gap:6px; justify-content:center;">
-            <span style="background:#EEF2FF; color:#6366F1; padding:3px 8px; border-radius:10px; font-size:10px; font-weight:700; border:1px solid #C7D2FE;">PRO</span>
-            <span style="background:#F0FDF4; color:#16A34A; padding:3px 8px; border-radius:10px; font-size:10px; font-weight:700; border:1px solid #BBF7D0;">ACTIVE</span>
+            <span style="background:#FFF7ED; color:#EA580C; padding:3px 8px; border-radius:10px; font-size:10px; font-weight:700; border:1px solid #FED7AA;">PRO</span>
+            <span style="background:#FEF3C7; color:#B45309; padding:3px 8px; border-radius:10px; font-size:10px; font-weight:700; border:1px solid #FDE68A;">ACTIVE</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -409,8 +399,8 @@ with st.sidebar:
 st.markdown(f"""
 <div class="hero-pro">
     <div style="position:relative; z-index:2;">
-        <h1 style="margin:0; font-family:Space Grotesk; font-size:26px; font-weight:700;">Welcome back, {user['name'].split()[0]}! 👋</h1>
-        <h2 style="margin:6px 0 0 0; font-family:Space Grotesk; font-size:16px; font-weight:500; opacity:0.95;">RAG Based AI Teaching Assistant • Light Premium</h2>
+        <h1 style="margin:0; font-family:Space Grotesk; font-size:26px; font-weight:700; color:white!important;">Welcome back, {user['name'].split()[0]}! 🌅</h1>
+        <h2 style="margin:6px 0 0 0; font-family:Space Grotesk; font-size:16px; font-weight:500; opacity:0.96; color:white!important;">RAG Based AI Teaching Assistant • Daybreak Premium</h2>
     </div>
 </div><br>
 """, unsafe_allow_html=True)
