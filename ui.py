@@ -26,17 +26,22 @@ def init_db():
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT, name TEXT, email TEXT, photo TEXT, bio TEXT, created_at TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS conversations (id INTEGER PRIMARY KEY, user_id INTEGER, query TEXT, answer TEXT, mode TEXT, timestamp TEXT)''')
-    conn.commit(); conn.close()
+    conn.commit()
+    conn.close()
 init_db()
 
-def hash_pwd(p): return hashlib.sha256(p.encode()).hexdigest()
-def get_conn(): return sqlite3.connect(DB_PATH, check_same_thread=False)
+def hash_pwd(p):
+    return hashlib.sha256(p.encode()).hexdigest()
+
+def get_conn():
+    return sqlite3.connect(DB_PATH, check_same_thread=False)
 
 def signup_user(username, password, name, email):
     try:
         conn = get_conn()
         conn.execute("INSERT INTO users (username, password, name, email, photo, bio, created_at) VALUES (?,?,?,?,?,?,?)",(username.lower().strip(), hash_pwd(password), name, email, "", "", datetime.now().isoformat()))
-        conn.commit(); conn.close()
+        conn.commit()
+        conn.close()
         return True, "Account ban gaya!"
     except sqlite3.IntegrityError:
         return False, "Username pehle se hai!"
@@ -44,19 +49,26 @@ def signup_user(username, password, name, email):
         return False, str(e)
 
 def login_user(username, password):
-    conn = get_conn(); c = conn.cursor()
+    conn = get_conn()
+    c = conn.cursor()
     c.execute("SELECT id, username, name, email, photo, bio FROM users WHERE username=? AND password=?", (username.lower().strip(), hash_pwd(password)))
-    u = c.fetchone(); conn.close()
-    if u: return {"id": u[0], "username": u[1], "name": u[2], "email": u[3], "photo": u[4], "bio": u[5]}
+    u = c.fetchone()
+    conn.close()
+    if u:
+        return {"id": u[0], "username": u[1], "name": u[2], "email": u[3], "photo": u[4], "bio": u[5]}
     return None
 
 def get_user_by_id(user_id):
     try:
-        conn = get_conn(); c = conn.cursor()
+        conn = get_conn()
+        c = conn.cursor()
         c.execute("SELECT id, username, name, email, photo, bio FROM users WHERE id=?", (user_id,))
-        u = c.fetchone(); conn.close()
-        if u: return {"id": u[0], "username": u[1], "name": u[2], "email": u[3], "photo": u[4], "bio": u[5]}
-    except: return None
+        u = c.fetchone()
+        conn.close()
+        if u:
+            return {"id": u[0], "username": u[1], "name": u[2], "email": u[3], "photo": u[4], "bio": u[5]}
+    except:
+        return None
     return None
 
 def update_profile(user_id, name, email, bio, photo_file=None):
@@ -64,62 +76,107 @@ def update_profile(user_id, name, email, bio, photo_file=None):
     if photo_file:
         ext = photo_file.name.split(".")[-1]
         photo_path = f"{PICS_PATH}/{user_id}_{int(datetime.now().timestamp())}.{ext}"
-        with open(photo_path, "wb") as f: f.write(photo_file.getbuffer())
+        with open(photo_path, "wb") as f:
+            f.write(photo_file.getbuffer())
     conn = get_conn()
-    if photo_path: conn.execute("UPDATE users SET name=?, email=?, bio=?, photo=? WHERE id=?", (name, email, bio, photo_path, user_id))
-    else: conn.execute("UPDATE users SET name=?, email=?, bio=? WHERE id=?", (name, email, bio, user_id))
-    conn.commit(); conn.close(); return True
+    if photo_path:
+        conn.execute("UPDATE users SET name=?, email=?, bio=?, photo=? WHERE id=?", (name, email, bio, photo_path, user_id))
+    else:
+        conn.execute("UPDATE users SET name=?, email=?, bio=? WHERE id=?", (name, email, bio, user_id))
+    conn.commit()
+    conn.close()
+    return True
 
 def save_conversation(user_id, query, answer, mode="Ask"):
-    conn = get_conn(); conn.execute("INSERT INTO conversations (user_id, query, answer, mode, timestamp) VALUES (?,?,?,?,?)",(user_id, query, answer, mode, datetime.now().isoformat())); conn.commit(); conn.close()
+    conn = get_conn()
+    conn.execute("INSERT INTO conversations (user_id, query, answer, mode, timestamp) VALUES (?,?,?,?,?)",(user_id, query, answer, mode, datetime.now().isoformat()))
+    conn.commit()
+    conn.close()
 
 def get_user_conversations(user_id):
-    conn = get_conn(); c = conn.cursor(); c.execute("SELECT id, query, answer, mode, timestamp FROM conversations WHERE user_id=? ORDER BY id DESC", (user_id,)); rows = c.fetchall(); conn.close(); return rows
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute("SELECT id, query, answer, mode, timestamp FROM conversations WHERE user_id=? ORDER BY id DESC", (user_id,))
+    rows = c.fetchall()
+    conn.close()
+    return rows
 
 def auth_ui():
     cookies = None
     if COOKIE_OK:
-        cookies = EncryptedCookieManager(prefix="rag_v32_alllight_", password="kadiya_naresh_v32_all_light_sidebar_color_2024")
-        if not cookies.ready(): st.stop()
-    if st.session_state.get("logged_in") and st.session_state.get("user"): return True, cookies
+        cookies = EncryptedCookieManager(prefix="rag_final_light_", password="kadiya_naresh_final_2024")
+        if not cookies.ready():
+            st.stop()
+    if st.session_state.get("logged_in") and st.session_state.get("user"):
+        return True, cookies
     if COOKIE_OK and cookies:
         uid_val = cookies.get("uid")
         if uid_val:
             try:
-                uid = int(uid_val); u = get_user_by_id(uid)
-                if u: st.session_state.logged_in = True; st.session_state.user = u; return True, cookies
-            except: pass
-    st.set_page_config(page_title="RAG Based AI Teaching Assistant", layout="centered", page_icon="🌤️")
-    st.markdown("""<style>header[data-testid="stHeader"]{display:none!important;}.stApp {background: #E0F2FE;}</style>""", unsafe_allow_html=True)
+                uid = int(uid_val)
+                u = get_user_by_id(uid)
+                if u:
+                    st.session_state.logged_in = True
+                    st.session_state.user = u
+                    return True, cookies
+            except:
+                pass
+    st.set_page_config(page_title="RAG Based AI Teaching Assistant", layout="centered", page_icon="🎓")
+    st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
+    header[data-testid="stHeader"]{display:none!important;}
+   .stApp {background: #E0F2FE; background-image: radial-gradient(at 15% 15%, rgba(14,165,233,0.18) 0%, transparent 45%), radial-gradient(at 85% 15%, rgba(251,191,36,0.12) 0%, transparent 45%); background-attachment: fixed;}
+   .login-card {background: white; padding: 36px; border-radius: 28px; text-align:center; border: 1px solid #BAE6FD; box-shadow: 0 24px 80px rgba(14,165,233,0.12);}
+   .login-title {font-family:'Space Grotesk'; font-size:28px; font-weight:700; color:#0F172A;}
+    </style>
+    """, unsafe_allow_html=True)
     _, col, _ = st.columns([1,2,1])
     with col:
-        st.markdown("""<div style="background:white; padding:36px; border-radius:28px; text-align:center; border:1px solid #BAE6FD;"><div style="font-size:52px;">🌤️</div><h2 style="color:#0F172A;">RAG Based AI Teaching Assistant</h2></div><br>""", unsafe_allow_html=True)
+        st.markdown("""<div class="login-card"><div style="font-size:52px;">🎓</div><div class="login-title">RAG Based AI<br>Teaching Assistant</div></div><br>""", unsafe_allow_html=True)
         t1, t2 = st.tabs(["🔐 Login", "✨ Sign Up"])
         with t1:
-            username = st.text_input("Username", key="l_user"); pwd = st.text_input("Password", type="password", key="l_pwd")
+            username = st.text_input("Username", key="l_user")
+            pwd = st.text_input("Password", type="password", key="l_pwd")
             if st.button("🚀 Login", type="primary", use_container_width=True, key="login_btn"):
                 u = login_user(username, pwd)
                 if u:
-                    st.session_state.logged_in = True; st.session_state.user = u
-                    if COOKIE_OK: cookies["uid"] = str(u['id']); cookies.save()
+                    st.session_state.logged_in = True
+                    st.session_state.user = u
+                    if COOKIE_OK:
+                        cookies["uid"] = str(u['id'])
+                        cookies.save()
                     st.rerun()
-                else: st.error("Galat")
+                else:
+                    st.error("Galat Username/Password")
         with t2:
-            name = st.text_input("Full Name", key="s_name"); username_s = st.text_input("Username", key="s_user"); email = st.text_input("Email", key="s_email"); pwd_s = st.text_input("Password", key="s_pwd", type="password")
+            name = st.text_input("Full Name", key="s_name")
+            username_s = st.text_input("Username", key="s_user")
+            email = st.text_input("Email", key="s_email")
+            pwd_s = st.text_input("Password", key="s_pwd", type="password")
             if st.button("Create Account", use_container_width=True, key="signup_btn"):
-                if len(username_s) < 3 or len(pwd_s) < 4: st.error("Min 3/4")
+                if len(username_s) < 3 or len(pwd_s) < 4:
+                    st.error("Min 3/4")
                 else:
                     ok, msg = signup_user(username_s, pwd_s, name, email)
-                    if ok: st.success(msg); st.balloons()
-                    else: st.error(msg)
+                    if ok:
+                        st.success(msg)
+                        st.balloons()
+                    else:
+                        st.error(msg)
     return False, cookies
 
 logged_in, cookies = auth_ui()
-if not logged_in: st.stop()
+if not logged_in:
+    st.stop()
+
 user = get_user_by_id(st.session_state.user['id'])
 if not user:
-    if COOKIE_OK and cookies: cookies["uid"] = ""; cookies.save()
-    st.session_state.clear(); st.rerun()
+    if COOKIE_OK and cookies:
+        cookies["uid"] = ""
+        cookies.save()
+    st.session_state.clear()
+    st.rerun()
 st.session_state.user = user
 
 try:
@@ -127,33 +184,41 @@ try:
 except:
     from rag_utils import (process_files, ask_question, get_api_key, generate_quiz, generate_summary, predict_important_questions, check_quiz_answer, get_weak_topics, transcribe_audio, story_mode_learning, build_project_guide, generate_podcast_script, generate_viva_questions, verify_viva_answer, create_ppt_file, text_to_audio_file)
     def images_to_pdf(image_files):
-        images = [Image.open(img).convert("RGB") for img in image_files]; buf=io.BytesIO()
-        if len(images) > 1: images[0].save(buf, format="PDF", save_all=True, append_images=images[1:])
-        else: images[0].save(buf, format="PDF")
-        buf.seek(0); return buf
+        images = [Image.open(img).convert("RGB") for img in image_files]
+        buf = io.BytesIO()
+        if len(images) > 1:
+            images[0].save(buf, format="PDF", save_all=True, append_images=images[1:])
+        else:
+            images[0].save(buf, format="PDF")
+        buf.seek(0)
+        return buf
     def images_to_docx(image_files):
-        doc=Document(); doc.add_heading('RAG',0); buf=io.BytesIO()
+        doc = Document()
+        doc.add_heading('RAG', 0)
+        buf = io.BytesIO()
         for img_file in image_files:
-            image=Image.open(img_file); t=io.BytesIO(); image.save(t, format='PNG'); t.seek(0); doc.add_picture(t, width=Inches(5.5))
-        doc.save(buf); buf.seek(0); return buf
+            image = Image.open(img_file)
+            t = io.BytesIO()
+            image.save(t, format='PNG')
+            t.seek(0)
+            doc.add_picture(t, width=Inches(5.5))
+        doc.save(buf)
+        buf.seek(0)
+        return buf
 
-st.set_page_config(page_title="RAG Based AI Teaching Assistant", layout="wide", page_icon="🌤️")
+st.set_page_config(page_title="RAG Based AI Teaching Assistant", layout="wide", page_icon="🎓")
 
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
 
-/* HIDE BLACK HEADER */
 header[data-testid="stHeader"], div[data-testid="stToolbar"], div[data-testid="stDecoration"], #MainMenu, footer {display:none!important; height:0!important;}
 .main.block-container {padding-top: 0.5rem!important;}
 
-/* ============ SIDEBAR COLOUR = APP BACKGROUND ME ============ */
 .stApp {
     background: linear-gradient(180deg, #E0F2FE 0%, #BAE6FD 18%, #E0F2FE 38%, #FFF7ED 62%, #FFEDD5 82%, #E0F2FE 100%)!important;
     background-attachment: fixed!important;
 }
-
-/* Main container bhi same sidebar colour ka - white hatao */
 .block-container {
     background: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(224,242,254,0.88) 20%, rgba(186,230,253,0.84) 40%, rgba(255,247,237,0.86) 70%, rgba(255,255,255,0.90) 100%)!important;
     backdrop-filter: blur(28px)!important;
@@ -161,7 +226,6 @@ header[data-testid="stHeader"], div[data-testid="stToolbar"], div[data-testid="s
     border: 1px solid rgba(125,211,252,0.30)!important;
     box-shadow: 0 12px 40px rgba(14,165,233,0.12)!important;
 }
-
 h1, h2, h3 {color: #0F172A!important; font-family:'Space Grotesk'!important;}
 p,.stMarkdown {color: #1E293B!important;}
 
@@ -171,17 +235,36 @@ section[data-testid="stSidebar"] {
 }
 section[data-testid="stSidebar"] * {color: #0F172A!important;}
 
-.hero-pro {background: linear-gradient(135deg, #0EA5E9 0%, #38BDF8 20%, #FB923C 40%, #FBBF24 60%, #F472B6 80%, #A78BFA 100%); border-radius: 22px; padding: 26px 30px; box-shadow: 0 14px 36px rgba(14,165,233,0.20);}
+.hero-pro {
+    background: linear-gradient(135deg, #0EA5E9 0%, #38BDF8 20%, #FB923C 40%, #FBBF24 60%, #F472B6 80%, #A78BFA 100%);
+    border-radius: 22px; padding: 26px 30px; box-shadow: 0 14px 36px rgba(14,165,233,0.20);
+}
 .hero-pro h1,.hero-pro h2 {color: #0F172A!important; font-weight: 800!important;}
-.profile-card-pro {background: linear-gradient(135deg, #FFFFFF 0%, #F0F9FF 100%); border-radius:20px; padding:18px; border:1px solid #BAE6FD; text-align:center; box-shadow: 0 8px 24px rgba(14,165,233,0.10);}
+
+.profile-card-pro {
+    background: linear-gradient(135deg, #FFFFFF 0%, #F0F9FF 100%);
+    border-radius:20px; padding:18px; border:1px solid #BAE6FD; text-align:center;
+    box-shadow: 0 8px 24px rgba(14,165,233,0.10);
+}
 .img-circle {width:85px; height:85px; border-radius:50%; object-fit:cover; border:3px solid white; box-shadow: 0 0 0 3px #BAE6FD; display:block; margin:0 auto;}
 .avatar-letter {width:85px; height:85px; border-radius:50%; background: linear-gradient(135deg,#0EA5E9 0%, #FB923C 100%); display:flex; align-items:center; justify-content:center; margin:0 auto; color:white; font-size:32px; font-weight:700;}
-.dev-badge {position: fixed; bottom: 14px; right: 14px; background: white; color: #0284C7; padding: 7px 12px; border-radius: 20px; font-size: 10px; font-weight:700; border: 1px solid #BAE6FD;}
 
-/* ==================== ZERO BLACK - ALL INPUTS LIGHT ==================== */
+.dev-badge {
+    position: fixed; bottom: 14px; right: 14px;
+    background: white; color: #0F172A;
+    padding: 8px 14px; border-radius: 20px;
+    font-size: 12px; font-weight:700;
+    border: 1px solid #BAE6FD;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    z-index: 999;
+}
 
-/* BUTTONS */
-div[data-testid="stButton"] > button {background: white!important; border-radius: 14px!important; height: 56px!important; font-weight: 700!important; border: 1.5px solid #7DD3FC!important; color: #0F172A!important; box-shadow: 0 2px 10px rgba(14,165,233,0.08)!important;}
+/* BUTTONS LIGHT */
+div[data-testid="stButton"] > button {
+    background: white!important; border-radius: 14px!important; height: 56px!important;
+    font-weight: 700!important; border: 1.5px solid #7DD3FC!important; color: #0F172A!important;
+    box-shadow: 0 2px 10px rgba(14,165,233,0.08)!important;
+}
 section.main div[data-testid="stButton"]:nth-of-type(1) button {background: linear-gradient(135deg, #E0F2FE, #BAE6FD)!important; color: #0C4A6E!important;}
 section.main div[data-testid="stButton"]:nth-of-type(2) button {background: linear-gradient(135deg, #FEF3C7, #FDE68A)!important; color: #78350F!important;}
 section.main div[data-testid="stButton"]:nth-of-type(3) button {background: linear-gradient(135deg, #DBEAFE, #BFDBFE)!important; color: #1E3A8A!important;}
@@ -196,60 +279,56 @@ section.main div[data-testid="stButton"]:nth-of-type(11) button {background: lin
 section.main div[data-testid="stButton"]:nth-of-type(12) button {background: linear-gradient(135deg, #FFF7ED, #FFEDD5)!important; color: #7C2D12!important;}
 div[data-testid="stButton"] > button:hover {transform: translateY(-3px)!important; box-shadow: 0 10px 28px rgba(14,165,233,0.18)!important;}
 
-/* ALL TEXT INPUTS - LIGHT */
+/* INPUTS LIGHT */
 div[data-testid="stTextInput"] > div > div > input,
-div[data-testid="stTextArea"] > div > div > textarea,
 div[data-testid="stNumberInput"] input,
-div[data-testid="stSelectbox"] > div > div,
-div[data-testid="stTextInput"] input {
-    background: linear-gradient(135deg, #FFFFFF 0%, #F0F9FF 100%)!important;
-    background-color: #FFFFFF!important;
-    border: 1.5px solid #7DD3FC!important;
-    border-radius: 12px!important;
-    color: #0F172A!important;
-    box-shadow: 0 2px 8px rgba(14,165,233,0.06)!important;
+div[data-testid="stSelectbox"] > div > div {
+    background: #FFFFFF!important; border: 1.5px solid #7DD3FC!important;
+    border-radius: 12px!important; color: #0F172A!important;
 }
 
-/* FILE UPLOADER - FULL LIGHT */
-div[data-testid="stFileUploader"] {background: linear-gradient(135deg, #FFFFFF 0%, #F0F9FF 100%)!important; border: 1.5px solid #7DD3FC!important; border-radius: 16px!important; padding: 14px!important;}
+/* FILE UPLOADER WHITE */
+div[data-testid="stFileUploader"] {
+    background: #FFFFFF!important; border: 1.5px solid #7DD3FC!important;
+    border-radius: 16px!important; padding: 14px!important;
+}
 div[data-testid="stFileUploader"] * {color: #0F172A!important;}
-div[data-testid="stFileUploaderDropzone"] {background: linear-gradient(135deg, #E0F2FE 0%, #F0F9FF 100%)!important; border: 2px dashed #38BDF8!important; border-radius: 14px!important;}
+div[data-testid="stFileUploaderDropzone"] {
+    background: #FFFFFF!important; border: 2px dashed #38BDF8!important; border-radius: 14px!important;
+}
 div[data-testid="stFileUploaderDropzone"] * {color: #0C4A6E!important;}
-div[data-testid="stFileUploaderDropzone"] button {background: white!important; color: #0284C7!important; border: 1.5px solid #7DD3FC!important; border-radius: 10px!important;}
-div[data-testid="stFileUploader"] section {background: white!important; border: none!important;}
-[data-testid="stFileUploadDropzone"] {background: #E0F2FE!important;}
+div[data-testid="stFileUploaderDropzone"] button,
+div[data-testid="stFileUploader"] button {
+    background: #FFFFFF!important; color: #0F172A!important;
+    border: 1.5px solid #7DD3FC!important; border-radius: 10px!important;
+}
 
-/* AUDIO INPUT - FULL LIGHT */
-div[data-testid="stAudioInput"] {background: linear-gradient(135deg, #FFFFFF 0%, #E0F2FE 100%)!important; border: 1.5px solid #7DD3FC!important; border-radius: 16px!important; padding: 12px!important;}
+/* TEXT AREA - BIO WHITE */
+div[data-testid="stTextArea"] textarea {
+    background: #FFFFFF!important; background-color: #FFFFFF!important;
+    color: #0F172A!important; border: 1.5px solid #7DD3FC!important; border-radius: 12px!important;
+}
+
+/* AUDIO INPUT WHITE */
+div[data-testid="stAudioInput"] {
+    background: #FFFFFF!important; border: 1.5px solid #7DD3FC!important;
+    border-radius: 16px!important; padding: 12px!important;
+}
 div[data-testid="stAudioInput"] * {color: #0C4A6E!important;}
-div[data-testid="stAudioInput"] button {background: white!important; border: 1.5px solid #7DD3FC!important; color: #0284C7!important; border-radius: 12px!important;}
+div[data-testid="stAudioInput"] button {
+    background: #FFFFFF!important; border: 1.5px solid #7DD3FC!important;
+    color: #0F172A!important; border-radius: 12px!important;
+}
 
-/* RADIO - NO BLACK DOT - BLUE */
-div[data-testid="stRadio"] label {background: linear-gradient(135deg, #FFFFFF 0%, #F0F9FF 100%)!important; border: 1.5px solid #7DD3FC!important; border-radius: 12px!important; padding: 8px 14px!important;}
-div[data-testid="stRadio"] p {color: #0F172A!important;}
-div[data-testid="stRadio"] > div {background: transparent!important;}
-
-/* SLIDER - LIGHT */
-div[data-testid="stSlider"] > div {background: transparent!important;}
-div[data-testid="stSlider"] div[data-baseweb="slider"] > div {background: #BAE6FD!important;}
-div[data-testid="stSlider"] div[role="slider"] {background: #0EA5E9!important; border: 2px solid white!important; box-shadow: 0 2px 8px rgba(14,165,233,0.3)!important;}
-
-/* EXPANDER / CONTAINER - LIGHT WITH SIDEBAR COLOR */
-div[data-testid="stExpander"] {background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(224,242,254,0.7) 100%)!important; border: 1px solid #BAE6FD!important; border-radius: 14px!important;}
-div[data-testid="stExpander"] * {color: #0F172A!important;}
-div[data-testid="stVerticalBlockBorderWrapper"] {background: linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(224,242,254,0.65) 100%)!important; border: 1px solid #BAE6FD!important; border-radius: 16px!important;}
-
-/* SELECTBOX DROPDOWN */
-div[data-baseweb="select"] > div {background: white!important; border: 1.5px solid #7DD3FC!important; color: #0F172A!important; border-radius: 12px!important;}
-ul[data-baseweb="menu"] {background: white!important; border: 1px solid #BAE6FD!important;}
-ul[data-baseweb="menu"] li {color: #0F172A!important; background: white!important;}
-ul[data-baseweb="menu"] li:hover {background: #E0F2FE!important;}
-
-/* ANY REMAINING BLACK - FORCE LIGHT */
-[data-testid="stWidgetLabel"] p, label p {color: #0F172A!important;}
-div[data-baseweb="file-uploader"] {background: white!important;}
+div[data-testid="stRadio"] label {
+    background: #FFFFFF!important; border: 1.5px solid #7DD3FC!important;
+    border-radius: 12px!important; padding: 8px 14px!important;
+}
+div[data-testid="stExpander"] {
+    background: rgba(255,255,255,0.9)!important; border: 1px solid #BAE6FD!important; border-radius: 14px!important;
+}
 </style>
-<div class="dev-badge">🌤️ V32 ALL LIGHT + SIDEBAR COLOR IN FEATURES | KADIYA NARESH</div>
+<div class="dev-badge">Developer : KADIYA NARESH</div>
 """, unsafe_allow_html=True)
 
 def universal_input(key, placeholder="Bolo ya likho..."):
@@ -265,19 +344,22 @@ def universal_input(key, placeholder="Bolo ya likho..."):
             path = tmp.name
         with st.spinner("Sun raha hu..."):
             vt = transcribe_audio(api_key, path)
-        if os.path.exists(path): os.remove(path)
+        if os.path.exists(path):
+            os.remove(path)
         if vt:
             st.success(f"🎧 {vt}")
             return vt
     return txt
 
 def play_audio_block(text, lang, key):
-    if not text: return
+    if not text:
+        return
     if st.button(f"▶️ {lang} me Suno", key=f"play_{key}", type="primary", use_container_width=True):
         with st.spinner("Audio bana raha hu..."):
             ap = text_to_audio_file(text, lang)
             if ap and os.path.exists(ap) and os.path.getsize(ap) > 500:
-                with open(ap, "rb") as f: audio_bytes = f.read()
+                with open(ap, "rb") as f:
+                    audio_bytes = f.read()
                 st.audio(audio_bytes, format="audio/mp3", autoplay=True)
 
 with st.sidebar:
@@ -292,7 +374,7 @@ with st.sidebar:
             photo_html = f'<div class="avatar-letter">{user["name"][0].upper()}</div>'
     else:
         photo_html = f'<div class="avatar-letter">{user["name"][0].upper()}</div>'
-    st.markdown(f"""<div class="profile-card-pro">{photo_html}<h4 style="margin:12px 0 2px 0; color:#0F172A;">{user['name']}</h4><p style="margin:0; color:#0284C7; font-size:12px; font-weight:600;">@{user['username']}</p><div style="margin-top:10px; display:flex; gap:6px; justify-content:center;"><span style="background:#E0F2FE; color:#0284C7; padding:3px 8px; border-radius:10px; font-size:10px; font-weight:700; border:1px solid #BAE6FD;">PRO</span><span style="background:#FEF3C7; color:#B45309; padding:3px 8px; border-radius:10px; font-size:10px; font-weight:700; border:1px solid #FDE68A;">ACTIVE</span></div></div>""", unsafe_allow_html=True)
+    st.markdown(f"""<div class="profile-card-pro">{photo_html}<h4 style="margin:12px 0 2px 0; color:#0F172A;">{user['name']}</h4><p style="margin:0; color:#0284C7; font-size:12px; font-weight:600;">@{user['username']}</p></div>""", unsafe_allow_html=True)
     st.write("")
     c1, c2 = st.columns(2)
     with c1:
@@ -332,39 +414,71 @@ with st.sidebar:
     st.session_state.selected_language = selected_language
     chunk_size, chunk_overlap, top_k = 1000, 100, 8
 
-st.markdown(f"""<div class="hero-pro"><h1 style="margin:0; font-size:26px; font-weight:800;">Welcome back, {user['name'].split()[0]}! 🌤️</h1><h2 style="margin:6px 0 0 0; font-size:16px; font-weight:600;">RAG Based AI Teaching Assistant • All Light</h2></div><br>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="hero-pro"><h1 style="margin:0; font-size:26px; font-weight:800;">Welcome back, {user['name'].split()[0]}! 🌤️</h1><h2 style="margin:6px 0 0 0; font-size:16px; font-weight:600;">RAG Based AI Teaching Assistant</h2></div><br>""", unsafe_allow_html=True)
 
-if "active" not in st.session_state: st.session_state.active = "Ask"
-if "viva_qs" not in st.session_state: st.session_state.viva_qs = []; st.session_state.viva_idx = 0; st.session_state.viva_score = []
-if "quiz_data" not in st.session_state: st.session_state.quiz_data = None; st.session_state.quiz_results = []
+if "active" not in st.session_state:
+    st.session_state.active = "Ask"
+if "viva_qs" not in st.session_state:
+    st.session_state.viva_qs = []
+    st.session_state.viva_idx = 0
+    st.session_state.viva_score = []
+if "quiz_data" not in st.session_state:
+    st.session_state.quiz_data = None
+    st.session_state.quiz_results = []
 
 st.markdown("#### ⚡ Production Dashboard - All Features")
 c = st.columns(6)
 with c[0]:
-    if st.button("💬 Ask Q&A", use_container_width=True, key="dash_ask"): st.session_state.active = "Ask"; st.rerun()
+    if st.button("💬 Ask Q&A", use_container_width=True, key="dash_ask"):
+        st.session_state.active = "Ask"
+        st.rerun()
 with c[1]:
-    if st.button("⭐ Important", use_container_width=True, key="dash_imp"): st.session_state.active = "Important"; st.rerun()
+    if st.button("⭐ Important", use_container_width=True, key="dash_imp"):
+        st.session_state.active = "Important"
+        st.rerun()
 with c[2]:
-    if st.button("🔧 Project", use_container_width=True, key="dash_proj"): st.session_state.active = "Projects"; st.rerun()
+    if st.button("🔧 Project", use_container_width=True, key="dash_proj"):
+        st.session_state.active = "Projects"
+        st.rerun()
 with c[3]:
-    if st.button("📝 Quiz", use_container_width=True, key="dash_quiz"): st.session_state.active = "Quiz"; st.rerun()
+    if st.button("📝 Quiz", use_container_width=True, key="dash_quiz"):
+        st.session_state.active = "Quiz"
+        st.rerun()
 with c[4]:
-    if st.button("🎤 Viva", use_container_width=True, key="dash_viva"): st.session_state.active = "Viva"; st.rerun()
+    if st.button("🎤 Viva", use_container_width=True, key="dash_viva"):
+        st.session_state.active = "Viva"
+        st.rerun()
 with c[5]:
-    if st.button("📊 PPT Maker", use_container_width=True, key="dash_ppt"): st.session_state.active = "PPT"; st.rerun()
+    if st.button("📊 PPT Maker", use_container_width=True, key="dash_ppt"):
+        st.session_state.active = "PPT"
+        st.rerun()
+
 c2 = st.columns(6)
 with c2[0]:
-    if st.button("📄 Summary", use_container_width=True, key="dash_sum"): st.session_state.active = "Summary"; st.rerun()
+    if st.button("📄 Summary", use_container_width=True, key="dash_sum"):
+        st.session_state.active = "Summary"
+        st.rerun()
 with c2[1]:
-    if st.button("📖 Story Mode", use_container_width=True, key="dash_story"): st.session_state.active = "Story"; st.rerun()
+    if st.button("📖 Story Mode", use_container_width=True, key="dash_story"):
+        st.session_state.active = "Story"
+        st.rerun()
 with c2[2]:
-    if st.button("🎙️ Podcast", use_container_width=True, key="dash_pod"): st.session_state.active = "Podcast"; st.rerun()
+    if st.button("🎙️ Podcast", use_container_width=True, key="dash_pod"):
+        st.session_state.active = "Podcast"
+        st.rerun()
 with c2[3]:
-    if st.button("🖼️ Img→PDF", use_container_width=True, key="dash_img"): st.session_state.active = "Image2PDF"; st.rerun()
+    if st.button("🖼️ Img→PDF", use_container_width=True, key="dash_img"):
+        st.session_state.active = "Image2PDF"
+        st.rerun()
 with c2[4]:
-    if st.button("👤 Profile", use_container_width=True, key="dash_prof"): st.session_state.active = "Profile"; st.rerun()
+    if st.button("👤 Profile", use_container_width=True, key="dash_prof"):
+        st.session_state.active = "Profile"
+        st.rerun()
 with c2[5]:
-    if st.button("🕘 History", use_container_width=True, key="dash_hist"): st.session_state.active = "History"; st.rerun()
+    if st.button("🕘 History", use_container_width=True, key="dash_hist"):
+        st.session_state.active = "History"
+        st.rerun()
+
 st.divider()
 active = st.session_state.active
 lang = st.session_state.get('selected_language', 'Hinglish')
@@ -372,77 +486,123 @@ st.subheader(f"▶ {active} • {lang}")
 
 if active == "ChatView":
     conv = st.session_state.get("selected_conv")
-    if not conv: st.info("Sidebar se chat select karo")
+    if not conv:
+        st.info("Sidebar se chat select karo")
     else:
         st.markdown(f"**{conv['mode']}** • {conv['timestamp'][:16]}")
         st.markdown(f"#### ❓ {conv['query']}")
-        st.divider(); st.markdown(conv['answer']); play_audio_block(conv['answer'], lang, f"hist_{conv['id']}")
+        st.divider()
+        st.markdown(conv['answer'])
+        play_audio_block(conv['answer'], lang, f"hist_{conv['id']}")
 elif active == "Profile":
     col1, col2 = st.columns([1, 2])
     with col1:
-        if user['photo'] and os.path.exists(user['photo']): st.image(user['photo'], width=200)
-        else: st.markdown(f"<div class='avatar-letter' style='width:180px; height:180px; font-size:60px;'>{user['name'][0].upper()}</div>", unsafe_allow_html=True)
+        if user['photo'] and os.path.exists(user['photo']):
+            st.image(user['photo'], width=200)
+        else:
+            st.markdown(f"<div class='avatar-letter' style='width:180px; height:180px; font-size:60px;'>{user['name'][0].upper()}</div>", unsafe_allow_html=True)
         new_photo = st.file_uploader("Nayi Photo", type=["jpg","png","jpeg"], key="photo_up")
     with col2:
-        new_name = st.text_input("Full Name", value=user['name']); new_email = st.text_input("Email", value=user['email']); new_bio = st.text_area("Bio", value=user['bio'] if user['bio'] else "")
+        new_name = st.text_input("Full Name", value=user['name'])
+        new_email = st.text_input("Email", value=user['email'])
+        new_bio = st.text_area("Bio", value=user['bio'] if user['bio'] else "")
         if st.button("💾 Update Profile", type="primary", use_container_width=True, key="upd_prof"):
-            update_profile(user['id'], new_name, new_email, new_bio, new_photo); st.success("Updated!"); st.rerun()
+            update_profile(user['id'], new_name, new_email, new_bio, new_photo)
+            st.success("Updated!")
+            st.rerun()
 elif active == "History":
-    convs = get_user_conversations(user['id']); st.metric("Total", len(convs))
+    convs = get_user_conversations(user['id'])
+    st.metric("Total", len(convs))
     for cid, q, a, mode, ts in convs:
-        with st.expander(f"[{mode}] {q[:70]}"): st.markdown(a)
+        with st.expander(f"[{mode}] {q[:70]}"):
+            st.markdown(a)
 elif active == "Ask":
-    mode = st.radio("Style:", ["Normal","Socratic"], horizontal=True, key="ask_mode"); sel = "socratic" if "Socratic" in mode else "normal"
+    mode = st.radio("Style:", ["Normal","Socratic"], horizontal=True, key="ask_mode")
+    sel = "socratic" if "Socratic" in mode else "normal"
     q = universal_input("ask", f"Sawal bolo ({lang} me)...")
     if st.button("🚀 Ask Question", type="primary", use_container_width=True, key="ask_q") and q:
         ans, src = ask_question(q, top_k, mode=sel, language=lang)
-        st.session_state.last_ask = ans; save_conversation(user['id'], q, ans, f"Ask-{sel}"); st.markdown(ans)
-        with st.expander("📚 Sources"): st.write(src)
-    if "last_ask" in st.session_state: play_audio_block(st.session_state.last_ask, lang, "ask")
+        st.session_state.last_ask = ans
+        save_conversation(user['id'], q, ans, f"Ask-{sel}")
+        st.markdown(ans)
+        with st.expander("📚 Sources"):
+            st.write(src)
+    if "last_ask" in st.session_state:
+        play_audio_block(st.session_state.last_ask, lang, "ask")
 elif active == "Important":
     if st.button(f"⭐ Generate in {lang}", type="primary", use_container_width=True, key="imp_gen"):
-        imp = predict_important_questions(language=lang); st.session_state.last_imp = imp; save_conversation(user['id'], f"Important {lang}", imp, "Important"); st.markdown(imp)
-    if "last_imp" in st.session_state: play_audio_block(st.session_state.last_imp, lang, "imp")
+        imp = predict_important_questions(language=lang)
+        st.session_state.last_imp = imp
+        save_conversation(user['id'], f"Important {lang}", imp, "Important")
+        st.markdown(imp)
+    if "last_imp" in st.session_state:
+        play_audio_block(st.session_state.last_imp, lang, "imp")
 elif active == "Summary":
     if st.button(f"📄 Summary in {lang}", type="primary", use_container_width=True, key="sum_gen"):
-        summ = generate_summary(language=lang); st.session_state.last_summ = summ; save_conversation(user['id'], f"Summary {lang}", summ, "Summary"); st.markdown(summ)
-    if "last_summ" in st.session_state: play_audio_block(st.session_state.last_summ, lang, "summ")
+        summ = generate_summary(language=lang)
+        st.session_state.last_summ = summ
+        save_conversation(user['id'], f"Summary {lang}", summ, "Summary")
+        st.markdown(summ)
+    if "last_summ" in st.session_state:
+        play_audio_block(st.session_state.last_summ, lang, "summ")
 elif active == "Story":
     tp = universal_input("story", f"Topic {lang}")
     if st.button("🎬 Create Story", type="primary", use_container_width=True, key="story_gen") and tp:
-        story_text = story_mode_learning(tp, language=lang); st.session_state.last_story = story_text; save_conversation(user['id'], tp, story_text, "Story"); st.markdown(story_text)
-    if "last_story" in st.session_state: play_audio_block(st.session_state.last_story, lang, "story")
+        story_text = story_mode_learning(tp, language=lang)
+        st.session_state.last_story = story_text
+        save_conversation(user['id'], tp, story_text, "Story")
+        st.markdown(story_text)
+    if "last_story" in st.session_state:
+        play_audio_block(st.session_state.last_story, lang, "story")
 elif active == "Projects":
     idea = universal_input("proj", f"IoT Idea ({lang})")
     bud = st.selectbox("Budget", ["low (under ₹1500)","medium (₹1500-5000)","high (₹5000+)"], key="bud")
     if st.button("🔧 Full IoT Guide Generate", type="primary", use_container_width=True, key="proj_gen") and idea:
-        with st.spinner("Guide bana raha hu..."): guide = build_project_guide(idea, bud, language=lang)
-        st.session_state.last_proj = guide; save_conversation(user['id'], idea, guide, "Project"); st.markdown(guide)
+        with st.spinner("Guide bana raha hu..."):
+            guide = build_project_guide(idea, bud, language=lang)
+        st.session_state.last_proj = guide
+        save_conversation(user['id'], idea, guide, "Project")
+        st.markdown(guide)
     if "last_proj" in st.session_state:
-        st.divider(); play_audio_block(st.session_state.last_proj, lang, "proj")
+        st.divider()
+        play_audio_block(st.session_state.last_proj, lang, "proj")
         st.download_button("⬇️ TXT", st.session_state.last_proj, file_name="Full_IoT_Guide.txt", mime="text/plain", use_container_width=True)
 elif active == "Podcast":
     tp = universal_input("pod", f"Topic {lang}")
     if st.button("🎙️ Create Podcast", type="primary", use_container_width=True, key="pod_gen") and tp:
-        pod_text = generate_podcast_script(tp, language=lang); st.session_state.last_pod = pod_text; save_conversation(user['id'], tp, pod_text, "Podcast"); st.markdown(pod_text)
-    if "last_pod" in st.session_state: play_audio_block(st.session_state.last_pod, lang, "pod")
+        pod_text = generate_podcast_script(tp, language=lang)
+        st.session_state.last_pod = pod_text
+        save_conversation(user['id'], tp, pod_text, "Podcast")
+        st.markdown(pod_text)
+    if "last_pod" in st.session_state:
+        play_audio_block(st.session_state.last_pod, lang, "pod")
 elif active == "Image2PDF":
     uploaded_images = st.file_uploader("Images", type=["jpg","jpeg","png"], accept_multiple_files=True, key="img_upload")
     if uploaded_images:
         cols = st.columns(5)
         for idx, img in enumerate(uploaded_images):
-            with cols[idx % 5]: st.image(img, caption=f"Img {idx+1}", use_container_width=True)
+            with cols[idx % 5]:
+                st.image(img, caption=f"Img {idx+1}", use_container_width=True)
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("📄 PDF", type="primary", use_container_width=True, key="pdf_btn"): pdf_data = images_to_pdf(uploaded_images); st.session_state.pdf_ready = pdf_data
+            if st.button("📄 PDF", type="primary", use_container_width=True, key="pdf_btn"):
+                pdf_data = images_to_pdf(uploaded_images)
+                st.session_state.pdf_ready = pdf_data
         with c2:
-            if st.button("📝 DOCX", type="primary", use_container_width=True, key="docx_btn"): docx_data = images_to_docx(uploaded_images); st.session_state.docx_ready = docx_data
-        if "pdf_ready" in st.session_state: st.download_button("⬇️ PDF", st.session_state.pdf_ready, file_name="RAG_Images.pdf", mime="application/pdf", use_container_width=True, key="dl_pdf")
-        if "docx_ready" in st.session_state: st.download_button("⬇️ DOCX", st.session_state.docx_ready, file_name="RAG_Images.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True, key="dl_docx")
+            if st.button("📝 DOCX", type="primary", use_container_width=True, key="docx_btn"):
+                docx_data = images_to_docx(uploaded_images)
+                st.session_state.docx_ready = docx_data
+        if "pdf_ready" in st.session_state:
+            st.download_button("⬇️ PDF", st.session_state.pdf_ready, file_name="RAG_Images.pdf", mime="application/pdf", use_container_width=True, key="dl_pdf")
+        if "docx_ready" in st.session_state:
+            st.download_button("⬇️ DOCX", st.session_state.docx_ready, file_name="RAG_Images.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True, key="dl_docx")
 elif active == "Quiz":
     n = st.number_input("Kitne Q?", 3, 15, 5, key="quiz_n")
     if st.button("Generate Quiz", type="primary", use_container_width=True, key="quiz_gen"):
-        quiz_list = generate_quiz(n, language=lang); st.session_state.quiz_data = quiz_list; st.session_state.quiz_results = []; st.rerun()
+        quiz_list = generate_quiz(n, language=lang)
+        st.session_state.quiz_data = quiz_list
+        st.session_state.quiz_results = []
+        st.rerun()
     if st.session_state.quiz_data:
         for i, qd in enumerate(st.session_state.quiz_data):
             with st.container(border=True):
@@ -451,26 +611,39 @@ elif active == "Quiz":
                 if st.button(f"Check Q{i+1}", key=f"chk_{i}"):
                     ok, fb = check_quiz_answer(qd['question'], choice, qd['answer'], qd.get('topic','general'))
                     st.session_state.quiz_results.append({"is_correct": ok})
-                    if ok: st.success(fb)
-                    else: st.error(fb)
+                    if ok:
+                        st.success(fb)
+                    else:
+                        st.error(fb)
 elif active == "Viva":
-    topic = universal_input("viva_topic", f"Viva topic {lang}"); num = st.slider("Questions?", 3, 20, 5, key="viva_num")
+    topic = universal_input("viva_topic", f"Viva topic {lang}")
+    num = st.slider("Questions?", 3, 20, 5, key="viva_num")
     if st.button("Start Viva", type="primary", use_container_width=True, key="viva_start") and topic:
-        qs = generate_viva_questions(topic, num, language=lang); st.session_state.viva_qs = qs; st.session_state.viva_idx = 0; st.session_state.viva_score = []; st.rerun()
+        qs = generate_viva_questions(topic, num, language=lang)
+        st.session_state.viva_qs = qs
+        st.session_state.viva_idx = 0
+        st.session_state.viva_score = []
+        st.rerun()
     if st.session_state.viva_qs:
         idx = st.session_state.viva_idx
         if idx < len(st.session_state.viva_qs):
-            curr = st.session_state.viva_qs[idx]; st.subheader(f"Q{idx+1}: {curr['q']}")
+            curr = st.session_state.viva_qs[idx]
+            st.subheader(f"Q{idx+1}: {curr['q']}")
             user_ans = universal_input(f"v_ans_{idx}", f"Answer {lang}")
             if st.button("Submit", key=f"v_sub_{idx}", use_container_width=True) and user_ans:
                 res = verify_viva_answer(curr['q'], curr['a'], user_ans, language=lang)
                 is_correct = "true" in str(res.get('verdict','')).lower()
                 st.session_state.viva_score.append({"is_correct": is_correct})
-                if is_correct: st.success(res.get('feedback',''))
-                else: st.error(res.get('feedback',''))
-                st.session_state.viva_idx += 1; st.rerun()
+                if is_correct:
+                    st.success(res.get('feedback',''))
+                else:
+                    st.error(res.get('feedback',''))
+                st.session_state.viva_idx += 1
+                st.rerun()
 elif active == "PPT":
-    topic = universal_input("ppt", f"Topic {lang}"); pages = st.slider("Slides?", 5, 25, 10, key="ppt_pages")
+    topic = universal_input("ppt", f"Topic {lang}")
+    pages = st.slider("Slides?", 5, 25, 10, key="ppt_pages")
     if st.button("Create PPT", type="primary", use_container_width=True, key="ppt_create") and topic:
         ppt_path = create_ppt_file(topic, pages, language=lang)
-        with open(ppt_path, "rb") as f: st.download_button("⬇️ Download PPT", f, file_name=f"{topic}_{lang}.pptx", key="ppt_dl")
+        with open(ppt_path, "rb") as f:
+            st.download_button("⬇️ Download PPT", f, file_name=f"{topic}_{lang}.pptx", key="ppt_dl")
