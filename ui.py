@@ -97,7 +97,7 @@ def get_user_conversations(user_id):
 def auth_ui():
     cookies = None
     if COOKIE_OK:
-        cookies = EncryptedCookieManager(prefix="rag_v27_daybreak_", password="kadiya_naresh_v27_daybreak_final_2024")
+        cookies = EncryptedCookieManager(prefix="rag_v28_sky_", password="kadiya_naresh_v28_sky_blue_daybreak_2024")
         if not cookies.ready():
             st.stop()
     if st.session_state.get("logged_in") and st.session_state.get("user"):
@@ -114,33 +114,33 @@ def auth_ui():
                     return True, cookies
             except:
                 pass
-    st.set_page_config(page_title="RAG Based AI Teaching Assistant", layout="centered", page_icon="🌅")
+    st.set_page_config(page_title="RAG Based AI Teaching Assistant", layout="centered", page_icon="🌤️")
     st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
     header[data-testid="stHeader"]{display:none!important;}
-   .stApp {
-        background: #FFFBF2;
+  .stApp {
+        background: #F0F9FF;
         background-image:
-            radial-gradient(at 10% 10%, rgba(249,115,22,0.16) 0%, transparent 45%),
-            radial-gradient(at 90% 10%, rgba(236,72,153,0.14) 0%, transparent 45%),
-            radial-gradient(at 20% 90%, rgba(251,191,36,0.12) 0%, transparent 45%),
-            radial-gradient(at 80% 90%, rgba(99,102,241,0.08) 0%, transparent 45%);
+            radial-gradient(at 15% 15%, rgba(14,165,233,0.18) 0%, transparent 45%),
+            radial-gradient(at 85% 15%, rgba(249,115,22,0.14) 0%, transparent 45%),
+            radial-gradient(at 20% 85%, rgba(56,189,248,0.15) 0%, transparent 45%),
+            radial-gradient(at 80% 85%, rgba(236,72,153,0.10) 0%, transparent 45%);
         background-attachment: fixed;
     }
-   .login-card {background: rgba(255,255,255,0.92); backdrop-filter: blur(30px); border: 1px solid rgba(251,146,60,0.15); padding: 36px; border-radius: 28px; box-shadow: 0 24px 80px rgba(249,115,22,0.12), inset 0 1px 0 rgba(255,255,255,0.9); text-align:center; max-width:440px; width:100%;}
-   .login-title {font-family:'Space Grotesk'; font-size:28px; font-weight:700; color:#111827; line-height:1.2;}
-   .login-sub {color:#6B7280; font-size:13px; margin-top:6px;}
-   .pill {display:inline-block; background:linear-gradient(135deg,#FFF7ED,#FFEDD5); color:#EA580C; padding:6px 12px; border-radius:20px; font-size:11px; font-weight:700; margin:3px; border:1px solid #FED7AA;}
+  .login-card {background: rgba(255,255,255,0.92); backdrop-filter: blur(30px); border: 1px solid rgba(14,165,233,0.15); padding: 36px; border-radius: 28px; box-shadow: 0 24px 80px rgba(14,165,233,0.12), inset 0 1px 0 rgba(255,255,255,0.9); text-align:center; max-width:440px; width:100%;}
+  .login-title {font-family:'Space Grotesk'; font-size:28px; font-weight:700; color:#0F172A; line-height:1.2;}
+  .login-sub {color:#475569; font-size:13px; margin-top:6px;}
+  .pill {display:inline-block; background:linear-gradient(135deg,#E0F2FE,#BAE6FD); color:#0369A1; padding:6px 12px; border-radius:20px; font-size:11px; font-weight:700; margin:3px; border:1px solid #7DD3FC;}
     </style>
     """, unsafe_allow_html=True)
     _, col, _ = st.columns([1,2,1])
     with col:
         st.markdown("""
         <div class="login-card">
-            <div style="font-size:52px; margin-bottom:8px;">🌅</div>
+            <div style="font-size:52px; margin-bottom:8px;">🌤️</div>
             <div class="login-title">RAG Based AI<br>Teaching Assistant</div>
-            <div class="login-sub">Daybreak Premium • Warm Sunrise</div>
+            <div class="login-sub">Daybreak Sky Blue • Fresh Morning</div>
             <div style="margin-top:14px;">
                 <span class="pill">💬 Q&A</span><span class="pill">🎤 VIVA</span><span class="pill">📝 QUIZ</span><span class="pill">🔊 AUDIO</span>
             </div>
@@ -199,121 +199,130 @@ except:
             image=Image.open(img_file); t=io.BytesIO(); image.save(t, format='PNG'); t.seek(0); doc.add_picture(t, width=Inches(5.5))
         doc.save(buf); buf.seek(0); return buf
 
-st.set_page_config(page_title="RAG Based AI Teaching Assistant", layout="wide", page_icon="🌅")
+st.set_page_config(page_title="RAG Based AI Teaching Assistant", layout="wide", page_icon="🌤️")
 
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
 
 /* ===== HIDE BLACK PATTI ===== */
-header[data-testid="stHeader"], header, div[data-testid="stToolbar"] {display:none!important; height:0!important;}
-div[data-testid="stDecoration"], div[data-testid="stStatusWidget"], #MainMenu, footer {display:none!important;}
-.main.block-container {padding-top: 0.8rem!important; margin-top: 0!important;}
+header[data-testid="stHeader"], header, div[data-testid="stToolbar"], div[data-testid="stDecoration"], div[data-testid="stStatusWidget"], #MainMenu, footer {display:none!important; height:0!important;}
+.main.block-container {padding-top: 0.5rem!important; margin-top: 0!important;}
 
-/* ===== DAYBREAK - WARM SUNRISE THEME ===== */
+/* ===== DAYBREAK SKY BLUE ===== */
 .stApp {
-    background: #FFFBF0;
+    background: #F0FAFF;
     background-image:
-        radial-gradient(ellipse 900px 600px at 12% 12%, rgba(249,115,22,0.15), transparent 60%),
-        radial-gradient(ellipse 800px 500px at 88% 10%, rgba(236,72,153,0.13), transparent 60%),
-        radial-gradient(ellipse 800px 600px at 18% 88%, rgba(251,191,36,0.14), transparent 60%),
-        radial-gradient(ellipse 900px 600px at 88% 88%, rgba(249,115,22,0.10), transparent 60%),
-        radial-gradient(ellipse 1100px 700px at 50% 50%, rgba(251,146,60,0.05), transparent 70%);
+        radial-gradient(ellipse 900px 600px at 12% 12%, rgba(14,165,233,0.16), transparent 58%),
+        radial-gradient(ellipse 800px 500px at 88% 12%, rgba(249,115,22,0.13), transparent 58%),
+        radial-gradient(ellipse 700px 600px at 18% 88%, rgba(56,189,248,0.14), transparent 58%),
+        radial-gradient(ellipse 800px 600px at 88% 88%, rgba(251,191,36,0.10), transparent 58%),
+        radial-gradient(ellipse 1100px 700px at 50% 45%, rgba(14,165,233,0.05), transparent 70%);
     background-attachment: fixed;
 }
 .main {background: transparent!important;}
 .block-container {
-    background: rgba(255,255,255,0.82);
-    backdrop-filter: blur(24px) saturate(150%);
+    background: rgba(255,255,255,0.84);
+    backdrop-filter: blur(26px) saturate(150%);
     border-radius: 26px;
-    border: 1px solid rgba(251,146,60,0.12);
-    box-shadow: 0 10px 40px rgba(249,115,22,0.08), inset 0 1px 0 rgba(255,255,255,0.9);
-    padding-top: 0.8rem!important;
+    border: 1px solid rgba(14,165,233,0.10);
+    box-shadow: 0 10px 40px rgba(14,165,233,0.07), inset 0 1px 0 rgba(255,255,255,0.9);
+    padding-top: 0.6rem!important;
 }
 
-/* ===== TEXT FIX - SAB DIKHEGA ===== */
-h1, h2, h3, h4, h5, h6 {color: #1F2937!important; font-family: 'Space Grotesk', sans-serif!important;}
-p,.stMarkdown, li, span {color: #1F2937!important;}
-label,.stCaption, small {color: #4B5563!important;}
-.stTextInput input,.stTextArea textarea,.stSelectbox div[data-baseweb="select"] {
-    color: #111827!important; background: rgba(255,255,255,0.9)!important; border: 1px solid rgba(251,146,60,0.18)!important;
-}
+/* ===== TEXT FIX ===== */
+h1, h2, h3, h4, h5, h6 {color: #0F172A!important; font-family: 'Space Grotesk', sans-serif!important;}
+p,.stMarkdown, li {color: #1E293B!important;}
+label,.stCaption, small {color: #475569!important;}
 
-/* ===== SIDEBAR DAYBREAK MIX ===== */
+/* ===== SIDEBAR SKY MIX LIGHT ===== */
 section[data-testid="stSidebar"] {
     background: linear-gradient(180deg,
         rgba(255,255,255,0.98) 0%,
-        rgba(255,247,237,0.96) 20%,
-        rgba(255,237,213,0.92) 40%,
-        rgba(254,243,199,0.90) 60%,
-        rgba(255,247,237,0.94) 80%,
+        rgba(224,242,254,0.94) 22%,
+        rgba(186,230,253,0.88) 42%,
+        rgba(255,247,237,0.90) 68%,
+        rgba(224,242,254,0.94) 85%,
         rgba(255,255,255,0.98) 100%)!important;
     backdrop-filter: blur(28px);
-    border-right: 1px solid rgba(251,146,60,0.14);
-    box-shadow: 6px 0 30px rgba(249,115,22,0.07);
+    border-right: 1px solid rgba(14,165,233,0.12);
+    box-shadow: 6px 0 32px rgba(14,165,233,0.08);
 }
-section[data-testid="stSidebar"] * {color: #1F2937!important;}
-section[data-testid="stSidebar"] small {color: #6B7280!important;}
+section[data-testid="stSidebar"] * {color: #0F172A!important;}
+section[data-testid="stSidebar"] small, section[data-testid="stSidebar"].stCaption {color: #475569!important;}
 
 .hero-pro {
-    background: linear-gradient(135deg, #F97316 0%, #FB923C 20%, #F59E0B 40%, #EC4899 65%, #8B5CF6 90%);
-    border-radius: 24px; padding: 26px 30px; color:white!important;
-    box-shadow: 0 14px 36px rgba(249,115,22,0.22), inset 0 1px 0 rgba(255,255,255,0.28);
-    border: 1px solid rgba(255,255,255,0.30);
+    background: linear-gradient(135deg, #0EA5E9 0%, #38BDF8 18%, #FB923C 38%, #FBBF24 58%, #F472B6 78%, #A78BFA 100%);
+    border-radius: 22px; padding: 26px 30px; color:#0F172A!important;
+    box-shadow: 0 14px 36px rgba(14,165,233,0.20), inset 0 1px 0 rgba(255,255,255,0.35);
+    border: 1px solid rgba(255,255,255,0.35);
     margin-top: 0!important;
 }
-.hero-pro h1,.hero-pro h2 {color: white!important;}
+.hero-pro h1 {color: #0F172A!important; font-weight:800!important;}
+.hero-pro h2 {color: #1E293B!important; font-weight:600!important;}
 
 .profile-card-pro {
-    background: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(255,247,237,0.94) 100%);
+    background: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(224,242,254,0.90) 100%);
     backdrop-filter: blur(18px);
-    border-radius:20px; padding:18px; border:1px solid rgba(251,146,60,0.16);
-    text-align:center; box-shadow: 0 8px 24px rgba(249,115,22,0.10), inset 0 1px 0 rgba(255,255,255,0.9);
+    border-radius:20px; padding:18px; border:1px solid rgba(14,165,233,0.14);
+    text-align:center; box-shadow: 0 8px 24px rgba(14,165,233,0.10), inset 0 1px 0 rgba(255,255,255,0.9);
 }
-.img-circle {width:85px; height:85px; border-radius:50%; object-fit:cover; border:3px solid white; box-shadow: 0 6px 20px rgba(249,115,22,0.18), 0 0 0 3px rgba(251,146,60,0.12); display:block; margin:0 auto;}
-.avatar-letter {width:85px; height:85px; border-radius:50%; background: linear-gradient(135deg,#F97316 0%, #FB923C 40%, #EC4899 100%); display:flex; align-items:center; justify-content:center; margin:0 auto; color:white; font-size:32px; font-weight:700; font-family:Space Grotesk; box-shadow: 0 8px 20px rgba(249,115,22,0.28);}
-.dev-badge {position: fixed; bottom: 14px; right: 14px; background: rgba(255,255,255,0.90); backdrop-filter: blur(12px); color: #EA580C; padding: 7px 12px; border-radius: 20px; font-size: 10px; z-index: 999; font-weight:700; border: 1px solid rgba(251,146,60,0.18); box-shadow: 0 4px 12px rgba(0,0,0,0.08);}
+.img-circle {width:85px; height:85px; border-radius:50%; object-fit:cover; border:3px solid white; box-shadow: 0 6px 20px rgba(14,165,233,0.18), 0 0 0 3px rgba(14,165,233,0.12); display:block; margin:0 auto;}
+.avatar-letter {width:85px; height:85px; border-radius:50%; background: linear-gradient(135deg,#0EA5E9 0%, #38BDF8 45%, #FB923C 100%); display:flex; align-items:center; justify-content:center; margin:0 auto; color:white; font-size:32px; font-weight:700; font-family:Space Grotesk; box-shadow: 0 8px 20px rgba(14,165,233,0.28);}
+.dev-badge {position: fixed; bottom: 14px; right: 14px; background: rgba(255,255,255,0.90); backdrop-filter: blur(12px); color: #0284C7; padding: 7px 12px; border-radius: 20px; font-size: 10px; z-index: 999; font-weight:700; border: 1px solid rgba(14,165,233,0.16); box-shadow: 0 4px 12px rgba(0,0,0,0.06);}
 
-/* ===== BUTTONS DAYBREAK ===== */
+/* ===== BUTTONS - LIGHT SKY COLOURS - NO BLACK ===== */
 section.main div[data-testid="stButton"] > button {
-    background: rgba(255,255,255,0.92)!important;
+    background: linear-gradient(135deg, #FFFFFF 0%, #F0F9FF 100%)!important;
     border-radius:15px!important; height:58px!important; font-weight:700!important; font-size:13px!important;
-    border:1.5px solid rgba(251,146,60,0.12)!important;
-    box-shadow: 0 3px 12px rgba(249,115,22,0.06), inset 0 1px 0 rgba(255,255,255,0.9)!important;
-    color: #7C2D12!important;
+    border:1.5px solid rgba(14,165,233,0.14)!important;
+    box-shadow: 0 3px 14px rgba(14,165,233,0.07), inset 0 1px 0 rgba(255,255,255,0.95)!important;
+    color: #0F172A!important;
     transition: all 0.30s cubic-bezier(0.34, 1.56, 0.64, 1)!important;
 }
+/* Force override Streamlit dark theme */
+section.main div[data-testid="stButton"] > button p,
+section.main div[data-testid="stButton"] > button span,
+section.main div[data-testid="stButton"] > button div {color: #0F172A!important;}
+
 section.main div[data-testid="stButton"] > button:hover {
     transform: translateY(-5px) scale(1.04)!important;
-    box-shadow: 0 14px 30px rgba(249,115,22,0.18)!important;
-    color: white!important; border-color: transparent!important;
+    box-shadow: 0 14px 32px rgba(14,165,233,0.18)!important;
+    color: white!important;
+    border-color: transparent!important;
 }
-section.main div[data-testid="stButton"]:nth-of-type(1) button {background: linear-gradient(135deg, #FFF7ED, #FFEDD5)!important; border-color: #FDBA74!important; color: #9A3412!important;}
-section.main div[data-testid="stButton"]:nth-of-type(1) button:hover {background: linear-gradient(135deg, #F97316, #FB923C)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(2) button {background: linear-gradient(135deg, #FEF3C7, #FDE68A)!important; border-color: #FCD34D!important; color: #92400E!important;}
-section.main div[data-testid="stButton"]:nth-of-type(2) button:hover {background: linear-gradient(135deg, #F59E0B, #F97316)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(3) button {background: linear-gradient(135deg, #FCE7F3, #FBCFE8)!important; border-color: #F9A8D4!important; color: #9D174D!important;}
-section.main div[data-testid="stButton"]:nth-of-type(3) button:hover {background: linear-gradient(135deg, #EC4899, #F97316)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(4) button {background: linear-gradient(135deg, #FFEDD5, #FED7AA)!important; border-color: #FDBA74!important; color: #7C2D12!important;}
-section.main div[data-testid="stButton"]:nth-of-type(4) button:hover {background: linear-gradient(135deg, #FB923C, #F59E0B)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(5) button {background: linear-gradient(135deg, #FEF9C3, #FEF08A)!important; border-color: #FDE047!important; color: #854D0E!important;}
-section.main div[data-testid="stButton"]:nth-of-type(5) button:hover {background: linear-gradient(135deg, #EAB308, #F97316)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(6) button {background: linear-gradient(135deg, #FFF7ED, #FFE4E6)!important; border-color: #FECACA!important; color: #9F1239!important;}
-section.main div[data-testid="stButton"]:nth-of-type(6) button:hover {background: linear-gradient(135deg, #F43F5E, #F97316)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(7) button {background: linear-gradient(135deg, #FFEDD5, #FDE68A)!important; border-color: #FDBA74!important; color: #7C2D12!important;}
-section.main div[data-testid="stButton"]:nth-of-type(7) button:hover {background: linear-gradient(135deg, #F97316, #EAB308)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(8) button {background: linear-gradient(135deg, #FFF7ED, #FFEDD5)!important; border-color: #FED7AA!important; color: #9A3412!important;}
-section.main div[data-testid="stButton"]:nth-of-type(8) button:hover {background: linear-gradient(135deg, #F97316, #EC4899)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(9) button {background: linear-gradient(135deg, #FEF3C7, #FFEDD5)!important; border-color: #FCD34D!important; color: #92400E!important;}
-section.main div[data-testid="stButton"]:nth-of-type(9) button:hover {background: linear-gradient(135deg, #F59E0B, #FB923C)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(10) button {background: linear-gradient(135deg, #FFF7ED, #FDE68A)!important; border-color: #FDBA74!important; color: #9A3412!important;}
-section.main div[data-testid="stButton"]:nth-of-type(10) button:hover {background: linear-gradient(135deg, #F97316, #F59E0B)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(11) button {background: linear-gradient(135deg, #FFF7ED, #FEF3C7)!important; border-color: #FED7AA!important; color: #78350F!important;}
-section.main div[data-testid="stButton"]:nth-of-type(11) button:hover {background: linear-gradient(135deg, #D97706, #F59E0B)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(12) button {background: linear-gradient(135deg, #FFEDD5, #FEF3C7)!important; border-color: #FDBA74!important; color: #92400E!important;}
+section.main div[data-testid="stButton"] > button:hover p,
+section.main div[data-testid="stButton"] > button:hover span {color: white!important;}
+
+section.main div[data-testid="stButton"]:nth-of-type(1) button {background: linear-gradient(135deg, #E0F2FE, #BAE6FD)!important; border-color: #7DD3FC!important; color: #075985!important;}
+section.main div[data-testid="stButton"]:nth-of-type(1) button:hover {background: linear-gradient(135deg, #0EA5E9, #38BDF8)!important; color:white!important;}
+section.main div[data-testid="stButton"]:nth-of-type(2) button {background: linear-gradient(135deg, #FEF3C7, #FDE68A)!important; border-color: #FCD34D!important; color: #78350F!important;}
+section.main div[data-testid="stButton"]:nth-of-type(2) button:hover {background: linear-gradient(135deg, #F59E0B, #FBBF24)!important; color:white!important;}
+section.main div[data-testid="stButton"]:nth-of-type(3) button {background: linear-gradient(135deg, #E0F2FE, #7DD3FC)!important; border-color: #38BDF8!important; color: #0C4A6E!important;}
+section.main div[data-testid="stButton"]:nth-of-type(3) button:hover {background: linear-gradient(135deg, #0284C7, #0EA5E9)!important; color:white!important;}
+section.main div[data-testid="stButton"]:nth-of-type(4) button {background: linear-gradient(135deg, #FCE7F3, #FBCFE8)!important; border-color: #F9A8D4!important; color: #831843!important;}
+section.main div[data-testid="stButton"]:nth-of-type(4) button:hover {background: linear-gradient(135deg, #EC4899, #F472B6)!important; color:white!important;}
+section.main div[data-testid="stButton"]:nth-of-type(5) button {background: linear-gradient(135deg, #FEF9C3, #FEF08A)!important; border-color: #FDE047!important; color: #713F12!important;}
+section.main div[data-testid="stButton"]:nth-of-type(5) button:hover {background: linear-gradient(135deg, #EAB308, #FACC15)!important; color:white!important;}
+section.main div[data-testid="stButton"]:nth-of-type(6) button {background: linear-gradient(135deg, #FFEDD5, #FED7AA)!important; border-color: #FDBA74!important; color: #7C2D12!important;}
+section.main div[data-testid="stButton"]:nth-of-type(6) button:hover {background: linear-gradient(135deg, #F97316, #FB923C)!important; color:white!important;}
+section.main div[data-testid="stButton"]:nth-of-type(7) button {background: linear-gradient(135deg, #E0F2FE, #BAE6FD)!important; border-color: #7DD3FC!important; color: #0C4A6E!important;}
+section.main div[data-testid="stButton"]:nth-of-type(7) button:hover {background: linear-gradient(135deg, #0EA5E9, #38BDF8)!important; color:white!important;}
+section.main div[data-testid="stButton"]:nth-of-type(8) button {background: linear-gradient(135deg, #CCFBF1, #99F6E0)!important; border-color: #5EEAD4!important; color: #134E4A!important;}
+section.main div[data-testid="stButton"]:nth-of-type(8) button:hover {background: linear-gradient(135deg, #14B8A6, #2DD4BF)!important; color:white!important;}
+section.main div[data-testid="stButton"]:nth-of-type(9) button {background: linear-gradient(135deg, #E0E7FF, #C7D2FE)!important; border-color: #A5B4FC!important; color: #312E81!important;}
+section.main div[data-testid="stButton"]:nth-of-type(9) button:hover {background: linear-gradient(135deg, #6366F1, #818CF8)!important; color:white!important;}
+section.main div[data-testid="stButton"]:nth-of-type(10) button {background: linear-gradient(135deg, #FEF3C7, #FFEDD5)!important; border-color: #FCD34D!important; color: #78350F!important;}
+section.main div[data-testid="stButton"]:nth-of-type(10) button:hover {background: linear-gradient(135deg, #F59E0B, #FB923C)!important; color:white!important;}
+section.main div[data-testid="stButton"]:nth-of-type(11) button {background: linear-gradient(135deg, #F0F9FF, #E0F2FE)!important; border-color: #BAE6FD!important; color: #0C4A6E!important;}
+section.main div[data-testid="stButton"]:nth-of-type(11) button:hover {background: linear-gradient(135deg, #0EA5E9, #38BDF8)!important; color:white!important;}
+section.main div[data-testid="stButton"]:nth-of-type(12) button {background: linear-gradient(135deg, #FFF7ED, #FFEDD5)!important; border-color: #FDBA74!important; color: #7C2D12!important;}
 section.main div[data-testid="stButton"]:nth-of-type(12) button:hover {background: linear-gradient(135deg, #F97316, #FBBF24)!important; color:white!important;}
+
+/* Input */
+.stTextInput input,.stTextArea textarea {background: rgba(255,255,255,0.95)!important; border: 1px solid rgba(14,165,233,0.18)!important; color: #0F172A!important; border-radius: 12px!important;}
 </style>
-<div class="dev-badge">🌅 V27 DAYBREAK WARM PREMIUM | KADIYA NARESH</div>
+<div class="dev-badge">🌤️ V28 SKY BLUE DAYBREAK - LIGHT ICONS FIXED | KADIYA NARESH</div>
 """, unsafe_allow_html=True)
 
 def universal_input(key, placeholder="Bolo ya likho..."):
@@ -356,10 +365,10 @@ with st.sidebar:
     st.markdown(f"""
     <div class="profile-card-pro">
         {photo_html}
-        <h4 style="margin:12px 0 2px 0; font-family:Space Grotesk; font-size:16px; color:#111827;">{user['name']}</h4>
-        <p style="margin:0; color:#EA580C; font-size:12px; font-weight:600;">@{user['username']}</p>
+        <h4 style="margin:12px 0 2px 0; font-family:Space Grotesk; font-size:16px; color:#0F172A;">{user['name']}</h4>
+        <p style="margin:0; color:#0284C7; font-size:12px; font-weight:600;">@{user['username']}</p>
         <div style="margin-top:10px; display:flex; gap:6px; justify-content:center;">
-            <span style="background:#FFF7ED; color:#EA580C; padding:3px 8px; border-radius:10px; font-size:10px; font-weight:700; border:1px solid #FED7AA;">PRO</span>
+            <span style="background:#E0F2FE; color:#0284C7; padding:3px 8px; border-radius:10px; font-size:10px; font-weight:700; border:1px solid #BAE6FD;">PRO</span>
             <span style="background:#FEF3C7; color:#B45309; padding:3px 8px; border-radius:10px; font-size:10px; font-weight:700; border:1px solid #FDE68A;">ACTIVE</span>
         </div>
     </div>
@@ -399,8 +408,8 @@ with st.sidebar:
 st.markdown(f"""
 <div class="hero-pro">
     <div style="position:relative; z-index:2;">
-        <h1 style="margin:0; font-family:Space Grotesk; font-size:26px; font-weight:700; color:white!important;">Welcome back, {user['name'].split()[0]}! 🌅</h1>
-        <h2 style="margin:6px 0 0 0; font-family:Space Grotesk; font-size:16px; font-weight:500; opacity:0.96; color:white!important;">RAG Based AI Teaching Assistant • Daybreak Premium</h2>
+        <h1 style="margin:0; font-family:Space Grotesk; font-size:26px; font-weight:800;">Welcome back, {user['name'].split()[0]}! 🌤️</h1>
+        <h2 style="margin:6px 0 0 0; font-family:Space Grotesk; font-size:16px; font-weight:600;">RAG Based AI Teaching Assistant • Daybreak Sky Blue</h2>
     </div>
 </div><br>
 """, unsafe_allow_html=True)
