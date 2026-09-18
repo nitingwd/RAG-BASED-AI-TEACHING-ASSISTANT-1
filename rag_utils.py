@@ -2,27 +2,16 @@ import os
 import streamlit as st
 import tempfile
 import json
-import textwrap
 import re
 from langchain_groq import ChatGroq
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
+from langchain_community.vectorstores import FAISS
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader, CSVLoader, TextLoader
 from dotenv import load_dotenv
 from groq import Groq
-
-try:
-    from gtts import gTTS
-    from PIL import Image, ImageDraw, ImageFont
-    from moviepy.editor import ImageClip, concatenate_videoclips, AudioFileClip, CompositeVideoClip
-    if not hasattr(Image, 'ANTIALIAS'):
-        try: Image.ANTIALIAS = Image.Resampling.LANCZOS
-        except: Image.ANTIALIAS = Image.LANCZOS
-    VIDEO_AVAILABLE = True
-except:
-    VIDEO_AVAILABLE = False
-
+from gtts import gTTS
+from PIL import Image
 load_dotenv()
 
 def get_api_key():
@@ -80,10 +69,10 @@ def process_files(files, chunk_size=1000, chunk_overlap=100):
             if os.path.exists(path): os.remove(path)
     splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     chunks = splitter.split_documents(docs)
-    vectordb = Chroma.from_documents(chunks, get_embeddings())
+    vectordb = FAISS.from_documents(chunks, get_embeddings())
     st.session_state.vectordb = vectordb; st.session_state.history = []
     if "weak_topics" not in st.session_state: st.session_state.weak_topics = {}
-    st.success(f"✅ Ho gaya! {len(chunks)} chunks | All FREE")
+    st.success(f"✅ Ho gaya! {len(chunks)} chunks | FAISS Fast")
 
 def hybrid_search(query, k=3):
     vb = st.session_state.get("vectordb")
@@ -121,7 +110,6 @@ def check_quiz_answer(question, user_answer, correct_answer, topic="general"):
         wt = st.session_state.get("weak_topics", {}); wt[topic] = wt.get(topic, 0) + 1; st.session_state.weak_topics = wt
         return False, f"❌ Galat! Correct: {correct_answer}"
     else: return True, "✅ Sahi! Topper!"
-
 def get_weak_topics(): return st.session_state.get("weak_topics", {})
 def generate_summary(language="Hinglish"):
     docs = hybrid_search("complete summary", k=8); ctx = "\n".join([d.page_content[:800] for d in docs])
@@ -155,9 +143,9 @@ def verify_viva_answer(question, correct_ans, user_ans, language="Hinglish"):
 def create_ppt_file(topic, num_slides=10, language="Hinglish"):
     docs = hybrid_search(topic, k=8); ctx = "\n".join([d.page_content[:1200] for d in docs])
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.2)
-    prompt = f"Topic:{topic} Language:{language} Context:{ctx[:8000]} {num_slides} slides JSON title points diagram_text speaker_note Only JSON."
+    prompt = f"Topic:{topic} Language:{language} Context:{ctx[:8000]} {num_slides} slides JSON title points Only JSON."
     try: txt = llm.invoke(prompt).content; s = txt.find('['); e = txt.rfind(']')+1; slides_data = json.loads(txt[s:e])
-    except: slides_data = [{"title": topic, "points": ["Point 1","Point 2"], "diagram_text":"Diagram", "speaker_note":"Tip"}]
+    except: slides_data = [{"title": topic, "points": ["Point 1","Point 2"]}]
     from pptx import Presentation; from pptx.util import Inches, Pt; from pptx.dml.color import RGBColor
     prs = Presentation(); prs.slide_width = Inches(13.33); prs.slide_height = Inches(7.5)
     for i, sl in enumerate(slides_data[:num_slides]):
@@ -177,49 +165,12 @@ def transcribe_topic_with_language(audio_path):
     try: res = llm.invoke(prompt).content; s = res.find('{'); e = res.rfind('}')+1; data = json.loads(res[s:e]); return data.get('topic', text), data.get('language', 'Hinglish')
     except: return text, "Hinglish"
 def create_explainer_video(topic, language="Hinglish", duration_sec=150):
-    if not VIDEO_AVAILABLE: return None, "Install gTTS, moviepy"
-    api_key = get_api_key(); llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0.2)
-    docs = hybrid_search(topic, k=8)
-    if not docs: return None, f"PDF me '{topic}' nahi mila."
-    num_scenes = max(2, min(8, duration_sec // 30))
-    ctx = "\n\n".join([f"DOC {i+1}: {d.page_content[:1000]}" for i, d in enumerate(docs)])
-    prompt = f"Use PDF. Topic: {topic}, Language: {language}, Need {num_scenes} scenes, Duration {duration_sec} sec. Context: {ctx[:8000]} JSON array title explain diagram source Only JSON."
-    try: txt = llm.invoke(prompt).content; s = txt.find('['); e = txt.rfind(']')+1; scenes = json.loads(txt[s:e])
-    except: scenes = [{"title": f"{topic} Part {i+1}", "explain": f"{d.page_content[:380]}", "diagram": d.page_content[:120], "source": d.metadata.get('source','PDF')} for i, d in enumerate(docs[:num_scenes])]
-    temp_dir = tempfile.mkdtemp(); clips = []
-    def fast_avatar(name, bg_color):
-        img = Image.new('RGB', (300, 300), bg_color); d = ImageDraw.Draw(img)
-        d.ellipse([(30,20),(270,240)], fill=(255,220,180), outline=(255,255,255), width=2)
-        d.ellipse([(85,90),(115,120)], fill=(0,0,0)); d.ellipse([(185,90),(215,120)], fill=(0,0,0))
-        d.text((90, 250), name, fill=(255,255,255)); p = os.path.join(temp_dir, f"{name}.png"); img.save(p); return p
-    tutor_path = fast_avatar("TUTOR", (99,102,241)); student_path = fast_avatar("STUDENT", (25,35,70))
-    for i, scene in enumerate(scenes[:num_scenes]):
-        W, H = 1280, 720; bg_img = Image.new('RGB', (W, H), (13,17,38)); draw = ImageDraw.Draw(bg_img)
-        draw.rectangle([(0,0),(W,80)], fill=(99,102,241)); draw.text((20,15), f"PART {i+1}/{num_scenes}: {scene['title'][:60]}", fill=(255,255,255))
-        wrapped = textwrap.wrap(scene['explain'], width=58); y = 105
-        for line in wrapped[:8]: draw.text((30, y), line, fill=(255,255,255)); y += 34
-        bg_path = os.path.join(temp_dir, f"bg_{i}.png"); bg_img.save(bg_path)
-        lang_code = get_lang_code(language); audio_path = os.path.join(temp_dir, f"aud_{i}.mp3")
-        try: tts = gTTS(text=scene['explain'], lang=lang_code, slow=False); tts.save(audio_path); audio = AudioFileClip(audio_path); dur = audio.duration + 0.4
-        except: audio = None; dur = duration_sec / num_scenes
-        bg_clip = ImageClip(bg_path).set_duration(dur)
-        tutor_clip = ImageClip(tutor_path).set_duration(dur).resize(0.42).set_position((30, 555))
-        stud_clip = ImageClip(student_path).set_duration(dur).resize(0.36).set_position((300, 570))
-        final_scene = CompositeVideoClip([bg_clip, tutor_clip, stud_clip])
-        if audio: final_scene = final_scene.set_audio(audio)
-        clips.append(final_scene)
-    final = concatenate_videoclips(clips, method="compose")
-    out_path = os.path.join(tempfile.gettempdir(), f"{topic.replace(' ','_')}_{language}_{duration_sec}s.mp4")
-    final.write_videofile(out_path, fps=12, codec='libx264', audio_codec='aac', preset='ultrafast', threads=4, verbose=False, logger=None)
-    return out_path, scenes
-
-# ========== PREMIUM RESUME V13.1 - PHOTO + THEME + SIDEBAR ==========
+    return None, "Video disabled in lightweight mode - Premium Resume working"
 def generate_premium_resume_data(user_info, language="English"):
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.2)
     prompt = f"You are FAANG Resume Expert. User: {user_info} Create JSON ENGLISH ASCII ONLY: {{\"name\":\"\",\"role\":\"\",\"email\":\"\",\"phone\":\"\",\"location\":\"\",\"linkedin\":\"\",\"github\":\"\",\"portfolio\":\"\",\"summary\":\"\",\"skills\":{{\"Languages\":[],\"Frontend\":[],\"Backend\":[],\"Tools\":[],\"Database\":[]}},\"experience\":[{{\"role\":\"\",\"company\":\"\",\"duration\":\"\",\"location\":\"\",\"points\":[]}}],\"projects\":[{{\"name\":\"\",\"tech\":\"\",\"points\":[],\"link\":\"\"}}],\"education\":[{{\"degree\":\"\",\"college\":\"\",\"year\":\"\",\"cgpa\":\"\"}}],\"certifications\":[],\"awards\":[],\"languages\":[],\"references\":[{{\"name\":\"\",\"role\":\"\",\"company\":\"\",\"contact\":\"\"}}]}} Only JSON"
     try: txt = llm.invoke(prompt).content; s=txt.find('{'); e=txt.rfind('}')+1; return json.loads(txt[s:e])
     except: return None
-
 def create_premium_resume_pdf(resume_data, photo_path=None, theme_color="0D1126"):
     from fpdf import FPDF
     def clean(t):
@@ -228,7 +179,6 @@ def create_premium_resume_pdf(resume_data, photo_path=None, theme_color="0D1126"
         t = re.sub(r'[^\x20-\x7E\s]', ' ', t)
         t = re.sub(r'\s+', ' ', t)
         return t.strip()
-
     themes = {
         "0D1126": {"primary":(13,17,38), "accent":(99,102,241), "light":(224,231,255)},
         "0F172A": {"primary":(15,23,42), "accent":(14,165,233), "light":(186,230,253)},
@@ -237,12 +187,10 @@ def create_premium_resume_pdf(resume_data, photo_path=None, theme_color="0D1126"
         "581C87": {"primary":(88,28,135), "accent":(168,85,247), "light":(233,213,255)},
     }
     colors = themes.get(theme_color, themes["0D1126"])
-
     pdf = FPDF('P','mm','A4')
     pdf.set_auto_page_break(auto=True, margin=5)
     pdf.add_page()
     W=210; H=297; SIDEBAR_W=70
-
     pdf.set_fill_color(*colors["primary"])
     pdf.rect(0,0,SIDEBAR_W,H,'F')
     y=8
@@ -255,22 +203,15 @@ def create_premium_resume_pdf(resume_data, photo_path=None, theme_color="0D1126"
             pdf.image(temp_photo, x=15, y=y, w=40, h=40)
             y+=48
         except: y+=5
-
     def sidebar_title(title, y_pos):
-        pdf.set_xy(4, y_pos)
-        pdf.set_font("Helvetica",'B',9)
-        pdf.set_text_color(*colors["accent"])
+        pdf.set_xy(4, y_pos); pdf.set_font("Helvetica",'B',9); pdf.set_text_color(*colors["accent"])
         pdf.cell(SIDEBAR_W-8,6, clean(title).upper(), new_x="LMARGIN", new_y="NEXT")
         pdf.set_x(4); pdf.set_draw_color(*colors["accent"]); pdf.line(4, pdf.get_y(), SIDEBAR_W-8, pdf.get_y()); pdf.ln(2)
         return pdf.get_y()
-
     def sidebar_text(txt, y_pos, bold=False):
-        pdf.set_xy(4, y_pos)
-        pdf.set_font("Helvetica",'B' if bold else '',7.5)
-        pdf.set_text_color(220,230,255)
+        pdf.set_xy(4, y_pos); pdf.set_font("Helvetica",'B' if bold else '',7.5); pdf.set_text_color(220,230,255)
         pdf.multi_cell(SIDEBAR_W-8,4, clean(txt)[:180], new_x="LMARGIN", new_y="NEXT")
         return pdf.get_y()+1
-
     y=sidebar_title("Contact", y)
     y=sidebar_text(clean(resume_data.get('email','')), y)
     y=sidebar_text(clean(resume_data.get('phone','')), y)
@@ -295,26 +236,19 @@ def create_premium_resume_pdf(resume_data, photo_path=None, theme_color="0D1126"
         y=sidebar_text(f"{clean(edu.get('year',''))} {clean(edu.get('cgpa',''))}", y); y+=1
     if resume_data.get('languages'):
         y=sidebar_title("Languages", y)
-        for lang in resume_data.get('languages',[])[:4]:
-            y=sidebar_text(f"- {lang}", y)
-
+        for lang in resume_data.get('languages',[])[:4]: y=sidebar_text(f"- {lang}", y)
     main_x=SIDEBAR_W+4; main_w=W-SIDEBAR_W-8
-    pdf.set_xy(main_x,10)
-    pdf.set_font("Helvetica",'B',20)
-    pdf.set_text_color(*colors["primary"])
+    pdf.set_xy(main_x,10); pdf.set_font("Helvetica",'B',20); pdf.set_text_color(*colors["primary"])
     pdf.cell(main_w,10, clean(resume_data.get('name','NARESH')).upper()[:35], new_x="LMARGIN", new_y="NEXT")
     pdf.set_x(main_x); pdf.set_font("Helvetica",'B',11); pdf.set_text_color(*colors["accent"])
     pdf.cell(main_w,6, clean(resume_data.get('role','Developer')).upper()[:45], new_x="LMARGIN", new_y="NEXT"); pdf.ln(3)
-
     def main_section(title):
         pdf.set_x(main_x); pdf.set_fill_color(*colors["light"])
         pdf.set_font("Helvetica",'B',10); pdf.set_text_color(*colors["primary"])
         pdf.cell(main_w,7, f" {clean(title).upper()}", fill=True, new_x="LMARGIN", new_y="NEXT"); pdf.ln(1)
-
     def main_para(txt):
         pdf.set_x(main_x); pdf.set_font("Helvetica",'',9.5); pdf.set_text_color(40,40,40)
         pdf.multi_cell(main_w,4.5, clean(txt)[:600], new_x="LMARGIN", new_y="NEXT"); pdf.ln(1)
-
     main_section("Summary"); main_para(resume_data.get('summary','Developer'))
     main_section("Experience")
     for exp in resume_data.get('experience',[])[:3]:
@@ -337,38 +271,23 @@ def create_premium_resume_pdf(resume_data, photo_path=None, theme_color="0D1126"
             if p:
                 pdf.set_x(main_x+2); pdf.set_font("Helvetica",'',8.5)
                 pdf.multi_cell(main_w-2,4, f"• {p[:150]}", new_x="LMARGIN", new_y="NEXT")
-        if proj.get('link'):
-            pdf.set_x(main_x+2); pdf.set_font("Helvetica",'',7); pdf.set_text_color(*colors["accent"])
-            pdf.cell(main_w,3, f"Link: {clean(proj.get('link',''))[:60]}", new_x="LMARGIN", new_y="NEXT")
         pdf.ln(1)
     if resume_data.get('certifications'):
         main_section("Certifications")
         for c in resume_data.get('certifications',[])[:4]:
-            pdf.set_x(main_x+2); pdf.set_font("Helvetica",'',8.5); pdf.set_text_color(50,50,50)
-            pdf.cell(main_w,4, f"• {clean(c)[:80]}", new_x="LMARGIN", new_y="NEXT")
-        pdf.ln(1)
-    if resume_data.get('awards'):
-        main_section("Awards")
-        for a in resume_data.get('awards',[])[:3]:
-            pdf.set_x(main_x+2); pdf.set_font("Helvetica",'',8.5)
-            pdf.cell(main_w,4, f"• {clean(a)[:80]}", new_x="LMARGIN", new_y="NEXT")
+            pdf.set_x(main_x+2); pdf.set_font("Helvetica",'',8.5); pdf.cell(main_w,4, f"• {clean(c)[:80]}", new_x="LMARGIN", new_y="NEXT")
         pdf.ln(1)
     if resume_data.get('references'):
         main_section("References")
         for ref in resume_data.get('references',[])[:2]:
-            pdf.set_x(main_x); pdf.set_font("Helvetica",'B',8.5); pdf.set_text_color(20,20,20)
-            pdf.cell(main_w,4, f"{clean(ref.get('name',''))} - {clean(ref.get('role',''))} @ {clean(ref.get('company',''))}", new_x="LMARGIN", new_y="NEXT")
-            pdf.set_x(main_x); pdf.set_font("Helvetica",'',7.5); pdf.set_text_color(80,80,80)
-            pdf.cell(main_w,4, f"{clean(ref.get('contact',''))}", new_x="LMARGIN", new_y="NEXT"); pdf.ln(1)
-
+            pdf.set_x(main_x); pdf.set_font("Helvetica",'B',8.5); pdf.cell(main_w,4, f"{clean(ref.get('name',''))} - {clean(ref.get('role',''))} @ {clean(ref.get('company',''))}", new_x="LMARGIN", new_y="NEXT")
+            pdf.set_x(main_x); pdf.set_font("Helvetica",'',7.5); pdf.cell(main_w,4, f"{clean(ref.get('contact',''))}", new_x="LMARGIN", new_y="NEXT"); pdf.ln(1)
     tmp=tempfile.NamedTemporaryFile(delete=False, suffix=".pdf"); pdf.output(tmp.name); return tmp.name
-
 def generate_software_project(requirement, tech_stack="MERN", language="English"):
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.2)
     prompt = f"Senior Architect. Requirement: {requirement} Tech: {tech_stack} Create JSON project_name description tech_stack files path content setup_steps features Only JSON ASCII."
     try: txt=llm.invoke(prompt).content; s=txt.find('{'); e=txt.rfind('}')+1; return json.loads(txt[s:e])
     except: return None
-
 def create_project_zip(project_data):
     import zipfile
     temp_dir=tempfile.mkdtemp()
