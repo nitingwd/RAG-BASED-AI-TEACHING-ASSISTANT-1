@@ -24,10 +24,8 @@ os.makedirs(PICS_PATH, exist_ok=True)
 def init_db():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users
-    (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT, name TEXT, email TEXT, photo TEXT, bio TEXT, created_at TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS conversations
-    (id INTEGER PRIMARY KEY, user_id INTEGER, query TEXT, answer TEXT, mode TEXT, timestamp TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT, name TEXT, email TEXT, photo TEXT, bio TEXT, created_at TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS conversations (id INTEGER PRIMARY KEY, user_id INTEGER, query TEXT, answer TEXT, mode TEXT, timestamp TEXT)''')
     conn.commit(); conn.close()
 init_db()
 
@@ -37,8 +35,7 @@ def get_conn(): return sqlite3.connect(DB_PATH, check_same_thread=False)
 def signup_user(username, password, name, email):
     try:
         conn = get_conn()
-        conn.execute("INSERT INTO users (username, password, name, email, photo, bio, created_at) VALUES (?,?,?,?,?,?,?)",
-                     (username.lower().strip(), hash_pwd(password), name, email, "", "", datetime.now().isoformat()))
+        conn.execute("INSERT INTO users (username, password, name, email, photo, bio, created_at) VALUES (?,?,?,?,?,?,?)",(username.lower().strip(), hash_pwd(password), name, email, "", "", datetime.now().isoformat()))
         conn.commit(); conn.close()
         return True, "Account ban gaya!"
     except sqlite3.IntegrityError:
@@ -47,22 +44,18 @@ def signup_user(username, password, name, email):
         return False, str(e)
 
 def login_user(username, password):
-    conn = get_conn()
-    c = conn.cursor()
+    conn = get_conn(); c = conn.cursor()
     c.execute("SELECT id, username, name, email, photo, bio FROM users WHERE username=? AND password=?", (username.lower().strip(), hash_pwd(password)))
     u = c.fetchone(); conn.close()
-    if u:
-        return {"id": u[0], "username": u[1], "name": u[2], "email": u[3], "photo": u[4], "bio": u[5]}
+    if u: return {"id": u[0], "username": u[1], "name": u[2], "email": u[3], "photo": u[4], "bio": u[5]}
     return None
 
 def get_user_by_id(user_id):
     try:
-        conn = get_conn()
-        c = conn.cursor()
+        conn = get_conn(); c = conn.cursor()
         c.execute("SELECT id, username, name, email, photo, bio FROM users WHERE id=?", (user_id,))
         u = c.fetchone(); conn.close()
-        if u:
-            return {"id": u[0], "username": u[1], "name": u[2], "email": u[3], "photo": u[4], "bio": u[5]}
+        if u: return {"id": u[0], "username": u[1], "name": u[2], "email": u[3], "photo": u[4], "bio": u[5]}
     except: return None
     return None
 
@@ -71,104 +64,60 @@ def update_profile(user_id, name, email, bio, photo_file=None):
     if photo_file:
         ext = photo_file.name.split(".")[-1]
         photo_path = f"{PICS_PATH}/{user_id}_{int(datetime.now().timestamp())}.{ext}"
-        with open(photo_path, "wb") as f:
-            f.write(photo_file.getbuffer())
+        with open(photo_path, "wb") as f: f.write(photo_file.getbuffer())
     conn = get_conn()
-    if photo_path:
-        conn.execute("UPDATE users SET name=?, email=?, bio=?, photo=? WHERE id=?", (name, email, bio, photo_path, user_id))
-    else:
-        conn.execute("UPDATE users SET name=?, email=?, bio=? WHERE id=?", (name, email, bio, user_id))
-    conn.commit(); conn.close()
-    return True
+    if photo_path: conn.execute("UPDATE users SET name=?, email=?, bio=?, photo=? WHERE id=?", (name, email, bio, photo_path, user_id))
+    else: conn.execute("UPDATE users SET name=?, email=?, bio=? WHERE id=?", (name, email, bio, user_id))
+    conn.commit(); conn.close(); return True
 
 def save_conversation(user_id, query, answer, mode="Ask"):
-    conn = get_conn()
-    conn.execute("INSERT INTO conversations (user_id, query, answer, mode, timestamp) VALUES (?,?,?,?,?)",
-                 (user_id, query, answer, mode, datetime.now().isoformat()))
-    conn.commit(); conn.close()
+    conn = get_conn(); conn.execute("INSERT INTO conversations (user_id, query, answer, mode, timestamp) VALUES (?,?,?,?,?)",(user_id, query, answer, mode, datetime.now().isoformat())); conn.commit(); conn.close()
 
 def get_user_conversations(user_id):
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("SELECT id, query, answer, mode, timestamp FROM conversations WHERE user_id=? ORDER BY id DESC", (user_id,))
-    rows = c.fetchall(); conn.close()
-    return rows
+    conn = get_conn(); c = conn.cursor(); c.execute("SELECT id, query, answer, mode, timestamp FROM conversations WHERE user_id=? ORDER BY id DESC", (user_id,)); rows = c.fetchall(); conn.close(); return rows
 
 def auth_ui():
     cookies = None
     if COOKIE_OK:
-        cookies = EncryptedCookieManager(prefix="rag_v28_sky_", password="kadiya_naresh_v28_sky_blue_daybreak_2024")
-        if not cookies.ready():
-            st.stop()
-    if st.session_state.get("logged_in") and st.session_state.get("user"):
-        return True, cookies
+        cookies = EncryptedCookieManager(prefix="rag_v29_skyfix_", password="kadiya_naresh_v29_no_black_btn_2024")
+        if not cookies.ready(): st.stop()
+    if st.session_state.get("logged_in") and st.session_state.get("user"): return True, cookies
     if COOKIE_OK and cookies:
         uid_val = cookies.get("uid")
         if uid_val:
             try:
-                uid = int(uid_val)
-                u = get_user_by_id(uid)
-                if u:
-                    st.session_state.logged_in = True
-                    st.session_state.user = u
-                    return True, cookies
-            except:
-                pass
+                uid = int(uid_val); u = get_user_by_id(uid)
+                if u: st.session_state.logged_in = True; st.session_state.user = u; return True, cookies
+            except: pass
     st.set_page_config(page_title="RAG Based AI Teaching Assistant", layout="centered", page_icon="🌤️")
-    st.markdown("""
-    <style>
+    st.markdown("""<style>
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
     header[data-testid="stHeader"]{display:none!important;}
-  .stApp {
-        background: #F0F9FF;
-        background-image:
-            radial-gradient(at 15% 15%, rgba(14,165,233,0.18) 0%, transparent 45%),
-            radial-gradient(at 85% 15%, rgba(249,115,22,0.14) 0%, transparent 45%),
-            radial-gradient(at 20% 85%, rgba(56,189,248,0.15) 0%, transparent 45%),
-            radial-gradient(at 80% 85%, rgba(236,72,153,0.10) 0%, transparent 45%);
-        background-attachment: fixed;
-    }
-  .login-card {background: rgba(255,255,255,0.92); backdrop-filter: blur(30px); border: 1px solid rgba(14,165,233,0.15); padding: 36px; border-radius: 28px; box-shadow: 0 24px 80px rgba(14,165,233,0.12), inset 0 1px 0 rgba(255,255,255,0.9); text-align:center; max-width:440px; width:100%;}
-  .login-title {font-family:'Space Grotesk'; font-size:28px; font-weight:700; color:#0F172A; line-height:1.2;}
+  .stApp {background: #F0F9FF; background-image: radial-gradient(at 15% 15%, rgba(14,165,233,0.18) 0%, transparent 45%), radial-gradient(at 85% 15%, rgba(249,115,22,0.14) 0%, transparent 45%), radial-gradient(at 20% 85%, rgba(56,189,248,0.15) 0%, transparent 45%), radial-gradient(at 80% 85%, rgba(251,191,36,0.10) 0%, transparent 45%); background-attachment: fixed;}
+  .login-card {background: rgba(255,255,255,0.94); backdrop-filter: blur(30px); border: 1px solid rgba(14,165,233,0.15); padding: 36px; border-radius: 28px; box-shadow: 0 24px 80px rgba(14,165,233,0.12); text-align:center; max-width:440px; width:100%;}
+  .login-title {font-family:'Space Grotesk'; font-size:28px; font-weight:700; color:#0F172A;}
   .login-sub {color:#475569; font-size:13px; margin-top:6px;}
-  .pill {display:inline-block; background:linear-gradient(135deg,#E0F2FE,#BAE6FD); color:#0369A1; padding:6px 12px; border-radius:20px; font-size:11px; font-weight:700; margin:3px; border:1px solid #7DD3FC;}
-    </style>
-    """, unsafe_allow_html=True)
+  .pill {display:inline-block; background:#E0F2FE; color:#0369A1; padding:6px 12px; border-radius:20px; font-size:11px; font-weight:700; margin:3px; border:1px solid #7DD3FC;}
+    </style>""", unsafe_allow_html=True)
     _, col, _ = st.columns([1,2,1])
     with col:
-        st.markdown("""
-        <div class="login-card">
-            <div style="font-size:52px; margin-bottom:8px;">🌤️</div>
-            <div class="login-title">RAG Based AI<br>Teaching Assistant</div>
-            <div class="login-sub">Daybreak Sky Blue • Fresh Morning</div>
-            <div style="margin-top:14px;">
-                <span class="pill">💬 Q&A</span><span class="pill">🎤 VIVA</span><span class="pill">📝 QUIZ</span><span class="pill">🔊 AUDIO</span>
-            </div>
-        </div><br>
-        """, unsafe_allow_html=True)
+        st.markdown("""<div class="login-card"><div style="font-size:52px;">🌤️</div><div class="login-title">RAG Based AI<br>Teaching Assistant</div><div class="login-sub">Sky Blue Daybreak • No Black</div><div style="margin-top:14px;"><span class="pill">💬 Q&A</span><span class="pill">🎤 VIVA</span><span class="pill">📝 QUIZ</span><span class="pill">🔊 AUDIO</span></div></div><br>""", unsafe_allow_html=True)
         t1,t2 = st.tabs(["🔐 Login", "✨ Sign Up"])
         with t1:
-            username = st.text_input("Username", placeholder="naresh123", key="l_user")
-            pwd = st.text_input("Password", type="password", placeholder="••••••••", key="l_pwd")
-            if st.button("🚀 Login to Dashboard", type="primary", use_container_width=True):
+            username = st.text_input("Username", key="l_user"); pwd = st.text_input("Password", type="password", key="l_pwd")
+            if st.button("🚀 Login", type="primary", use_container_width=True):
                 u = login_user(username, pwd)
-                if u:
-                    st.session_state.logged_in = True; st.session_state.user = u
-                    if COOKIE_OK:
-                        cookies["uid"] = str(u['id'])
-                        cookies.save()
-                    st.rerun()
-                else: st.error("Galat Username/Password")
+                if u: st.session_state.logged_in = True; st.session_state.user = u;
+                if COOKIE_OK: cookies["uid"] = str(u['id']); cookies.save()
+                st.rerun()
+                else: st.error("Galat")
         with t2:
-            name = st.text_input("Full Name", key="s_name", placeholder="Kadiya Naresh")
-            username = st.text_input("Username", key="s_user", placeholder="naresh123")
-            email = st.text_input("Email", key="s_email", placeholder="naresh@gmail.com")
-            pwd = st.text_input("Password", key="s_pwd", type="password", placeholder="Min 4 chars")
+            name = st.text_input("Full Name", key="s_name"); username = st.text_input("Username", key="s_user"); email = st.text_input("Email", key="s_email"); pwd = st.text_input("Password", key="s_pwd", type="password")
             if st.button("Create Account", use_container_width=True):
-                if len(username)<3 or len(pwd)<4: st.error("Username min 3, Password min 4")
+                if len(username)<3 or len(pwd)<4: st.error("Min 3/4")
                 else:
                     ok,msg = signup_user(username,pwd,name,email)
-                    if ok: st.success(msg+" Ab Login karo"); st.balloons()
+                    if ok: st.success(msg); st.balloons()
                     else: st.error(msg)
     return False, cookies
 
@@ -176,8 +125,7 @@ logged_in, cookies = auth_ui()
 if not logged_in: st.stop()
 user = get_user_by_id(st.session_state.user['id'])
 if not user:
-    if COOKIE_OK and cookies:
-        cookies["uid"]=""; cookies.save()
+    if COOKIE_OK and cookies: cookies["uid"]=""; cookies.save()
     st.session_state.clear(); st.rerun()
 st.session_state.user = user
 
@@ -186,15 +134,12 @@ try:
 except:
     from rag_utils import (process_files, ask_question, get_api_key, generate_quiz, generate_summary, predict_important_questions, check_quiz_answer, get_weak_topics, transcribe_audio, story_mode_learning, build_project_guide, generate_podcast_script, generate_viva_questions, verify_viva_answer, create_ppt_file, text_to_audio_file)
     def images_to_pdf(image_files):
-        images=[Image.open(img).convert("RGB") for img in image_files]
-        buf=io.BytesIO()
-        if len(images)>1:
-            images[0].save(buf, format="PDF", save_all=True, append_images=images[1:])
-        else:
-            images[0].save(buf, format="PDF")
+        images=[Image.open(img).convert("RGB") for img in image_files]; buf=io.BytesIO()
+        if len(images)>1: images[0].save(buf, format="PDF", save_all=True, append_images=images[1:])
+        else: images[0].save(buf, format="PDF")
         buf.seek(0); return buf
     def images_to_docx(image_files):
-        doc=Document(); doc.add_heading('RAG Based AI Teaching Assistant',0); buf=io.BytesIO()
+        doc=Document(); doc.add_heading('RAG',0); buf=io.BytesIO()
         for img_file in image_files:
             image=Image.open(img_file); t=io.BytesIO(); image.save(t, format='PNG'); t.seek(0); doc.add_picture(t, width=Inches(5.5))
         doc.save(buf); buf.seek(0); return buf
@@ -204,139 +149,100 @@ st.set_page_config(page_title="RAG Based AI Teaching Assistant", layout="wide", 
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
+header[data-testid="stHeader"], div[data-testid="stToolbar"], div[data-testid="stDecoration"], #MainMenu, footer {display:none!important;}
+.main.block-container {padding-top: 0.5rem!important;}
 
-/* ===== HIDE BLACK PATTI ===== */
-header[data-testid="stHeader"], header, div[data-testid="stToolbar"], div[data-testid="stDecoration"], div[data-testid="stStatusWidget"], #MainMenu, footer {display:none!important; height:0!important;}
-.main.block-container {padding-top: 0.5rem!important; margin-top: 0!important;}
-
-/* ===== DAYBREAK SKY BLUE ===== */
+/* SKY BLUE DAYBREAK BACKGROUND */
 .stApp {
     background: #F0FAFF;
     background-image:
         radial-gradient(ellipse 900px 600px at 12% 12%, rgba(14,165,233,0.16), transparent 58%),
-        radial-gradient(ellipse 800px 500px at 88% 12%, rgba(249,115,22,0.13), transparent 58%),
-        radial-gradient(ellipse 700px 600px at 18% 88%, rgba(56,189,248,0.14), transparent 58%),
-        radial-gradient(ellipse 800px 600px at 88% 88%, rgba(251,191,36,0.10), transparent 58%),
-        radial-gradient(ellipse 1100px 700px at 50% 45%, rgba(14,165,233,0.05), transparent 70%);
+        radial-gradient(ellipse 800px 500px at 88% 12%, rgba(249,115,22,0.12), transparent 58%),
+        radial-gradient(ellipse 700px 600px at 18% 88%, rgba(56,189,248,0.13), transparent 58%),
+        radial-gradient(ellipse 800px 600px at 88% 88%, rgba(251,191,36,0.09), transparent 58%);
     background-attachment: fixed;
 }
 .main {background: transparent!important;}
 .block-container {
-    background: rgba(255,255,255,0.84);
-    backdrop-filter: blur(26px) saturate(150%);
+    background: rgba(255,255,255,0.86);
+    backdrop-filter: blur(26px);
     border-radius: 26px;
     border: 1px solid rgba(14,165,233,0.10);
-    box-shadow: 0 10px 40px rgba(14,165,233,0.07), inset 0 1px 0 rgba(255,255,255,0.9);
-    padding-top: 0.6rem!important;
+    box-shadow: 0 10px 40px rgba(14,165,233,0.07);
 }
+h1, h2, h3 {color: #0F172A!important;}
+p,.stMarkdown {color: #1E293B!important;}
 
-/* ===== TEXT FIX ===== */
-h1, h2, h3, h4, h5, h6 {color: #0F172A!important; font-family: 'Space Grotesk', sans-serif!important;}
-p,.stMarkdown, li {color: #1E293B!important;}
-label,.stCaption, small {color: #475569!important;}
-
-/* ===== SIDEBAR SKY MIX LIGHT ===== */
+/* SIDEBAR SKY LIGHT */
 section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg,
-        rgba(255,255,255,0.98) 0%,
-        rgba(224,242,254,0.94) 22%,
-        rgba(186,230,253,0.88) 42%,
-        rgba(255,247,237,0.90) 68%,
-        rgba(224,242,254,0.94) 85%,
-        rgba(255,255,255,0.98) 100%)!important;
-    backdrop-filter: blur(28px);
+    background: linear-gradient(180deg, #FFFFFF 0%, #E0F2FE 25%, #BAE6FD 45%, #FFF7ED 70%, #FFFFFF 100%)!important;
     border-right: 1px solid rgba(14,165,233,0.12);
-    box-shadow: 6px 0 32px rgba(14,165,233,0.08);
 }
 section[data-testid="stSidebar"] * {color: #0F172A!important;}
-section[data-testid="stSidebar"] small, section[data-testid="stSidebar"].stCaption {color: #475569!important;}
 
 .hero-pro {
-    background: linear-gradient(135deg, #0EA5E9 0%, #38BDF8 18%, #FB923C 38%, #FBBF24 58%, #F472B6 78%, #A78BFA 100%);
-    border-radius: 22px; padding: 26px 30px; color:#0F172A!important;
-    box-shadow: 0 14px 36px rgba(14,165,233,0.20), inset 0 1px 0 rgba(255,255,255,0.35);
+    background: linear-gradient(135deg, #0EA5E9 0%, #38BDF8 20%, #FB923C 40%, #FBBF24 60%, #F472B6 80%, #A78BFA 100%);
+    border-radius: 22px; padding: 26px 30px;
+    box-shadow: 0 14px 36px rgba(14,165,233,0.20);
     border: 1px solid rgba(255,255,255,0.35);
-    margin-top: 0!important;
 }
-.hero-pro h1 {color: #0F172A!important; font-weight:800!important;}
-.hero-pro h2 {color: #1E293B!important; font-weight:600!important;}
+.hero-pro h1,.hero-pro h2 {color: #0F172A!important; font-weight: 800!important;}
 
-.profile-card-pro {
-    background: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(224,242,254,0.90) 100%);
-    backdrop-filter: blur(18px);
-    border-radius:20px; padding:18px; border:1px solid rgba(14,165,233,0.14);
-    text-align:center; box-shadow: 0 8px 24px rgba(14,165,233,0.10), inset 0 1px 0 rgba(255,255,255,0.9);
-}
-.img-circle {width:85px; height:85px; border-radius:50%; object-fit:cover; border:3px solid white; box-shadow: 0 6px 20px rgba(14,165,233,0.18), 0 0 0 3px rgba(14,165,233,0.12); display:block; margin:0 auto;}
-.avatar-letter {width:85px; height:85px; border-radius:50%; background: linear-gradient(135deg,#0EA5E9 0%, #38BDF8 45%, #FB923C 100%); display:flex; align-items:center; justify-content:center; margin:0 auto; color:white; font-size:32px; font-weight:700; font-family:Space Grotesk; box-shadow: 0 8px 20px rgba(14,165,233,0.28);}
-.dev-badge {position: fixed; bottom: 14px; right: 14px; background: rgba(255,255,255,0.90); backdrop-filter: blur(12px); color: #0284C7; padding: 7px 12px; border-radius: 20px; font-size: 10px; z-index: 999; font-weight:700; border: 1px solid rgba(14,165,233,0.16); box-shadow: 0 4px 12px rgba(0,0,0,0.06);}
+.profile-card-pro {background: rgba(255,255,255,0.96); border-radius:20px; padding:18px; border:1px solid rgba(14,165,233,0.14); text-align:center; box-shadow: 0 8px 24px rgba(14,165,233,0.10);}
+.img-circle {width:85px; height:85px; border-radius:50%; object-fit:cover; border:3px solid white; box-shadow: 0 0 0 3px rgba(14,165,233,0.15); display:block; margin:0 auto;}
+.avatar-letter {width:85px; height:85px; border-radius:50%; background: linear-gradient(135deg,#0EA5E9 0%, #38BDF8 50%, #FB923C 100%); display:flex; align-items:center; justify-content:center; margin:0 auto; color:white; font-size:32px; font-weight:700;}
+.dev-badge {position: fixed; bottom: 14px; right: 14px; background: rgba(255,255,255,0.90); color: #0284C7; padding: 7px 12px; border-radius: 20px; font-size: 10px; font-weight:700; border: 1px solid rgba(14,165,233,0.16);}
 
-/* ===== BUTTONS - LIGHT SKY COLOURS - NO BLACK ===== */
-section.main div[data-testid="stButton"] > button {
-    background: linear-gradient(135deg, #FFFFFF 0%, #F0F9FF 100%)!important;
-    border-radius:15px!important; height:58px!important; font-weight:700!important; font-size:13px!important;
-    border:1.5px solid rgba(14,165,233,0.14)!important;
-    box-shadow: 0 3px 14px rgba(14,165,233,0.07), inset 0 1px 0 rgba(255,255,255,0.95)!important;
+/* ===== MAIN FIX - NO BLACK BUTTONS EVER - ONLY LIGHT + TEXT BLACK ===== */
+div[data-testid="stButton"] > button {
+    background: #FFFFFF!important;
+    background-image: none!important;
+    border-radius: 14px!important;
+    height: 56px!important;
+    font-weight: 700!important;
+    border: 1.5px solid #BAE6FD!important;
     color: #0F172A!important;
-    transition: all 0.30s cubic-bezier(0.34, 1.56, 0.64, 1)!important;
+    box-shadow: 0 2px 10px rgba(14,165,233,0.06)!important;
 }
-/* Force override Streamlit dark theme */
-section.main div[data-testid="stButton"] > button p,
-section.main div[data-testid="stButton"] > button span,
-section.main div[data-testid="stButton"] > button div {color: #0F172A!important;}
 
-section.main div[data-testid="stButton"] > button:hover {
-    transform: translateY(-5px) scale(1.04)!important;
-    box-shadow: 0 14px 32px rgba(14,165,233,0.18)!important;
-    color: white!important;
-    border-color: transparent!important;
+/* Force light backgrounds - override dark theme */
+section.main div[data-testid="stButton"]:nth-child(1) > button {background: linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%)!important; color: #0C4A6E!important; border-color: #7DD3FC!important;}
+section.main div[data-testid="stButton"]:nth-child(2) > button {background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)!important; color: #78350F!important; border-color: #FCD34D!important;}
+section.main div[data-testid="stButton"]:nth-child(3) > button {background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%)!important; color: #1E3A8A!important; border-color: #93C5FD!important;}
+section.main div[data-testid="stButton"]:nth-child(4) > button {background: linear-gradient(135deg, #FCE7F3 0%, #FBCFE8 100%)!important; color: #831843!important; border-color: #F9A8D4!important;}
+section.main div[data-testid="stButton"]:nth-child(5) > button {background: linear-gradient(135deg, #FEF9C3 0%, #FEF08A 100%)!important; color: #713F12!important; border-color: #FDE047!important;}
+section.main div[data-testid="stButton"]:nth-child(6) > button {background: linear-gradient(135deg, #FFEDD5 0%, #FED7AA 100%)!important; color: #7C2D12!important; border-color: #FDBA74!important;}
+section.main div[data-testid="stButton"]:nth-child(7) > button {background: linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%)!important; color: #0C4A6E!important; border-color: #7DD3FC!important;}
+section.main div[data-testid="stButton"]:nth-child(8) > button {background: linear-gradient(135deg, #CCFBF1 0%, #99F6E0 100%)!important; color: #134E4A!important; border-color: #5EEAD4!important;}
+section.main div[data-testid="stButton"]:nth-child(9) > button {background: linear-gradient(135deg, #E0E7FF 0%, #C7D2FE 100%)!important; color: #312E81!important; border-color: #A5B4FC!important;}
+section.main div[data-testid="stButton"]:nth-child(10) > button {background: linear-gradient(135deg, #FEF3C7 0%, #FFEDD5 100%)!important; color: #78350F!important; border-color: #FCD34D!important;}
+section.main div[data-testid="stButton"]:nth-child(11) > button {background: linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%)!important; color: #0C4A6E!important; border-color: #BAE6FD!important;}
+section.main div[data-testid="stButton"]:nth-child(12) > button {background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%)!important; color: #7C2D12!important; border-color: #FDBA74!important;}
+
+/* Hover - light to slightly darker but still light */
+div[data-testid="stButton"] > button:hover {
+    transform: translateY(-4px)!important;
+    box-shadow: 0 10px 28px rgba(14,165,233,0.18)!important;
+    filter: brightness(0.95)!important;
+    color: #0F172A!important;
 }
-section.main div[data-testid="stButton"] > button:hover p,
-section.main div[data-testid="stButton"] > button:hover span {color: white!important;}
 
-section.main div[data-testid="stButton"]:nth-of-type(1) button {background: linear-gradient(135deg, #E0F2FE, #BAE6FD)!important; border-color: #7DD3FC!important; color: #075985!important;}
-section.main div[data-testid="stButton"]:nth-of-type(1) button:hover {background: linear-gradient(135deg, #0EA5E9, #38BDF8)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(2) button {background: linear-gradient(135deg, #FEF3C7, #FDE68A)!important; border-color: #FCD34D!important; color: #78350F!important;}
-section.main div[data-testid="stButton"]:nth-of-type(2) button:hover {background: linear-gradient(135deg, #F59E0B, #FBBF24)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(3) button {background: linear-gradient(135deg, #E0F2FE, #7DD3FC)!important; border-color: #38BDF8!important; color: #0C4A6E!important;}
-section.main div[data-testid="stButton"]:nth-of-type(3) button:hover {background: linear-gradient(135deg, #0284C7, #0EA5E9)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(4) button {background: linear-gradient(135deg, #FCE7F3, #FBCFE8)!important; border-color: #F9A8D4!important; color: #831843!important;}
-section.main div[data-testid="stButton"]:nth-of-type(4) button:hover {background: linear-gradient(135deg, #EC4899, #F472B6)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(5) button {background: linear-gradient(135deg, #FEF9C3, #FEF08A)!important; border-color: #FDE047!important; color: #713F12!important;}
-section.main div[data-testid="stButton"]:nth-of-type(5) button:hover {background: linear-gradient(135deg, #EAB308, #FACC15)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(6) button {background: linear-gradient(135deg, #FFEDD5, #FED7AA)!important; border-color: #FDBA74!important; color: #7C2D12!important;}
-section.main div[data-testid="stButton"]:nth-of-type(6) button:hover {background: linear-gradient(135deg, #F97316, #FB923C)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(7) button {background: linear-gradient(135deg, #E0F2FE, #BAE6FD)!important; border-color: #7DD3FC!important; color: #0C4A6E!important;}
-section.main div[data-testid="stButton"]:nth-of-type(7) button:hover {background: linear-gradient(135deg, #0EA5E9, #38BDF8)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(8) button {background: linear-gradient(135deg, #CCFBF1, #99F6E0)!important; border-color: #5EEAD4!important; color: #134E4A!important;}
-section.main div[data-testid="stButton"]:nth-of-type(8) button:hover {background: linear-gradient(135deg, #14B8A6, #2DD4BF)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(9) button {background: linear-gradient(135deg, #E0E7FF, #C7D2FE)!important; border-color: #A5B4FC!important; color: #312E81!important;}
-section.main div[data-testid="stButton"]:nth-of-type(9) button:hover {background: linear-gradient(135deg, #6366F1, #818CF8)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(10) button {background: linear-gradient(135deg, #FEF3C7, #FFEDD5)!important; border-color: #FCD34D!important; color: #78350F!important;}
-section.main div[data-testid="stButton"]:nth-of-type(10) button:hover {background: linear-gradient(135deg, #F59E0B, #FB923C)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(11) button {background: linear-gradient(135deg, #F0F9FF, #E0F2FE)!important; border-color: #BAE6FD!important; color: #0C4A6E!important;}
-section.main div[data-testid="stButton"]:nth-of-type(11) button:hover {background: linear-gradient(135deg, #0EA5E9, #38BDF8)!important; color:white!important;}
-section.main div[data-testid="stButton"]:nth-of-type(12) button {background: linear-gradient(135deg, #FFF7ED, #FFEDD5)!important; border-color: #FDBA74!important; color: #7C2D12!important;}
-section.main div[data-testid="stButton"]:nth-of-type(12) button:hover {background: linear-gradient(135deg, #F97316, #FBBF24)!important; color:white!important;}
+/* Ensure emoji icons keep their color */
+div[data-testid="stButton"] > button * {color: inherit!important;}
 
-/* Input */
-.stTextInput input,.stTextArea textarea {background: rgba(255,255,255,0.95)!important; border: 1px solid rgba(14,165,233,0.18)!important; color: #0F172A!important; border-radius: 12px!important;}
+.stTextInput input,.stTextArea textarea {background: #FFFFFF!important; border: 1px solid #BAE6FD!important; color: #0F172A!important; border-radius: 12px!important;}
 </style>
-<div class="dev-badge">🌤️ V28 SKY BLUE DAYBREAK - LIGHT ICONS FIXED | KADIYA NARESH</div>
+<div class="dev-badge">🌤️ V29 NO BLACK - TEXT BLACK ONLY | KADIYA NARESH</div>
 """, unsafe_allow_html=True)
 
 def universal_input(key, placeholder="Bolo ya likho..."):
     c1,c2 = st.columns([5,1])
-    with c1:
-        txt = st.text_input(" ", key=f"txt_{key}", placeholder=placeholder, label_visibility="collapsed")
-    with c2:
-        aud = st.audio_input("🎤", key=f"aud_{key}", label_visibility="collapsed")
+    with c1: txt = st.text_input(" ", key=f"txt_{key}", placeholder=placeholder, label_visibility="collapsed")
+    with c2: aud = st.audio_input("🎤", key=f"aud_{key}", label_visibility="collapsed")
     if aud:
         api_key = get_api_key()
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-            tmp.write(aud.getvalue()); path = tmp.name
-        with st.spinner("Sun raha hu..."):
-            vt = transcribe_audio(api_key, path)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp: tmp.write(aud.getvalue()); path = tmp.name
+        with st.spinner("Sun raha hu..."): vt = transcribe_audio(api_key, path)
         if os.path.exists(path): os.remove(path)
         if vt: st.success(f"🎧 {vt}"); return vt
     return txt
@@ -354,33 +260,18 @@ with st.sidebar:
     photo_html = ""
     if user['photo'] and os.path.exists(user['photo']):
         try:
-            with open(user['photo'], "rb") as f:
-                b64 = base64.b64encode(f.read()).decode()
-                ext = user['photo'].split(".")[-1]
-                photo_html = f'<img src="data:image/{ext};base64,{b64}" class="img-circle">'
-        except:
-            photo_html = f'<div class="avatar-letter">{user["name"][0].upper()}</div>'
-    else:
-        photo_html = f'<div class="avatar-letter">{user["name"][0].upper()}</div>'
-    st.markdown(f"""
-    <div class="profile-card-pro">
-        {photo_html}
-        <h4 style="margin:12px 0 2px 0; font-family:Space Grotesk; font-size:16px; color:#0F172A;">{user['name']}</h4>
-        <p style="margin:0; color:#0284C7; font-size:12px; font-weight:600;">@{user['username']}</p>
-        <div style="margin-top:10px; display:flex; gap:6px; justify-content:center;">
-            <span style="background:#E0F2FE; color:#0284C7; padding:3px 8px; border-radius:10px; font-size:10px; font-weight:700; border:1px solid #BAE6FD;">PRO</span>
-            <span style="background:#FEF3C7; color:#B45309; padding:3px 8px; border-radius:10px; font-size:10px; font-weight:700; border:1px solid #FDE68A;">ACTIVE</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+            with open(user['photo'], "rb") as f: b64 = base64.b64encode(f.read()).decode(); ext = user['photo'].split(".")[-1]
+            photo_html = f'<img src="data:image/{ext};base64,{b64}" class="img-circle">'
+        except: photo_html = f'<div class="avatar-letter">{user["name"][0].upper()}</div>'
+    else: photo_html = f'<div class="avatar-letter">{user["name"][0].upper()}</div>'
+    st.markdown(f"""<div class="profile-card-pro">{photo_html}<h4 style="margin:12px 0 2px 0; color:#0F172A;">{user['name']}</h4><p style="margin:0; color:#0284C7; font-size:12px; font-weight:600;">@{user['username']}</p><div style="margin-top:10px; display:flex; gap:6px; justify-content:center;"><span style="background:#E0F2FE; color:#0284C7; padding:3px 8px; border-radius:10px; font-size:10px; font-weight:700; border:1px solid #BAE6FD;">PRO</span><span style="background:#FEF3C7; color:#B45309; padding:3px 8px; border-radius:10px; font-size:10px; font-weight:700; border:1px solid #FDE68A;">ACTIVE</span></div></div>""", unsafe_allow_html=True)
     st.write("")
     c1,c2 = st.columns(2)
     with c1:
         if st.button("➕ New", use_container_width=True, key="new_chat"): st.session_state.selected_conv=None; st.session_state.active="Ask"; st.rerun()
     with c2:
         if st.button("🚪 Logout", use_container_width=True, key="logout"):
-            if COOKIE_OK:
-                cookies["uid"]=""; cookies.save()
+            if COOKIE_OK: cookies["uid"]=""; cookies.save()
             st.session_state.clear(); st.rerun()
     st.divider()
     st.markdown("#### 📁 Knowledge Base")
@@ -392,8 +283,7 @@ with st.sidebar:
     st.divider()
     st.markdown("#### 💬 Recent Chats")
     convs = get_user_conversations(user['id'])
-    if not convs:
-        st.caption("Koi chat nahi")
+    if not convs: st.caption("Koi chat nahi")
     else:
         for cid, q, a, mode, ts in convs[:35]:
             title = (q[:28] + "..") if len(q) > 28 else q
@@ -405,14 +295,7 @@ with st.sidebar:
     st.session_state.selected_language = selected_language
     chunk_size, chunk_overlap, top_k = 1000, 100, 8
 
-st.markdown(f"""
-<div class="hero-pro">
-    <div style="position:relative; z-index:2;">
-        <h1 style="margin:0; font-family:Space Grotesk; font-size:26px; font-weight:800;">Welcome back, {user['name'].split()[0]}! 🌤️</h1>
-        <h2 style="margin:6px 0 0 0; font-family:Space Grotesk; font-size:16px; font-weight:600;">RAG Based AI Teaching Assistant • Daybreak Sky Blue</h2>
-    </div>
-</div><br>
-""", unsafe_allow_html=True)
+st.markdown(f"""<div class="hero-pro"><h1 style="margin:0; font-size:26px; font-weight:800;">Welcome back, {user['name'].split()[0]}! 🌤️</h1><h2 style="margin:6px 0 0 0; font-size:16px; font-weight:600;">RAG Based AI Teaching Assistant • Daybreak Sky Blue</h2></div><br>""", unsafe_allow_html=True)
 
 if "active" not in st.session_state: st.session_state.active = "Ask"
 if "viva_qs" not in st.session_state: st.session_state.viva_qs = []; st.session_state.viva_idx = 0; st.session_state.viva_score = []
@@ -463,15 +346,13 @@ elif active=="Profile":
     with col1:
         if user['photo'] and os.path.exists(user['photo']): st.image(user['photo'], width=200)
         else: st.markdown(f"<div class='avatar-letter' style='width:180px; height:180px; font-size:60px;'>{user['name'][0].upper()}</div>", unsafe_allow_html=True)
-        new_photo = st.file_uploader("Nayi Photo - Auto Circle", type=["jpg","png","jpeg"], key="photo_up")
+        new_photo = st.file_uploader("Nayi Photo", type=["jpg","png","jpeg"], key="photo_up")
     with col2:
-        new_name = st.text_input("Full Name", value=user['name']); new_email = st.text_input("Email", value=user['email'])
-        new_bio = st.text_area("Bio", value=user['bio'] if user['bio'] else "")
+        new_name = st.text_input("Full Name", value=user['name']); new_email = st.text_input("Email", value=user['email']); new_bio = st.text_area("Bio", value=user['bio'] if user['bio'] else "")
         if st.button("💾 Update Profile", type="primary", use_container_width=True, key="upd_prof"):
             update_profile(user['id'], new_name, new_email, new_bio, new_photo); st.success("Updated!"); st.rerun()
 elif active=="History":
-    convs = get_user_conversations(user['id'])
-    st.metric("Total", len(convs))
+    convs = get_user_conversations(user['id']); st.metric("Total", len(convs))
     for cid, q, a, mode, ts in convs:
         with st.expander(f"[{mode}] {q[:70]}"): st.markdown(a)
 elif active=="Ask":
@@ -496,16 +377,14 @@ elif active=="Story":
         story_text = story_mode_learning(tp, language=lang); st.session_state.last_story = story_text; save_conversation(user['id'], tp, story_text, "Story"); st.markdown(story_text)
     if "last_story" in st.session_state: play_audio_block(st.session_state.last_story, lang, "story")
 elif active=="Projects":
-    idea=universal_input("proj",f"IoT Project idea likho - e.g. Smart Home ({lang})")
+    idea=universal_input("proj",f"IoT Idea - e.g. Smart Home ({lang})")
     bud=st.selectbox("Budget", ["low (under ₹1500)","medium (₹1500-5000)","high (₹5000+)"], key="bud")
-    if st.button("🔧 Full IoT Guide + Code + Circuit Generate Karo", type="primary", use_container_width=True, key="proj_gen") and idea:
-        with st.spinner("Full Project Guide bana raha hu..."):
-            guide = build_project_guide(idea,bud, language=lang)
+    if st.button("🔧 Full IoT Guide Generate", type="primary", use_container_width=True, key="proj_gen") and idea:
+        with st.spinner("Guide bana raha hu..."): guide = build_project_guide(idea,bud, language=lang)
         st.session_state.last_proj = guide; save_conversation(user['id'], idea, guide, "Project"); st.markdown(guide)
     if "last_proj" in st.session_state:
-        st.divider()
-        play_audio_block(st.session_state.last_proj, lang, "proj")
-        st.download_button("⬇️ Full Guide TXT", st.session_state.last_proj, file_name="Full_IoT_Guide.txt", mime="text/plain", use_container_width=True)
+        st.divider(); play_audio_block(st.session_state.last_proj, lang, "proj")
+        st.download_button("⬇️ TXT", st.session_state.last_proj, file_name="Full_IoT_Guide.txt", mime="text/plain", use_container_width=True)
 elif active=="Podcast":
     tp=universal_input("pod",f"Topic {lang}")
     if st.button("🎙️ Create Podcast", type="primary", use_container_width=True, key="pod_gen") and tp:
@@ -519,11 +398,9 @@ elif active=="Image2PDF":
             with cols[idx % 5]: st.image(img, caption=f"Img {idx+1}", use_container_width=True)
         c1,c2 = st.columns(2)
         with c1:
-            if st.button("📄 PDF", type="primary", use_container_width=True, key="pdf_btn"):
-                pdf_data = images_to_pdf(uploaded_images); st.session_state.pdf_ready = pdf_data
+            if st.button("📄 PDF", type="primary", use_container_width=True, key="pdf_btn"): pdf_data = images_to_pdf(uploaded_images); st.session_state.pdf_ready = pdf_data
         with c2:
-            if st.button("📝 DOCX", type="primary", use_container_width=True, key="docx_btn"):
-                docx_data = images_to_docx(uploaded_images); st.session_state.docx_ready = docx_data
+            if st.button("📝 DOCX", type="primary", use_container_width=True, key="docx_btn"): docx_data = images_to_docx(uploaded_images); st.session_state.docx_ready = docx_data
         if "pdf_ready" in st.session_state: st.download_button("⬇️ PDF", st.session_state.pdf_ready, file_name="RAG_Images.pdf", mime="application/pdf", use_container_width=True, key="dl_pdf")
         if "docx_ready" in st.session_state: st.download_button("⬇️ DOCX", st.session_state.docx_ready, file_name="RAG_Images.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", use_container_width=True, key="dl_docx")
 elif active=="Quiz":
