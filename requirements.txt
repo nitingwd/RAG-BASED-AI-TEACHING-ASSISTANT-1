@@ -1,16 +1,28 @@
+# --- Core UI ---
 streamlit>=1.40.0
+python-dotenv==1.1.1
+Pillow>=10.0.0
+pypdf==5.9.0
+
+# --- LangChain RAG Stack (Tera wala same) ---
 langchain==0.3.27
 langchain-community==0.3.27
 langchain-core==0.3.74
 langchain-groq==0.3.7
 langchain-huggingface==0.2.0
 langchain-text-splitters==0.3.9
+
+# --- Vector DB & Embeddings (Tera wala same) ---
 sentence-transformers>=2.7.0
 chromadb==1.1.0
-python-dotenv==1.1.1
-pypdf==5.9.0
 groq==0.30.0
+
+# --- Media Features (Tera wala same - PPT, Video, Audio) ---
 gTTS==2.5.4
-Pillow>=10.0.0
 python-pptx==0.6.21
 moviepy==1.0.3
+
+# --- V7 Added for Stability (Ye 2 add karne se deploy fail nahi hoga) ---
+numpy<2.0
+imageio==2.34.1
+imageio-ffmpeg==0.5.1
