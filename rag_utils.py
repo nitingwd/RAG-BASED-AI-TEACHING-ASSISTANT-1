@@ -11,7 +11,6 @@ from langchain_community.document_loaders import PyPDFLoader, CSVLoader, TextLoa
 from dotenv import load_dotenv
 from groq import Groq
 
-# --- VIDEO DEPS (Tera wala same) ---
 try:
     from gtts import gTTS
     from PIL import Image, ImageDraw
@@ -63,11 +62,10 @@ def process_files(files, chunk_size=1000, chunk_overlap=100):
             if os.path.exists(path): os.remove(path)
     splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     chunks = splitter.split_documents(docs)
-    # --- V7 UPGRADE: Persistent nahi, in-memory fast ---
     vectordb = Chroma.from_documents(chunks, get_embeddings())
     st.session_state.vectordb = vectordb; st.session_state.history = []
     if "weak_topics" not in st.session_state: st.session_state.weak_topics = {}
-    st.success(f"Ho gaya! {len(chunks)} chunks ban gaye.")
+    st.success(f"✅ Ho gaya! {len(chunks)} chunks | Ab koi bhi feature use karo - All FREE")
 
 def hybrid_search(query, k=3):
     vb = st.session_state.get("vectordb")
@@ -78,12 +76,11 @@ def ask_question(query, k=3, mode="normal"):
     api_key = get_api_key()
     if not api_key: return "GROQ_API_KEY nahi mili.", []
     vb = st.session_state.get("vectordb")
-    if not vb: return "Pehle Submit & Process dabao.", []
+    if not vb: return "Pehle File Upload & Process karo.", []
     docs = hybrid_search(query, k=k)
-    if not docs: return "Jawab nahi mila PDF me.", []
+    if not docs: return "PDF me ye topic nahi mila.", []
     context = "\n\n".join([f"[{d.metadata.get('source','?')}] {d.page_content}" for d in docs])
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0)
-    # --- V7 UPGRADE: NotebookLM se better prompt ---
     system = "You are Socratic teacher. Sirf PDF se sawal puch ke jawab tak le jao." if mode=="socratic" else "You are B.Tech Topper Teaching Assistant. Sirf PDF context se jawab do. Agar PDF me nahi hai toh bolo 'PDF me nahi mila'. Hinglish me, exam ke hisab se to-the-point jawab do. Formula / definition exact PDF se do."
     answer = llm.invoke(f"{system}\nContext:\n{context}\nQ: {query}").content
     if "history" not in st.session_state: st.session_state.history = []
@@ -109,47 +106,32 @@ def check_quiz_answer(question, user_answer, correct_answer, topic="general"):
     return ok, fb
 
 def get_weak_topics(): return st.session_state.get("weak_topics", {})
-
 def generate_summary():
     docs = hybrid_search("complete summary important points", k=8); ctx = "\n".join([d.page_content[:800] for d in docs])
-    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.2)
-    return llm.invoke(f"Tum Topper ho. Niche diye Context se 1-page exam-ready Hinglish summary banao. Points, formulas, definitions exact PDF se. Bakwas mat likho:\n{ctx}").content
-
+    return ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.2).invoke(f"Tum Topper ho. Niche diye Context se 1-page exam-ready Hinglish summary banao. Points, formulas, definitions exact PDF se. Bakwas mat likho:\n{ctx}").content
 def predict_important_questions():
     docs = hybrid_search("exam important questions previous year", k=6); ctx = "\n".join([d.page_content[:800] for d in docs])
-    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.3)
-    # --- V7 UPGRADE: Yehi feature paid banega ---
-    return llm.invoke(f"Context se 10 Most Important Questions predict karo with Marks (2/5/7 marks) and Chapter Weightage. GTU/SPU pattern me. Har Q ke sath 'Kyu Important hai' likho.\nContext:{ctx}\nOutput in Hinglish.").content
-
+    return ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.3).invoke(f"Context se 10 Most Important Questions predict karo with Marks (2/5/7 marks) and Chapter Weightage. GTU/SPU pattern me. Har Q ke sath 'Kyu Important hai' likho.\nContext:{ctx}\nOutput in Hinglish.").content
 def load_conversation_history(): return st.session_state.get("history", [])
-
 def story_mode_learning(topic):
     docs = hybrid_search(topic, k=4); ctx = "\n".join([d.page_content[:800] for d in docs])
-    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.8)
-    return llm.invoke(f"Topic {topic} ko ek Bollywood Masala Movie Story me badal do jisse B.Tech student kabhi na bhule. Characters use karo. Context:{ctx} Hinglish me.").content
-
+    return ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.8).invoke(f"Topic {topic} ko ek Bollywood Masala Movie Story me badal do jisse B.Tech student kabhi na bhule. Characters use karo. Context:{ctx} Hinglish me.").content
 def build_project_guide(project_idea, budget="low"):
-    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.4)
-    return llm.invoke(f"Project Idea:{project_idea} Budget:{budget} Complete guide do: Components, Circuit, Code, Working, Viva Questions. Hinglish me, SPU final year ke hisab se.").content
-
+    return ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.4).invoke(f"Project Idea:{project_idea} Budget:{budget} Complete guide do: Components, Circuit, Code, Working, Viva Questions. Hinglish me, SPU final year ke hisab se.").content
 def generate_podcast_script(topic):
     docs = hybrid_search(topic, k=3); ctx = "\n".join([d.page_content[:600] for d in docs])
-    llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.8)
-    return llm.invoke(f"Topic {topic} pe 2 doston (Naresh aur Rohit) ka 3-min Hinglish podcast script banao. Ek samjhaye, dusra sawal puche. Funny but 100% PDF based. Context:{ctx}").content
-
+    return ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.8).invoke(f"Topic {topic} pe 2 doston (Naresh aur Rohit) ka 3-min Hinglish podcast script banao. Ek samjhaye, dusra sawal puche. Funny but 100% PDF based. Context:{ctx}").content
 def generate_viva_questions(topic, num_q=10):
     docs = hybrid_search(topic, k=6); ctx = "\n".join([d.page_content[:700] for d in docs])
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.2)
     prompt = f"Topic:{topic}\nContext:{ctx}\n{num_q} viva questions banao JSON array: {{\"q\":\"question from PDF\",\"a\":\"correct answer from PDF\"}}\nOnly JSON, no extra text."
     try: txt = llm.invoke(prompt).content; s = txt.find('['); e = txt.rfind(']')+1; return json.loads(txt[s:e])
     except: return [{"q": f"Explain {topic} - Q {i+1} from PDF?", "a": "As per PDF document"} for i in range(num_q)]
-
 def verify_viva_answer(question, correct_ans, user_ans):
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0)
     prompt = f"Q:{question}\nCorrect:{correct_ans}\nStudent:{user_ans}\nReturn ONLY JSON {{\"verdict\":\"True/False\", \"feedback\":\"Hinglish feedback + correct answer PDF se\"}}"
     try: txt = llm.invoke(prompt).content; s = txt.find('{'); e = txt.rfind('}')+1; return json.loads(txt[s:e])
     except: return {"verdict": "False", "feedback": f"Correct Answer PDF ke according: {correct_ans}"}
-
 def create_ppt_file(topic, num_slides=5):
     docs = hybrid_search(topic, k=6); ctx = "\n".join([d.page_content[:1200] for d in docs])
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=get_api_key(), temperature=0.2)
@@ -168,7 +150,6 @@ def create_ppt_file(topic, num_slides=5):
         ct=slide.shapes.add_textbox(Inches(0.7), Inches(1.3), Inches(7.2), Inches(5.9)); tf=ct.text_frame; tf.word_wrap=True
         for pt in sl.get('points',[]): pa=tf.add_paragraph(); pa.text=f"• {pt}"; pa.space_after=Pt(10); pa.font.size=Pt(10); pa.font.color.rgb=RGBColor(30,35,60)
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pptx"); prs.save(tmp.name); return tmp.name
-
 def transcribe_topic_with_language(audio_path):
     text = transcribe_audio(get_api_key(), audio_path)
     if not text: return None, "Hinglish"
@@ -176,31 +157,20 @@ def transcribe_topic_with_language(audio_path):
     prompt = f"Extract topic and language from: '{text}'. Return JSON {{\"topic\":\"...\",\"language\":\"Hindi/English/Hinglish/Marathi\"}} only."
     try: res = llm.invoke(prompt).content; s = res.find('{'); e = res.rfind('}')+1; data = json.loads(res[s:e]); return data.get('topic', text), data.get('language', 'Hinglish')
     except: return text, "Hinglish"
-
-# ================= V7 - 2.5 MIN FAST + PDF ACCURATE (Same as yours, optimized) =================
 def create_explainer_video(topic, language="Hinglish", duration_sec=150):
     if not VIDEO_AVAILABLE: return None, "Install gTTS, moviepy, Pillow"
     api_key = get_api_key()
     llm = ChatGroq(model="openai/gpt-oss-20b", groq_api_key=api_key, temperature=0.2)
     docs = hybrid_search(topic, k=8)
-    if not docs: return None, f"Tere PDF me '{topic}' nahi mila. Pehle sahi PDF upload kar."
+    if not docs: return None, f"Tere PDF me '{topic}' nahi mila."
     ctx = "\n\n".join([f"DOC {i+1} [{d.metadata.get('source','PDF')}]: {d.page_content[:1000]}" for i, d in enumerate(docs)])
-    prompt = f"""Use ONLY PDF Context. No hallucination.
-Topic: {topic}, Language: {language}
-PDF Context:
-{ctx[:8000]}
-
-Create 5 scenes JSON accurate from PDF. Each:
-{{"title":"Sub-topic from PDF", "story_character":"AI Tutor", "explain":"90-110 words in {language} using EXACT definitions/formulas from PDF. Start 'PDF ke according...'", "dialogue":"PDF based Q", "diagram":"Definition from PDF", "visual_action":"Show PDF text", "real_life_story":"Source: PDF"}}
-Return ONLY JSON array 5 objects."""
-
+    prompt = f"""Use ONLY PDF Context. No hallucination. Topic: {topic}, Language: {language} PDF Context: {ctx[:8000]} Create 5 scenes JSON accurate from PDF. Each: {{"title":"Sub-topic from PDF", "story_character":"AI Tutor", "explain":"90-110 words in {language} using EXACT definitions/formulas from PDF. Start 'PDF ke according...'", "dialogue":"PDF based Q", "diagram":"Definition from PDF", "visual_action":"Show PDF text", "real_life_story":"Source: PDF"}} Return ONLY JSON array 5 objects."""
     try:
         txt = llm.invoke(prompt).content; s = txt.find('['); e = txt.rfind(']')+1; scenes = json.loads(txt[s:e])
     except:
         scenes = []
         for i, d in enumerate(docs[:5]):
             scenes.append({"title": f"{topic} - Part {i+1}", "story_character": "AI Tutor", "explain": f"PDF ke according {d.page_content[:380]}", "dialogue": f"PDF based point {i+1}", "diagram": d.page_content[:120], "visual_action": "Show PDF", "real_life_story": d.metadata.get('source','PDF')})
-
     temp_dir = tempfile.mkdtemp(); clips = []
     def fast_avatar(name, bg_color):
         img = Image.new('RGB', (300, 300), bg_color); d = ImageDraw.Draw(img)
@@ -208,7 +178,6 @@ Return ONLY JSON array 5 objects."""
         d.ellipse([(85,90),(115,120)], fill=(0,0,0)); d.ellipse([(185,90),(215,120)], fill=(0,0,0))
         d.text((90, 250), name, fill=(255,255,255)); p = os.path.join(temp_dir, f"{name}.png"); img.save(p); return p
     tutor_path = fast_avatar("TUTOR", (99,102,241)); student_path = fast_avatar("ROHIT", (25,35,70))
-
     for i, scene in enumerate(scenes):
         W, H = 1280, 720; bg_img = Image.new('RGB', (W, H), (13,17,38)); draw = ImageDraw.Draw(bg_img)
         draw.rectangle([(0,0),(W,80)], fill=(99,102,241)); draw.text((20,10), f"PART {i+1}/5: {scene['title'][:55]}", fill=(255,255,255))
