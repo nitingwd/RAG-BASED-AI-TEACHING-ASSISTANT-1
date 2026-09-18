@@ -8,7 +8,9 @@ from rag_utils import (
     story_mode_learning, build_project_guide, generate_podcast_script,
     generate_viva_questions, verify_viva_answer, create_ppt_file,
     create_explainer_video, transcribe_topic_with_language,
-    text_to_audio_file, generate_story_movie_script
+    text_to_audio_file, generate_story_movie_script,
+    generate_premium_resume_data, create_premium_resume_pdf,
+    generate_software_project, create_project_zip
 )
 
 st.set_page_config(page_title="Advance RAG - AI Teaching Assistant", layout="wide", page_icon="🎓")
@@ -22,7 +24,7 @@ html, body, [class*="css"] {font-family: 'Inter', sans-serif;}
 .hero {background: linear-gradient(135deg, #E0E7FF 0%, #C7D2FE 100%); border-radius: 20px; padding: 30px; margin-bottom: 20px;}
 .stButton>button {border-radius: 10px; height: 48px; font-weight: 600;}
 </style>
-<div class="dev-badge">V11.2 Audio Fixed | KADIYA NARESH</div>
+<div class="dev-badge">V12 FREE Premium | KADIYA NARESH</div>
 """, unsafe_allow_html=True)
 
 def universal_input(key, placeholder="Bolo ya likho..."):
@@ -81,7 +83,7 @@ with st.sidebar:
 st.markdown("""
 <div class="hero">
     <h1 style="margin:0; font-size: 36px; color: #111827;">RAG Based AI Teaching Assistant</h1>
-    <p style="color: #4B5563;">🔊 Har Feature me Audio - Jo Language Select Karoge Usi me Bolega</p>
+    <p style="color: #4B5563;">🔊 Audio + 💼 Resume + 💻 Software Builder - All FREE</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -91,35 +93,39 @@ if "viva_qs" not in st.session_state:
 if "quiz_data" not in st.session_state: st.session_state.quiz_data = None
 
 st.markdown("### ✨ Features - All FREE + Audio")
-c1,c2,c3,c4,c5 = st.columns(5)
+c1,c2,c3,c4,c5,c6 = st.columns(6)
 with c1:
     if st.button("💬 Ask Q&A", use_container_width=True): st.session_state.active="Ask"; st.rerun()
 with c2:
-    if st.button("⭐ Important Qs", use_container_width=True): st.session_state.active="Important"; st.rerun()
+    if st.button("⭐ Important", use_container_width=True): st.session_state.active="Important"; st.rerun()
 with c3:
-    if st.button("🔧 Project Builder", use_container_width=True): st.session_state.active="Projects"; st.rerun()
+    if st.button("🔧 Project", use_container_width=True): st.session_state.active="Projects"; st.rerun()
 with c4:
-    if st.button("🎬 AI Video", use_container_width=True): st.session_state.active="Video"; st.rerun()
+    if st.button("🎬 Video", use_container_width=True): st.session_state.active="Video"; st.rerun()
 with c5:
     if st.button("📝 Quiz", use_container_width=True): st.session_state.active="Quiz"; st.rerun()
-c6,c7,c8,c9,c10 = st.columns(5)
 with c6:
-    if st.button("🎤 Viva Mode", use_container_width=True): st.session_state.active="Viva"; st.rerun()
+    if st.button("🎤 Viva", use_container_width=True): st.session_state.active="Viva"; st.rerun()
+
+c7,c8,c9,c10,c11,c12 = st.columns(6)
 with c7:
-    if st.button("📊 PPT Maker", use_container_width=True): st.session_state.active="PPT"; st.rerun()
+    if st.button("📊 PPT", use_container_width=True): st.session_state.active="PPT"; st.rerun()
 with c8:
     if st.button("📄 Summary", use_container_width=True): st.session_state.active="Summary"; st.rerun()
 with c9:
-    if st.button("📖 Story Movie", use_container_width=True): st.session_state.active="Story"; st.rerun()
+    if st.button("📖 Story", use_container_width=True): st.session_state.active="Story"; st.rerun()
 with c10:
     if st.button("🎙️ Podcast", use_container_width=True): st.session_state.active="Podcast"; st.rerun()
+with c11:
+    if st.button("💼 Resume", use_container_width=True): st.session_state.active="Resume"; st.rerun()
+with c12:
+    if st.button("💻 Software", use_container_width=True): st.session_state.active="Software"; st.rerun()
 
 st.divider()
 active = st.session_state.active
 lang = st.session_state.get('selected_language','Hinglish')
 st.header(f"▶ {active} Mode | 🌐 {lang} | 🔊 Audio Enabled")
 
-# ========== ALL FEATURES WITH PERFECT AUDIO ==========
 if active=="Ask":
     mode = st.radio("Mode:", ["Normal","Socratic"], horizontal=True)
     sel = "socratic" if "Socratic" in mode else "normal"
@@ -178,7 +184,6 @@ elif active=="Podcast":
         pod_text = generate_podcast_script(tp, language=lang)
         st.session_state.last_pod = pod_text
         st.markdown(pod_text)
-        # Auto audio
         ap = text_to_audio_file(pod_text, lang)
         if ap and os.path.exists(ap):
             with open(ap,"rb") as f:
@@ -208,7 +213,6 @@ elif active=="Quiz":
                     if st.button(f"Check Q{i+1}", key=f"chk_{i}"):
                         ok, fb = check_quiz_answer(qd['question'], choice, qd['answer'], qd.get('topic','general'))
                         st.success(fb) if ok else st.error(fb)
-                        # Explanation audio
                         exp_text = f"{fb}. Explanation: {qd.get('explanation','')}"
                         ap2 = text_to_audio_file(exp_text, lang)
                         if ap2 and os.path.exists(ap2):
@@ -236,7 +240,6 @@ elif active=="Viva":
                 if user_ans:
                     res=verify_viva_answer(curr['q'], curr['a'], user_ans, language=lang)
                     st.session_state.viva_score.append({"q":curr['q'],"your":user_ans,"correct":curr['a'],"result":res['verdict'],"fb":res['feedback']})
-                    # Feedback audio in selected lang
                     ap2 = text_to_audio_file(res['feedback'], lang)
                     if ap2 and os.path.exists(ap2):
                         with open(ap2,"rb") as f: st.audio(f.read(), format="audio/mp3", autoplay=True)
@@ -289,6 +292,61 @@ elif active=="Video":
                     st.video(v_path)
                     with open(v_path, "rb") as f:
                         st.download_button("⬇️ Download Video", f, file_name=f"{final_topic}_{final_lang}_{duration_sec}s.mp4")
+
+elif active=="Resume":
+    st.subheader("💼 Premium Resume Maker - FAANG Level - FREE")
+    st.success("ATS 95% Score | Recruiter Ready | FREE Download")
+    col1,col2 = st.columns(2)
+    with col1:
+        name = st.text_input("Full Name", "Kadiya Naresh")
+        role = st.text_input("Target Role", "Full Stack Developer")
+        email = st.text_input("Email", "naresh@example.com")
+        phone = st.text_input("Phone", "+91 98765 43210")
+    with col2:
+        linkedin = st.text_input("LinkedIn", "linkedin.com/in/naresh")
+        github = st.text_input("GitHub", "github.com/naresh")
+        skills_input = st.text_area("Skills / Projects / Experience Detail", "MERN, Python, 2 Projects - E-commerce, Chat App, GTU 8.5 CGPA, Internship at XYZ")
+    if st.button("🚀 Generate FAANG Resume", type="primary"):
+        with st.spinner("FAANG level resume bana raha hu..."):
+            user_info = f"Name:{name}, Role:{role}, Email:{email}, Phone:{phone}, LinkedIn:{linkedin}, Github:{github}, Details:{skills_input}"
+            resume_data = generate_premium_resume_data(user_info, lang)
+            if resume_data:
+                st.session_state.resume_data = resume_data
+                pdf_path = create_premium_resume_pdf(resume_data)
+                st.success("✅ Resume Ready!")
+                with open(pdf_path,"rb") as f:
+                    pdf_bytes = f.read()
+                    st.download_button("⬇️ Download Premium Resume PDF", pdf_bytes, file_name=f"{name.replace(' ','_')}_FAANG_Resume.pdf", mime="application/pdf", type="primary")
+                with st.expander("📄 Resume JSON"): st.json(resume_data)
+                play_audio_block(f"{name} ka resume ban gaya hai {role} ke liye", lang, "resume")
+
+elif active=="Software":
+    st.subheader("💻 Software Builder - Production Ready - FREE")
+    st.success("Abhi Sab FREE Hai - Full Production ZIP")
+    req = st.text_area("Requirement Detail me Likh", "Mujhe ek Smart Dustbin Dashboard chahiye jisme React frontend, Node backend, MongoDB, map, auth ho", height=120)
+    tech = st.selectbox("Tech Stack", ["MERN (React+Node+Mongo)", "Next.js + Prisma + Tailwind", "Python Django + React", "Only Frontend React + Tailwind"])
+    if st.button("⚡ Generate Production Project", type="primary"):
+        if req:
+            with st.spinner(f"{tech} me full code generate ho raha hai... 40 sec"):
+                project = generate_software_project(req, tech, lang)
+                if project:
+                    st.session_state.last_project = project
+                    st.balloons()
+                    st.success(f"✅ {project.get('project_name')} Ready - {len(project.get('files',[]))} files")
+                    st.write(f"Features: {', '.join(project.get('features',[]))}")
+    if "last_project" in st.session_state:
+        proj = st.session_state.last_project
+        st.divider()
+        st.markdown(f"### 📦 {proj.get('project_name')}")
+        with st.expander("📁 Files Preview"):
+            for f in proj.get('files',[])[:6]:
+                st.code(f"{f['path']}\n---\n{f['content'][:600]}...", language="javascript")
+        zip_path = create_project_zip(proj)
+        with open(zip_path,"rb") as f:
+            zip_bytes = f.read()
+            st.download_button(f"⬇️ Download FULL Production ZIP ({len(proj.get('files',[]))} Files)", zip_bytes, file_name=f"{proj.get('project_name')}_PRODUCTION.zip", mime="application/zip", type="primary", use_container_width=True)
+        st.info("✅ Frontend + Backend + package.json +.env.example + README + Docker - Direct VS Code me `npm install`")
+        play_audio_block(f"{proj.get('project_name')} ka production code ready hai", lang, "software")
 
 with st.expander("🕘 History"):
     h=load_conversation_history()
