@@ -26,8 +26,7 @@ def init_db():
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT, name TEXT, email TEXT, photo TEXT, bio TEXT, created_at TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS conversations (id INTEGER PRIMARY KEY, user_id INTEGER, query TEXT, answer TEXT, mode TEXT, timestamp TEXT)''')
-    conn.commit()
-    conn.close()
+    conn.commit(); conn.close()
 init_db()
 
 def hash_pwd(p): return hashlib.sha256(p.encode()).hexdigest()
@@ -80,7 +79,7 @@ def get_user_conversations(user_id):
 def auth_ui():
     cookies = None
     if COOKIE_OK:
-        cookies = EncryptedCookieManager(prefix="rag_v31_noblack_", password="kadiya_naresh_v31_zero_black_sky_2024")
+        cookies = EncryptedCookieManager(prefix="rag_v32_alllight_", password="kadiya_naresh_v32_all_light_sidebar_color_2024")
         if not cookies.ready(): st.stop()
     if st.session_state.get("logged_in") and st.session_state.get("user"): return True, cookies
     if COOKIE_OK and cookies:
@@ -91,14 +90,10 @@ def auth_ui():
                 if u: st.session_state.logged_in = True; st.session_state.user = u; return True, cookies
             except: pass
     st.set_page_config(page_title="RAG Based AI Teaching Assistant", layout="centered", page_icon="🌤️")
-    st.markdown("""<style>
-    header[data-testid="stHeader"]{display:none!important;}
-   .stApp {background: #F0F9FF;}
-   .login-card {background: white; padding: 36px; border-radius: 28px; box-shadow: 0 24px 80px rgba(14,165,233,0.12); text-align:center; border: 1px solid #BAE6FD;}
-    </style>""", unsafe_allow_html=True)
+    st.markdown("""<style>header[data-testid="stHeader"]{display:none!important;}.stApp {background: #E0F2FE;}</style>""", unsafe_allow_html=True)
     _, col, _ = st.columns([1,2,1])
     with col:
-        st.markdown("""<div class="login-card"><div style="font-size:52px;">🌤️</div><h2 style="color:#0F172A;">RAG Based AI Teaching Assistant</h2><p style="color:#475569;">Sky Blue - Zero Black</p></div><br>""", unsafe_allow_html=True)
+        st.markdown("""<div style="background:white; padding:36px; border-radius:28px; text-align:center; border:1px solid #BAE6FD;"><div style="font-size:52px;">🌤️</div><h2 style="color:#0F172A;">RAG Based AI Teaching Assistant</h2></div><br>""", unsafe_allow_html=True)
         t1, t2 = st.tabs(["🔐 Login", "✨ Sign Up"])
         with t1:
             username = st.text_input("Username", key="l_user"); pwd = st.text_input("Password", type="password", key="l_pwd")
@@ -108,7 +103,7 @@ def auth_ui():
                     st.session_state.logged_in = True; st.session_state.user = u
                     if COOKIE_OK: cookies["uid"] = str(u['id']); cookies.save()
                     st.rerun()
-                else: st.error("Galat Username/Password")
+                else: st.error("Galat")
         with t2:
             name = st.text_input("Full Name", key="s_name"); username_s = st.text_input("Username", key="s_user"); email = st.text_input("Email", key="s_email"); pwd_s = st.text_input("Password", key="s_pwd", type="password")
             if st.button("Create Account", use_container_width=True, key="signup_btn"):
@@ -148,38 +143,45 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
 
-/* REMOVE ALL BLACK HEADER */
+/* HIDE BLACK HEADER */
 header[data-testid="stHeader"], div[data-testid="stToolbar"], div[data-testid="stDecoration"], #MainMenu, footer {display:none!important; height:0!important;}
 .main.block-container {padding-top: 0.5rem!important;}
 
-/* DAYBREAK SKY BLUE BG */
+/* ============ SIDEBAR COLOUR = APP BACKGROUND ME ============ */
 .stApp {
-    background: #F0FAFF;
-    background-image: radial-gradient(ellipse 900px 600px at 12% 12%, rgba(14,165,233,0.16), transparent 60%), radial-gradient(ellipse 800px 500px at 88% 12%, rgba(251,191,36,0.12), transparent 60%), radial-gradient(ellipse 700px 600px at 18% 88%, rgba(56,189,248,0.13), transparent 60%);
-    background-attachment: fixed;
+    background: linear-gradient(180deg, #E0F2FE 0%, #BAE6FD 18%, #E0F2FE 38%, #FFF7ED 62%, #FFEDD5 82%, #E0F2FE 100%)!important;
+    background-attachment: fixed!important;
 }
-.block-container {background: rgba(255,255,255,0.88); backdrop-filter: blur(24px); border-radius: 26px; border: 1px solid rgba(14,165,233,0.12); box-shadow: 0 10px 40px rgba(14,165,233,0.08);}
-h1, h2, h3 {color: #0F172A!important;}
+
+/* Main container bhi same sidebar colour ka - white hatao */
+.block-container {
+    background: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(224,242,254,0.88) 20%, rgba(186,230,253,0.84) 40%, rgba(255,247,237,0.86) 70%, rgba(255,255,255,0.90) 100%)!important;
+    backdrop-filter: blur(28px)!important;
+    border-radius: 26px!important;
+    border: 1px solid rgba(125,211,252,0.30)!important;
+    box-shadow: 0 12px 40px rgba(14,165,233,0.12)!important;
+}
+
+h1, h2, h3 {color: #0F172A!important; font-family:'Space Grotesk'!important;}
 p,.stMarkdown {color: #1E293B!important;}
 
-/* SIDEBAR LIGHT */
-section[data-testid="stSidebar"] {background: linear-gradient(180deg, #FFFFFF 0%, #E0F2FE 25%, #BAE6FD 45%, #FFF7ED 70%, #FFFFFF 100%)!important; border-right: 1px solid rgba(14,165,233,0.12);}
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #FFFFFF 0%, #E0F2FE 22%, #BAE6FD 42%, #FFF7ED 68%, #FFEDD5 85%, #E0F2FE 100%)!important;
+    border-right: 1px solid rgba(125,211,252,0.30)!important;
+}
 section[data-testid="stSidebar"] * {color: #0F172A!important;}
 
 .hero-pro {background: linear-gradient(135deg, #0EA5E9 0%, #38BDF8 20%, #FB923C 40%, #FBBF24 60%, #F472B6 80%, #A78BFA 100%); border-radius: 22px; padding: 26px 30px; box-shadow: 0 14px 36px rgba(14,165,233,0.20);}
 .hero-pro h1,.hero-pro h2 {color: #0F172A!important; font-weight: 800!important;}
-.profile-card-pro {background: white; border-radius:20px; padding:18px; border:1px solid #BAE6FD; text-align:center;}
+.profile-card-pro {background: linear-gradient(135deg, #FFFFFF 0%, #F0F9FF 100%); border-radius:20px; padding:18px; border:1px solid #BAE6FD; text-align:center; box-shadow: 0 8px 24px rgba(14,165,233,0.10);}
 .img-circle {width:85px; height:85px; border-radius:50%; object-fit:cover; border:3px solid white; box-shadow: 0 0 0 3px #BAE6FD; display:block; margin:0 auto;}
 .avatar-letter {width:85px; height:85px; border-radius:50%; background: linear-gradient(135deg,#0EA5E9 0%, #FB923C 100%); display:flex; align-items:center; justify-content:center; margin:0 auto; color:white; font-size:32px; font-weight:700;}
 .dev-badge {position: fixed; bottom: 14px; right: 14px; background: white; color: #0284C7; padding: 7px 12px; border-radius: 20px; font-size: 10px; font-weight:700; border: 1px solid #BAE6FD;}
 
-/* ============ ZERO BLACK FIX - MAIN PART ============ */
+/* ==================== ZERO BLACK - ALL INPUTS LIGHT ==================== */
 
-/* 1. ALL BUTTONS LIGHT - NO BLACK */
-div[data-testid="stButton"] > button {background: #FFFFFF!important; background-image: none!important; border-radius: 14px!important; height: 56px!important; font-weight: 700!important; border: 1.5px solid #BAE6FD!important; color: #0F172A!important; box-shadow: 0 2px 10px rgba(14,165,233,0.06)!important;}
-div[data-testid="stButton"] > button:hover {transform: translateY(-3px)!important; box-shadow: 0 10px 28px rgba(14,165,233,0.18)!important;}
-
-/* Dashboard buttons light pastel */
+/* BUTTONS */
+div[data-testid="stButton"] > button {background: white!important; border-radius: 14px!important; height: 56px!important; font-weight: 700!important; border: 1.5px solid #7DD3FC!important; color: #0F172A!important; box-shadow: 0 2px 10px rgba(14,165,233,0.08)!important;}
 section.main div[data-testid="stButton"]:nth-of-type(1) button {background: linear-gradient(135deg, #E0F2FE, #BAE6FD)!important; color: #0C4A6E!important;}
 section.main div[data-testid="stButton"]:nth-of-type(2) button {background: linear-gradient(135deg, #FEF3C7, #FDE68A)!important; color: #78350F!important;}
 section.main div[data-testid="stButton"]:nth-of-type(3) button {background: linear-gradient(135deg, #DBEAFE, #BFDBFE)!important; color: #1E3A8A!important;}
@@ -192,35 +194,62 @@ section.main div[data-testid="stButton"]:nth-of-type(9) button {background: line
 section.main div[data-testid="stButton"]:nth-of-type(10) button {background: linear-gradient(135deg, #FEF3C7, #FFEDD5)!important; color: #78350F!important;}
 section.main div[data-testid="stButton"]:nth-of-type(11) button {background: linear-gradient(135deg, #F0F9FF, #E0F2FE)!important; color: #0C4A6E!important;}
 section.main div[data-testid="stButton"]:nth-of-type(12) button {background: linear-gradient(135deg, #FFF7ED, #FFEDD5)!important; color: #7C2D12!important;}
+div[data-testid="stButton"] > button:hover {transform: translateY(-3px)!important; box-shadow: 0 10px 28px rgba(14,165,233,0.18)!important;}
 
-/* 2. FILE UPLOADER - BLACK HATAO - WHITE KARO */
-div[data-testid="stFileUploader"] {background: white!important; border-radius: 16px!important; border: 1.5px solid #BAE6FD!important; padding: 12px!important;}
-div[data-testid="stFileUploaderDropzone"] {background: linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%)!important; border: 2px dashed #7DD3FC!important; border-radius: 14px!important; color: #0C4A6E!important;}
+/* ALL TEXT INPUTS - LIGHT */
+div[data-testid="stTextInput"] > div > div > input,
+div[data-testid="stTextArea"] > div > div > textarea,
+div[data-testid="stNumberInput"] input,
+div[data-testid="stSelectbox"] > div > div,
+div[data-testid="stTextInput"] input {
+    background: linear-gradient(135deg, #FFFFFF 0%, #F0F9FF 100%)!important;
+    background-color: #FFFFFF!important;
+    border: 1.5px solid #7DD3FC!important;
+    border-radius: 12px!important;
+    color: #0F172A!important;
+    box-shadow: 0 2px 8px rgba(14,165,233,0.06)!important;
+}
+
+/* FILE UPLOADER - FULL LIGHT */
+div[data-testid="stFileUploader"] {background: linear-gradient(135deg, #FFFFFF 0%, #F0F9FF 100%)!important; border: 1.5px solid #7DD3FC!important; border-radius: 16px!important; padding: 14px!important;}
+div[data-testid="stFileUploader"] * {color: #0F172A!important;}
+div[data-testid="stFileUploaderDropzone"] {background: linear-gradient(135deg, #E0F2FE 0%, #F0F9FF 100%)!important; border: 2px dashed #38BDF8!important; border-radius: 14px!important;}
 div[data-testid="stFileUploaderDropzone"] * {color: #0C4A6E!important;}
-div[data-testid="stFileUploaderDropzone"] button {background: white!important; color: #0284C7!important; border: 1px solid #7DD3FC!important; border-radius: 10px!important;}
-div[data-testid="stFileUploader"] section {background: white!important;}
-div[data-testid="stFileUploader"] span {color: #0F172A!important;}
+div[data-testid="stFileUploaderDropzone"] button {background: white!important; color: #0284C7!important; border: 1.5px solid #7DD3FC!important; border-radius: 10px!important;}
+div[data-testid="stFileUploader"] section {background: white!important; border: none!important;}
+[data-testid="stFileUploadDropzone"] {background: #E0F2FE!important;}
 
-/* 3. AUDIO RECORDER - BLACK HATAO - LIGHT BLUE KARO */
-div[data-testid="stAudioInput"] {background: linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%)!important; border-radius: 16px!important; border: 1.5px solid #7DD3FC!important; padding: 10px!important;}
+/* AUDIO INPUT - FULL LIGHT */
+div[data-testid="stAudioInput"] {background: linear-gradient(135deg, #FFFFFF 0%, #E0F2FE 100%)!important; border: 1.5px solid #7DD3FC!important; border-radius: 16px!important; padding: 12px!important;}
 div[data-testid="stAudioInput"] * {color: #0C4A6E!important;}
-div[data-testid="stAudioInput"] button {background: white!important; border: 1px solid #BAE6FD!important; color: #0284C7!important; border-radius: 12px!important;}
+div[data-testid="stAudioInput"] button {background: white!important; border: 1.5px solid #7DD3FC!important; color: #0284C7!important; border-radius: 12px!important;}
 
-/* 4. TEXT INPUT - BLACK BORDER HATAO */
-div[data-testid="stTextInput"] input {background: white!important; border: 1.5px solid #7DD3FC!important; border-radius: 12px!important; color: #0F172A!important; box-shadow: 0 2px 8px rgba(14,165,233,0.06)!important;}
-div[data-testid="stTextInput"] input:focus {border-color: #0EA5E9!important; box-shadow: 0 0 0 3px rgba(14,165,233,0.15)!important;}
+/* RADIO - NO BLACK DOT - BLUE */
+div[data-testid="stRadio"] label {background: linear-gradient(135deg, #FFFFFF 0%, #F0F9FF 100%)!important; border: 1.5px solid #7DD3FC!important; border-radius: 12px!important; padding: 8px 14px!important;}
+div[data-testid="stRadio"] p {color: #0F172A!important;}
+div[data-testid="stRadio"] > div {background: transparent!important;}
 
-/* 5. RADIO - BLACK DOT HATAO - BLUE DOT KARO */
-div[data-testid="stRadio"] div[role="radiogroup"] {gap: 12px!important;}
-div[data-testid="stRadio"] label {background: white!important; border: 1.5px solid #BAE6FD!important; border-radius: 12px!important; padding: 8px 14px!important; color: #0F172A!important;}
-div[data-testid="stRadio"] div[data-testid="stMarkdownContainer"] p {color: #0F172A!important;}
-div[data-testid="stRadio"] input:checked + div {background: #0EA5E9!important; border-color: #0EA5E9!important;}
+/* SLIDER - LIGHT */
+div[data-testid="stSlider"] > div {background: transparent!important;}
+div[data-testid="stSlider"] div[data-baseweb="slider"] > div {background: #BAE6FD!important;}
+div[data-testid="stSlider"] div[role="slider"] {background: #0EA5E9!important; border: 2px solid white!important; box-shadow: 0 2px 8px rgba(14,165,233,0.3)!important;}
 
-/* 6. ANY OTHER BLACK ELEMENTS - FORCE WHITE */
+/* EXPANDER / CONTAINER - LIGHT WITH SIDEBAR COLOR */
+div[data-testid="stExpander"] {background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(224,242,254,0.7) 100%)!important; border: 1px solid #BAE6FD!important; border-radius: 14px!important;}
+div[data-testid="stExpander"] * {color: #0F172A!important;}
+div[data-testid="stVerticalBlockBorderWrapper"] {background: linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(224,242,254,0.65) 100%)!important; border: 1px solid #BAE6FD!important; border-radius: 16px!important;}
+
+/* SELECTBOX DROPDOWN */
+div[data-baseweb="select"] > div {background: white!important; border: 1.5px solid #7DD3FC!important; color: #0F172A!important; border-radius: 12px!important;}
+ul[data-baseweb="menu"] {background: white!important; border: 1px solid #BAE6FD!important;}
+ul[data-baseweb="menu"] li {color: #0F172A!important; background: white!important;}
+ul[data-baseweb="menu"] li:hover {background: #E0F2FE!important;}
+
+/* ANY REMAINING BLACK - FORCE LIGHT */
+[data-testid="stWidgetLabel"] p, label p {color: #0F172A!important;}
 div[data-baseweb="file-uploader"] {background: white!important;}
-section[data-testid="stFileUploadDropzone"] {background: #F0F9FF!important;}
 </style>
-<div class="dev-badge">🌤️ V31 ZERO BLACK - ALL LIGHT | KADIYA NARESH</div>
+<div class="dev-badge">🌤️ V32 ALL LIGHT + SIDEBAR COLOR IN FEATURES | KADIYA NARESH</div>
 """, unsafe_allow_html=True)
 
 def universal_input(key, placeholder="Bolo ya likho..."):
@@ -303,7 +332,7 @@ with st.sidebar:
     st.session_state.selected_language = selected_language
     chunk_size, chunk_overlap, top_k = 1000, 100, 8
 
-st.markdown(f"""<div class="hero-pro"><h1 style="margin:0; font-size:26px; font-weight:800;">Welcome back, {user['name'].split()[0]}! 🌤️</h1><h2 style="margin:6px 0 0 0; font-size:16px; font-weight:600;">RAG Based AI Teaching Assistant • Zero Black</h2></div><br>""", unsafe_allow_html=True)
+st.markdown(f"""<div class="hero-pro"><h1 style="margin:0; font-size:26px; font-weight:800;">Welcome back, {user['name'].split()[0]}! 🌤️</h1><h2 style="margin:6px 0 0 0; font-size:16px; font-weight:600;">RAG Based AI Teaching Assistant • All Light</h2></div><br>""", unsafe_allow_html=True)
 
 if "active" not in st.session_state: st.session_state.active = "Ask"
 if "viva_qs" not in st.session_state: st.session_state.viva_qs = []; st.session_state.viva_idx = 0; st.session_state.viva_score = []
