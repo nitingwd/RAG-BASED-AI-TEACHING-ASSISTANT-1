@@ -1025,6 +1025,8 @@ def _source_context(query, k=8, per_doc=1800):
     blocks = []
     for i, doc in enumerate(docs, 1):
         meta = getattr(doc, "metadata", {}) or {}
+        if not isinstance(meta, dict):
+            meta = {}
         src = meta.get("source", "Unknown source")
         page = meta.get("page", meta.get("page_number", ""))
         label = f"Source {i}: {os.path.basename(str(src))}"
@@ -1042,7 +1044,7 @@ def _has_source_material():
 
 
 def get_source_inventory():
-    """Return a compact inventory of currently indexed documents/chunks."""
+    """Return a compact inventory of indexed documents/chunks without crashing the UI."""
     db = st.session_state.get("vectordb")
     if db is None:
         return {"total_chunks": 0, "sources": []}
@@ -1050,6 +1052,18 @@ def get_source_inventory():
         docs = list(db.docstore._dict.values())
     except Exception:
         docs = []
+
+    # FAISS/docstore internals can vary between langchain-community versions.
+    # If the docstore cannot be read, use the metadata already stored by process_files.
+    if not docs:
+        names = st.session_state.get("kb_files", []) or []
+        chunk_count = int(st.session_state.get("kb_chunk_count", 0) or 0)
+        if names:
+            each = max(1, chunk_count // len(names)) if chunk_count else 0
+            return {
+                "total_chunks": chunk_count,
+                "sources": [{"name": os.path.basename(str(n)), "chunks": each, "pages": []} for n in names],
+            }
 
     grouped = {}
     for d in docs:
