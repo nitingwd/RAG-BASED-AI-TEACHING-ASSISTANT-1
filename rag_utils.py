@@ -788,22 +788,108 @@ Return sections:
 
 
 def generate_exam_attack(topic, language="Hinglish"):
-    ctx, _ = _context_for(topic, k=10, per_doc=1400)
-    prompt = f"""
-Build an exam-focused study attack plan for {topic}.
-Language: {language}
-Use ONLY the supplied material.
-Do not claim certainty about actual exam questions.
-Include: must-know concepts, definitions, comparisons, diagrams/processes to
-practice, 5 self-test questions, common mistakes, and a 30-minute plan.
+    """Build a reliable, source-grounded Exam Attack plan.
 
-CONTEXT:
-{ctx or 'No context available.'}
+    The old version always called the LLM even when no source was indexed and
+    returned a raw API error.  This version first verifies the knowledge base,
+    then uses grounded context, and finally provides a useful deterministic
+    fallback if the model call fails.
+    """
+    topic = (str(topic or "uploaded material").strip() or "uploaded material")
+    if not _has_source_material():
+        return (
+            "## 🚨 Exam Attack\n\n"
+            "Pehle Knowledge Base me PDF/TXT/CSV upload karo aur process hone do. "
+            "Uske baad Exam Attack dobara run karo."
+        )
+
+    ctx, docs = _context_for(topic, k=10, per_doc=1400)
+    if not ctx:
+        return (
+            "## 🚨 Exam Attack\n\n"
+            f"**{topic}** ke liye uploaded material me relevant content nahi mila. "
+            "Topic ka naam exactly notes ke according try karo."
+        )
+
+    prompt = f"""
+You are an exam-preparation teacher. Build a practical exam-focused study
+attack plan for: {topic}.
+Language: {language}.
+Use ONLY the supplied study material. Never claim that a question is
+guaranteed to appear in an actual exam.
+
+Return these exact sections:
+1. MUST KNOW
+2. DEFINITIONS TO MEMORIZE
+3. COMPARISONS / DIFFERENCES
+4. DIAGRAMS / PROCESSES TO PRACTICE
+5. 5 SELF-TEST QUESTIONS
+6. COMMON MISTAKES
+7. 30-MINUTE ATTACK PLAN
+8. LAST-MINUTE CHECKLIST
+
+Keep it concise, exam-oriented and source-grounded.
+
+SOURCE CONTEXT:
+{ctx}
 """
     try:
-        return _invoke(prompt, temperature=0.3)
+        answer = _invoke(prompt, temperature=0.25)
+        if answer and str(answer).strip():
+            return str(answer).strip()
     except Exception as e:
-        return f"AI error: {e}"
+        print(f"Exam Attack LLM error: {e}")
+
+    # Deterministic fallback: the feature still works even if the model/API
+    # temporarily fails. It never invents subject facts.
+    snippets = []
+    for d in docs[:8]:
+        text = _clean_text(getattr(d, "page_content", ""))
+        if text:
+            snippets.append(text[:420])
+    source_notes = "\n".join(f"- {x}" for x in snippets[:8])
+    return f"""## 🚨 Exam Attack — {topic}
+
+### 1. MUST KNOW
+Use the following source-grounded notes as your revision base:
+{source_notes or '- Review the uploaded material carefully.'}
+
+### 2. DEFINITIONS TO MEMORIZE
+- Mark every definition explicitly given in your uploaded notes.
+
+### 3. COMPARISONS / DIFFERENCES
+- Identify concepts in the notes that are presented together or contrasted.
+
+### 4. DIAGRAMS / PROCESSES TO PRACTICE
+- Practice every diagram, flow, architecture or step-by-step process present in the source.
+
+### 5. 5 SELF-TEST QUESTIONS
+1. Explain the main concept of {topic}.
+2. Write the important definitions from {topic}.
+3. Compare the related concepts in your notes.
+4. Explain one process/diagram from the material.
+5. What common mistake can occur while answering {topic}?
+
+### 6. COMMON MISTAKES
+- Do not add facts that are not in the uploaded material.
+- Read definitions carefully and include required keywords.
+- For comparisons, write both sides clearly.
+
+### 7. 30-MINUTE ATTACK PLAN
+- 10 min: Read definitions and core concepts.
+- 10 min: Practice comparisons, diagrams and processes.
+- 5 min: Answer the 5 self-test questions.
+- 5 min: Recheck weak areas from your notes.
+
+### 8. LAST-MINUTE CHECKLIST
+- [ ] Definitions revised
+- [ ] Important concepts revised
+- [ ] Comparisons revised
+- [ ] Diagrams/processes practiced
+- [ ] Self-test completed
+
+> AI plan generation was temporarily unavailable, so this fallback is built directly from your uploaded source context.
+"""
 
 
 def generate_confusion_battle(topic_a, topic_b, language="Hinglish"):
@@ -1099,11 +1185,11 @@ def _studio_json(prompt, fallback):
 
 def generate_source_brief(language="Hinglish"):
     inv = get_source_inventory()
-    if not inv["sources"]:
-        return "## 📚 Source Brief\n\nNo indexed study material found. Please upload PDF/TXT/CSV in the Knowledge Base first."
+    if not inv.get("sources"):
+        return "## 📚 Source Brief\n\nPehle Knowledge Base me PDF/TXT/CSV upload karo."
 
     context = _source_context(
-        "main topics, definitions, concepts, formulas, examples and important facts",
+        "main topics definitions concepts formulas examples important facts",
         k=10,
     )
     prompt = f"""You are a source-grounded academic assistant. Use ONLY the supplied source context.
@@ -1114,9 +1200,20 @@ Return plain text with clear headings.
 Inventory: {json.dumps(inv, ensure_ascii=False)}
 SOURCE CONTEXT:\n{context}"""
     try:
-        return _invoke(prompt, temperature=0.25)
+        answer = _invoke(prompt, temperature=0.25)
+        if answer and str(answer).strip():
+            return str(answer).strip()
     except Exception as e:
-        return f"## 📚 Source Brief\n\nCould not generate the AI brief right now.\n\nError: {e}"
+        print(f"Source Brief LLM error: {e}")
+
+    lines = ["## 📚 Source Brief", "", f"**Indexed chunks:** {inv.get('total_chunks', 0)}", "", "### Sources"]
+    for item in inv.get("sources", []):
+        pages = item.get("pages") or []
+        page_text = f" | pages: {', '.join(map(str, pages[:12]))}" if pages else ""
+        lines.append(f"- **{item.get('name', 'Unknown source')}** — {item.get('chunks', 0)} chunks{page_text}")
+    lines += ["", "### Source Extract", context[:7000] if context else "No source text could be retrieved."]
+    lines += ["", "> AI synthesis was temporarily unavailable; this brief is generated directly from the indexed source metadata/context."]
+    return "\n".join(lines)
 
 
 def generate_flashcards(topic="all material", num_cards=10, language="Hinglish"):
@@ -1301,18 +1398,44 @@ SOURCE CONTEXT:\n{context}"""
 
 
 def generate_study_guide(topic="all material", language="Hinglish"):
+    topic = (str(topic or "all material").strip() or "all material")
     if not _has_source_material():
-        return "## 📘 Study Guide\n\nPlease upload PDF/TXT/CSV material first."
+        return "## 📘 Study Guide\n\nPehle Knowledge Base me PDF/TXT/CSV upload karo."
 
     context = _source_context(topic, k=12)
+    if not context or context.startswith("No indexed source context"):
+        return f"## 📘 Study Guide\n\n**{topic}** ke liye source me relevant material nahi mila."
+
     prompt = f"""Create a practical study guide for {topic} in {language}, grounded ONLY in the source context.
 Include: prerequisites, learning objectives, concepts in order, examples/applications found in source, common mistakes, revision checklist, and exam focus.
 Use headings and bullets. Do not invent unsupported information.
 SOURCE CONTEXT:\n{context}"""
     try:
-        return _invoke(prompt, temperature=0.25)
+        answer = _invoke(prompt, temperature=0.25)
+        if answer and str(answer).strip():
+            return str(answer).strip()
     except Exception as e:
-        return f"## 📘 Study Guide\n\nCould not generate the AI guide right now.\n\nError: {e}"
+        print(f"Study Guide LLM error: {e}")
+
+    return f"""## 📘 Study Guide — {topic}
+
+### Learning objectives
+- Identify the definitions and core concepts in the uploaded material.
+- Practice the examples, comparisons and processes actually present in the source.
+
+### Source-based concepts
+{context[:7000]}
+
+### Revision checklist
+- [ ] Definitions
+- [ ] Core concepts
+- [ ] Examples/applications
+- [ ] Comparisons
+- [ ] Diagrams/processes
+- [ ] Self-test questions
+
+> AI synthesis was temporarily unavailable; this guide is generated directly from the retrieved source context.
+"""
 
 
 def build_study_pack(topic="all material", language="Hinglish"):
