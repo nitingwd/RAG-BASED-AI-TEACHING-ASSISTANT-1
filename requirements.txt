@@ -12,7 +12,5 @@ langchain-text-splitters
 sentence-transformers
 faiss-cpu
 python-docx
-fpdf2
 Pillow
-openpyxl
 streamlit-cookies-manager
