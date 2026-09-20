@@ -2781,12 +2781,20 @@ elif active == "ExamAttack":
         key="exam_topic"
     )
 
-    if st.button("🚨 Build Exam Attack Plan", key="exam_attack_plan", use_container_width=True):
+    if st.button("🚨 Build Exam Attack Plan", type="primary", key="exam_attack_plan", use_container_width=True):
+        topic_value = exam_topic.strip() or "uploaded material"
+        # Clear old output so a new topic never shows stale results.
+        st.session_state.pop("exam_attack_plan", None)
         with st.spinner("Exam attack plan bana raha hu..."):
             try:
-                st.session_state.exam_attack_plan = generate_exam_attack(exam_topic.strip() or "uploaded material", language=lang)
+                result = generate_exam_attack(topic_value, language=lang)
+                st.session_state.exam_attack_plan = str(result or "")
             except Exception as e:
-                st.session_state.exam_attack_plan = f"Exam attack error: {e}"
+                st.session_state.exam_attack_plan = (
+                    "## 🚨 Exam Attack\n\n"
+                    f"Feature error: `{e}`\n\n"
+                    "Pehle Knowledge Base me material upload karke dobara try karo."
+                )
 
     if st.session_state.get("exam_attack_plan"):
         st.markdown("### 🚨 Exam Attack Plan")
@@ -2801,19 +2809,21 @@ elif active == "ExamAttack":
             use_container_width=True,
             key="exam_imp"
         ):
+            st.session_state.pop("exam_imp", None)
             with st.spinner("Exam questions bana raha hu..."):
-                exam_imp = predict_important_questions(
-                    language=lang, topic=exam_topic.strip() or None
-                )
-
-            st.session_state.exam_imp = exam_imp
-
-            save_conversation(
-                user["id"],
-                "Exam Attack - Important Questions",
-                exam_imp,
-                "ExamAttack"
-            )
+                try:
+                    exam_imp = predict_important_questions(
+                        language=lang, topic=exam_topic.strip() or None
+                    )
+                    st.session_state.exam_imp = str(exam_imp or "")
+                    save_conversation(
+                        user["id"],
+                        "Exam Attack - Important Questions",
+                        str(exam_imp or ""),
+                        "ExamAttack"
+                    )
+                except Exception as e:
+                    st.session_state.exam_imp = f"### Error\n\nCould not generate important questions: `{e}`"
 
     with col2:
         if st.button(
@@ -2822,12 +2832,15 @@ elif active == "ExamAttack":
             use_container_width=True,
             key="exam_sum"
         ):
+            st.session_state.pop("exam_sum", None)
             with st.spinner("Rapid summary bana raha hu..."):
-                exam_sum = generate_summary(
-                    language=lang, topic=exam_topic.strip() or None
-                )
-
-            st.session_state.exam_sum = exam_sum
+                try:
+                    exam_sum = generate_summary(
+                        language=lang, topic=exam_topic.strip() or None
+                    )
+                    st.session_state.exam_sum = str(exam_sum or "")
+                except Exception as e:
+                    st.session_state.exam_sum = f"### Error\n\nCould not generate rapid summary: `{e}`"
 
     if "exam_imp" in st.session_state:
         st.markdown("### ⭐ Important Questions")
@@ -2860,12 +2873,17 @@ elif active == "ExamAttack":
         use_container_width=True,
         key="exam_quiz"
     ):
+        st.session_state.pop("exam_quiz_data", None)
+        st.session_state.exam_quiz_results = {}
         with st.spinner("Exam quiz..."):
-            st.session_state.exam_quiz_data = generate_quiz(
-                int(qn), language=lang, topic=exam_topic.strip() or None
-            )
-
-        st.session_state.exam_quiz_results = []
+            try:
+                quiz_data = generate_quiz(
+                    int(qn), language=lang, topic=exam_topic.strip() or None
+                )
+                st.session_state.exam_quiz_data = quiz_data or []
+            except Exception as e:
+                st.session_state.exam_quiz_data = []
+                st.error(f"Exam quiz error: {e}")
 
 
     if st.session_state.get("exam_quiz_data"):
@@ -3334,23 +3352,38 @@ elif active == "SourceStudio":
     c1, c2, c3 = st.columns(3)
     with c1:
         if st.button("✨ Source Brief", type="primary", use_container_width=True, key="studio_brief"):
+            st.session_state.pop("studio_brief", None)
             with st.spinner("Sources ko synthesize kar raha hu..."):
-                st.session_state.studio_brief = generate_source_brief(lang)
+                try:
+                    st.session_state.studio_brief = str(generate_source_brief(lang) or "")
+                except Exception as e:
+                    st.session_state.studio_brief = f"## 📚 Source Brief\n\nFeature error: `{e}`"
     with c2:
         if st.button("📘 Study Guide", use_container_width=True, key="studio_guide"):
+            st.session_state.pop("studio_guide", None)
             with st.spinner("Deep study guide bana raha hu..."):
-                st.session_state.studio_guide = generate_study_guide(topic or "all material", lang)
+                try:
+                    st.session_state.studio_guide = str(generate_study_guide(topic or "all material", lang) or "")
+                except Exception as e:
+                    st.session_state.studio_guide = f"## 📘 Study Guide\n\nFeature error: `{e}`"
     with c3:
         if st.button("🔊 Audio Overview", use_container_width=True, key="studio_audio"):
+            st.session_state.pop("studio_audio", None)
             with st.spinner("Audio script bana raha hu..."):
-                st.session_state.studio_audio = generate_podcast_script(topic or "all material", lang)
+                try:
+                    st.session_state.studio_audio = str(generate_podcast_script(topic or "all material", lang) or "")
+                except Exception as e:
+                    st.session_state.studio_audio = f"## 🔊 Audio Overview\n\nFeature error: `{e}`"
     if st.session_state.get("studio_brief"):
         st.markdown(st.session_state.studio_brief)
     if st.session_state.get("studio_guide"):
         st.markdown(st.session_state.studio_guide)
     if st.session_state.get("studio_audio"):
         st.markdown(st.session_state.studio_audio)
-        play_audio_block(st.session_state.studio_audio, lang, "studio_audio")
+        try:
+            play_audio_block(st.session_state.studio_audio, lang, "studio_audio")
+        except Exception as e:
+            st.warning(f"Audio playback unavailable: {e}")
 
 # ============================================================
 # FLASHCARDS
@@ -3361,11 +3394,16 @@ elif active == "Flashcards":
     topic = st.text_input("Topic", key="fc_topic", placeholder="Leave blank for all material")
     n = st.slider("Number of cards", 5, 30, 12, key="fc_n")
     if st.button("🧠 Generate Flashcards", type="primary", use_container_width=True, key="fc_gen"):
+        st.session_state.pop("flashcards", None)
         with st.spinner("Flashcards bana raha hu..."):
-            cards = generate_flashcards(topic or "all material", n, lang)
-            st.session_state.flashcards = cards
-            if not cards:
-                st.warning("Pehle Knowledge Base me PDF/TXT/CSV upload karo.")
+            try:
+                cards = generate_flashcards(topic or "all material", n, lang)
+                st.session_state.flashcards = cards or []
+                if not cards:
+                    st.warning("Pehle Knowledge Base me PDF/TXT/CSV upload karo.")
+            except Exception as e:
+                st.session_state.flashcards = []
+                st.error(f"Flashcards error: {e}")
     cards = st.session_state.get("flashcards", [])
     if cards:
         for i, card in enumerate(cards):
@@ -3382,8 +3420,13 @@ elif active == "MindMap":
     st.markdown("## 🧠 Source-Grounded Mind Map")
     topic = st.text_input("Central topic", key="mm_topic", placeholder="Example: DBMS Transactions")
     if st.button("🌳 Build Mind Map", type="primary", use_container_width=True, key="mm_gen") and topic.strip():
+        st.session_state.pop("mind_map", None)
         with st.spinner("Concept relationships nikal raha hu..."):
-            st.session_state.mind_map = generate_mind_map(topic.strip(), lang)
+            try:
+                st.session_state.mind_map = generate_mind_map(topic.strip(), lang) or {}
+            except Exception as e:
+                st.session_state.mind_map = {}
+                st.error(f"Mind Map error: {e}")
     mm = st.session_state.get("mind_map")
     if mm:
         st.markdown(f"### 🎯 {mm.get('topic', topic)}")
@@ -3406,11 +3449,16 @@ elif active == "ExamBuilder":
     with c2:
         difficulty = st.selectbox("Difficulty", ["Mixed", "Easy", "Medium", "Hard"], key="exam_diff")
     if st.button("🚀 Generate Practice Paper", type="primary", use_container_width=True, key="exam_gen"):
+        st.session_state.pop("exam_paper", None)
         with st.spinner("Source-grounded exam paper bana raha hu..."):
-            paper = generate_exam_paper(topic or "all material", n, difficulty, lang)
-            st.session_state.exam_paper = paper
-            if not paper:
-                st.warning("Pehle Knowledge Base me PDF/TXT/CSV upload karo.")
+            try:
+                paper = generate_exam_paper(topic or "all material", n, difficulty, lang)
+                st.session_state.exam_paper = paper or []
+                if not paper:
+                    st.warning("Pehle Knowledge Base me PDF/TXT/CSV upload karo.")
+            except Exception as e:
+                st.session_state.exam_paper = []
+                st.error(f"Exam Builder error: {e}")
     paper = st.session_state.get("exam_paper", [])
     if paper:
         total = sum(int(x.get("marks", 0)) for x in paper)
@@ -3433,8 +3481,13 @@ elif active == "Compare":
     with b:
         topic_b = st.text_input("Concept B", key="cmp_b", placeholder="Example: Foreign Key")
     if st.button("⚖️ Compare from Sources", type="primary", use_container_width=True, key="cmp_go") and topic_a.strip() and topic_b.strip():
+        st.session_state.pop("compare_result", None)
         with st.spinner("Sources se comparison bana raha hu..."):
-            st.session_state.compare_result = compare_source_topics(topic_a.strip(), topic_b.strip(), lang)
+            try:
+                st.session_state.compare_result = compare_source_topics(topic_a.strip(), topic_b.strip(), lang) or {}
+            except Exception as e:
+                st.session_state.compare_result = {}
+                st.error(f"Compare error: {e}")
     result = st.session_state.get("compare_result")
     if result:
         st.markdown(f"### {result.get('topic_a', topic_a)} vs {result.get('topic_b', topic_b)}")
