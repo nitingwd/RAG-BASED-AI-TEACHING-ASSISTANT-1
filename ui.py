@@ -572,10 +572,8 @@ def auth_ui():
             except Exception:
                 pass
 
-    st.markdown("""
-    <style>
+    st.markdown("""    <style>
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
-
     .stApp {
         background: radial-gradient(
             1000px at 20% 10%,
@@ -584,7 +582,6 @@ def auth_ui():
             #FFFFFF 100%
         );
     }
-
     .login-card {
         background: rgba(255,255,255,0.95);
         backdrop-filter: blur(24px);
@@ -596,7 +593,6 @@ def auth_ui():
         max-width:440px;
         width:100%;
     }
-
     .login-title {
         font-family:'Space Grotesk';
         font-size:28px;
@@ -604,13 +600,11 @@ def auth_ui():
         color:#111827;
         line-height:1.2;
     }
-
     .login-sub {
         color:#6B7280;
         font-size:13px;
         margin-top:6px;
     }
-
     .pill {
         display:inline-block;
         background:linear-gradient(135deg,#EEF2FF,#E0E7FF);
@@ -622,20 +616,17 @@ def auth_ui():
         margin:3px;
         border:1px solid #C7D2FE;
     }
-
     .stButton>button {
         border-radius:12px;
         height:48px;
         font-weight:700;
     }
-    </style>
-    """, unsafe_allow_html=True)
+    </style>""", unsafe_allow_html=True)
 
     _, col, _ = st.columns([1, 2, 1])
 
     with col:
-        st.markdown("""
-        <div class="login-card">
+        st.markdown("""        <div class="login-card">
             <div style="font-size:52px; margin-bottom:8px;">🎓</div>
             <div class="login-title">
                 RAG Based AI<br>Teaching Assistant
@@ -649,8 +640,7 @@ def auth_ui():
                 <span class="pill">📝 QUIZ</span>
                 <span class="pill">🔊 AUDIO</span>
             </div>
-        </div><br>
-        """, unsafe_allow_html=True)
+        </div><br>""", unsafe_allow_html=True)
 
         t1, t2 = st.tabs(["🔐 Login", "✨ Sign Up"])
 
@@ -847,14 +837,11 @@ except Exception:
 # GLOBAL STYLE
 # ============================================================
 
-st.markdown("""
-<style>
+st.markdown("""<style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
-
 .main {
     background:#F8FAFF;
 }
-
 .hero-pro {
     background: linear-gradient(
         135deg,
@@ -868,7 +855,6 @@ st.markdown("""
     color:white;
     box-shadow:0 16px 40px rgba(99,102,241,0.25);
 }
-
 .profile-card-pro {
     background:linear-gradient(
         180deg,
@@ -881,7 +867,6 @@ st.markdown("""
     text-align:center;
     box-shadow:0 8px 24px rgba(99,102,241,0.08);
 }
-
 .img-circle {
     width:85px;
     height:85px;
@@ -895,7 +880,6 @@ st.markdown("""
     display:block;
     margin:0 auto;
 }
-
 .avatar-letter {
     width:85px;
     height:85px;
@@ -915,7 +899,6 @@ st.markdown("""
     font-weight:700;
     font-family:Space Grotesk;
 }
-
 .dev-badge {
     position:fixed;
     bottom:14px;
@@ -928,7 +911,6 @@ st.markdown("""
     z-index:999;
     font-weight:600;
 }
-
 /* Dashboard buttons */
 section.main div[data-testid="stButton"] > button {
     border-radius:14px!important;
@@ -939,14 +921,12 @@ section.main div[data-testid="stButton"] > button {
     box-shadow:0 4px 12px rgba(0,0,0,0.06)!important;
     transition:all 0.32s cubic-bezier(0.34,1.56,0.64,1)!important;
 }
-
 section.main div[data-testid="stButton"] > button:hover {
     transform:translateY(-7px) scale(1.05)!important;
     box-shadow:0 20px 40px rgba(0,0,0,0.20)!important;
     z-index:20!important;
     border-color:transparent!important;
 }
-
 .feature-card {
     padding:18px;
     border-radius:18px;
@@ -955,7 +935,6 @@ section.main div[data-testid="stButton"] > button:hover {
     box-shadow:0 6px 18px rgba(0,0,0,0.05);
     margin-bottom:12px;
 }
-
 .mini-card {
     padding:14px;
     border-radius:16px;
@@ -963,21 +942,18 @@ section.main div[data-testid="stButton"] > button:hover {
     border:1px solid #E5E7EB;
     text-align:center;
 }
-
 .success-card {
     padding:18px;
     border-radius:18px;
     background:linear-gradient(135deg,#ECFDF5,#F0FDFA);
     border:1px solid #A7F3D0;
 }
-
 .warning-card {
     padding:18px;
     border-radius:18px;
     background:linear-gradient(135deg,#FFFBEB,#FFF7ED);
     border:1px solid #FDE68A;
 }
-
 .dark-card {
     padding:18px;
     border-radius:18px;
@@ -985,9 +961,7 @@ section.main div[data-testid="stButton"] > button:hover {
     color:white;
 }
 </style>
-
-<div class="dev-badge">V24 • Student AI Brain</div>
-""", unsafe_allow_html=True)
+<div class="dev-badge">V24 • Student AI Brain</div>""", unsafe_allow_html=True)
 
 
 # ============================================================
@@ -1095,8 +1069,7 @@ with st.sidebar:
         )
 
     st.markdown(
-        f"""
-        <div class="profile-card-pro">
+        f"""        <div class="profile-card-pro">
             {photo_html}
             <h4 style="
                 margin:12px 0 2px 0;
@@ -1106,7 +1079,6 @@ with st.sidebar:
             ">
                 {user["name"]}
             </h4>
-
             <p style="
                 margin:0;
                 color:#6366F1;
@@ -1115,7 +1087,6 @@ with st.sidebar:
             ">
                 @{user["username"]}
             </p>
-
             <div style="
                 margin-top:10px;
                 display:flex;
@@ -1130,7 +1101,6 @@ with st.sidebar:
                     font-size:10px;
                     font-weight:700;
                 ">PRO</span>
-
                 <span style="
                     background:#F0FDF4;
                     color:#16A34A;
@@ -1140,8 +1110,7 @@ with st.sidebar:
                     font-weight:700;
                 ">ACTIVE</span>
             </div>
-        </div>
-        """,
+        </div>""",
         unsafe_allow_html=True
     )
 
@@ -1263,8 +1232,7 @@ with st.sidebar:
 # ============================================================
 
 st.markdown(
-    f"""
-    <div class="hero-pro">
+    f"""    <div class="hero-pro">
         <div style="position:relative; z-index:2;">
             <h1 style="
                 margin:0;
@@ -1274,7 +1242,6 @@ st.markdown(
             ">
                 Welcome back, {user["name"].split()[0]}! 👋
             </h1>
-
             <h2 style="
                 margin:6px 0 0 0;
                 font-family:Space Grotesk;
@@ -1284,7 +1251,6 @@ st.markdown(
             ">
                 RAG Based AI Teaching Assistant
             </h2>
-
             <p style="
                 margin:8px 0 0 0;
                 opacity:0.90;
@@ -1294,8 +1260,7 @@ st.markdown(
             </p>
         </div>
     </div>
-    <br>
-    """,
+    <br>""",
     unsafe_allow_html=True
 )
 
@@ -1621,12 +1586,10 @@ elif active == "Profile":
             st.image(user["photo"], width=200)
         else:
             st.markdown(
-                f"""
-                <div class='avatar-letter'
+                f"""                <div class='avatar-letter'
                      style='width:180px;height:180px;font-size:60px;'>
                     {user["name"][0].upper()}
-                </div>
-                """,
+                </div>""",
                 unsafe_allow_html=True
             )
 
@@ -2454,14 +2417,12 @@ elif active == "Brain":
 
         for topic, attempts, acc, study in rows[:15]:
             st.markdown(
-                f"""
-                <div class="feature-card">
+                f"""                <div class="feature-card">
                     <b>{topic[:70]}</b><br>
                     Practice: {attempts} |
                     Accuracy: {acc}% |
                     Study actions: {study}
-                </div>
-                """,
+                </div>""",
                 unsafe_allow_html=True
             )
     else:
@@ -3176,13 +3137,11 @@ elif active == "Streak":
     )
 
     st.markdown(
-        f"""
-        <div class="dark-card">
+        f"""        <div class="dark-card">
             <div style="font-size:42px;">🔥</div>
             <h1 style="margin:0;">{streak} Day Streak</h1>
             <p>Har din thoda practice karo aur learning habit build karo.</p>
-        </div>
-        """,
+        </div>""",
         unsafe_allow_html=True
     )
 
