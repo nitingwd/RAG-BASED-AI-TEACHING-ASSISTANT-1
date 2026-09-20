@@ -1,6 +1,4 @@
-from pathlib import Path
-
-code = r'''import streamlit as st
+import streamlit as st
 import tempfile
 import os
 import io
@@ -3412,14 +3410,3 @@ else:
     st.info(
         "Module select karo."
     )
-'''
-
-path = Path("/mnt/data/ui_v24_full.py")
-path.write_text(code, encoding="utf-8")
-
-# Syntax check
-compile(code, str(path), "exec")
-
-print(f"Created: {path}")
-print(f"Lines: {len(code.splitlines())}")
-print("Syntax check: OK")
