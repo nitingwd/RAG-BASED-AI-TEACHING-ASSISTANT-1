@@ -3321,11 +3321,13 @@ elif active == "SourceStudio":
     st.markdown("## 📚 Source Studio")
     st.caption("Notebook-style source intelligence: indexed files, source brief, grounded answers and study guide.")
     inventory = get_source_inventory()
-    if inventory:
-        cols = st.columns(min(4, max(1, len(inventory))))
-        for i, item in enumerate(inventory):
+    sources = inventory.get("sources", []) if isinstance(inventory, dict) else []
+    if sources:
+        st.caption(f"📚 {len(sources)} source(s) • {inventory.get('total_chunks', 0)} indexed chunks")
+        cols = st.columns(min(4, max(1, len(sources))))
+        for i, item in enumerate(sources):
             with cols[i % len(cols)]:
-                st.metric(item["name"][:22], f"{item['chunks']} chunks")
+                st.metric(item.get("name", "Source")[:22], f"{item.get('chunks', 0)} chunks")
     else:
         st.info("Pehle Knowledge Base me PDF/TXT/CSV upload karo.")
     topic = st.text_input("Focus topic (optional)", key="studio_topic", placeholder="Example: ACID properties")
@@ -3355,19 +3357,23 @@ elif active == "SourceStudio":
 # ============================================================
 elif active == "Flashcards":
     st.markdown("## 🗂️ AI Flashcards")
+    st.caption("Source-grounded cards: question/term, answer, difficulty and source.")
     topic = st.text_input("Topic", key="fc_topic", placeholder="Leave blank for all material")
     n = st.slider("Number of cards", 5, 30, 12, key="fc_n")
     if st.button("🧠 Generate Flashcards", type="primary", use_container_width=True, key="fc_gen"):
         with st.spinner("Flashcards bana raha hu..."):
-            st.session_state.flashcards = generate_flashcards(topic or "all material", n, lang)
+            cards = generate_flashcards(topic or "all material", n, lang)
+            st.session_state.flashcards = cards
+            if not cards:
+                st.warning("Pehle Knowledge Base me PDF/TXT/CSV upload karo.")
     cards = st.session_state.get("flashcards", [])
     if cards:
         for i, card in enumerate(cards):
-            with st.expander(f"Card {i+1} • {card['difficulty']}"):
-                st.markdown(f"**Q:** {card['front']}")
+            with st.expander(f"Card {i+1} • {card.get('difficulty', 'Medium')}"):
+                st.markdown(f"**Q:** {card.get('front', '')}")
                 st.divider()
-                st.markdown(f"**A:** {card['back']}")
-                st.caption(f"Source: {card['source']}")
+                st.markdown(f"**A:** {card.get('back', '')}")
+                st.caption(f"Source: {card.get('source', 'Uploaded material')}")
 
 # ============================================================
 # MIND MAP
@@ -3378,8 +3384,15 @@ elif active == "MindMap":
     if st.button("🌳 Build Mind Map", type="primary", use_container_width=True, key="mm_gen") and topic.strip():
         with st.spinner("Concept relationships nikal raha hu..."):
             st.session_state.mind_map = generate_mind_map(topic.strip(), lang)
-    if st.session_state.get("mind_map"):
-        st.markdown(st.session_state.mind_map)
+    mm = st.session_state.get("mind_map")
+    if mm:
+        st.markdown(f"### 🎯 {mm.get('topic', topic)}")
+        if mm.get("message"):
+            st.warning(mm["message"])
+        for branch in mm.get("branches", []):
+            st.markdown(f"#### 🔹 {branch.get('name', 'Key Concept')}")
+            for child in branch.get("children", []):
+                st.markdown(f"- {child}")
 
 # ============================================================
 # EXAM BUILDER
@@ -3394,17 +3407,20 @@ elif active == "ExamBuilder":
         difficulty = st.selectbox("Difficulty", ["Mixed", "Easy", "Medium", "Hard"], key="exam_diff")
     if st.button("🚀 Generate Practice Paper", type="primary", use_container_width=True, key="exam_gen"):
         with st.spinner("Source-grounded exam paper bana raha hu..."):
-            st.session_state.exam_paper = generate_exam_paper(topic or "all material", n, difficulty, lang)
+            paper = generate_exam_paper(topic or "all material", n, difficulty, lang)
+            st.session_state.exam_paper = paper
+            if not paper:
+                st.warning("Pehle Knowledge Base me PDF/TXT/CSV upload karo.")
     paper = st.session_state.get("exam_paper", [])
     if paper:
         total = sum(int(x.get("marks", 0)) for x in paper)
         st.metric("Total Marks", total)
         for i, q in enumerate(paper, 1):
-            with st.expander(f"Q{i} • {q['type']} • {q['marks']} marks"):
-                st.markdown(q["question"])
-                st.caption(f"Topic: {q['topic']}")
+            with st.expander(f"Q{i} • {q.get('type', 'Short Answer')} • {q.get('marks', 5)} marks"):
+                st.markdown(q.get("question", ""))
+                st.caption(f"Topic: {q.get('topic', topic or 'Uploaded material')} • Difficulty: {q.get('difficulty', difficulty)}")
                 with st.expander("Show answer"):
-                    st.write(q["answer"])
+                    st.write(q.get("answer", ""))
 
 # ============================================================
 # COMPARE
@@ -3419,8 +3435,26 @@ elif active == "Compare":
     if st.button("⚖️ Compare from Sources", type="primary", use_container_width=True, key="cmp_go") and topic_a.strip() and topic_b.strip():
         with st.spinner("Sources se comparison bana raha hu..."):
             st.session_state.compare_result = compare_source_topics(topic_a.strip(), topic_b.strip(), lang)
-    if st.session_state.get("compare_result"):
-        st.markdown(st.session_state.compare_result)
+    result = st.session_state.get("compare_result")
+    if result:
+        st.markdown(f"### {result.get('topic_a', topic_a)} vs {result.get('topic_b', topic_b)}")
+        st.markdown("#### ✅ Similarities")
+        if result.get("similarities"):
+            for item in result["similarities"]:
+                st.markdown(f"- {item}")
+        else:
+            st.info("Source me clear similarities nahi mili.")
+        st.markdown("#### 🔍 Differences")
+        differences = result.get("differences", [])
+        if differences:
+            for d in differences:
+                st.markdown(f"**{d.get('aspect', 'Aspect')}**")
+                st.markdown(f"- **{result.get('topic_a', topic_a)}:** {d.get('a', '')}")
+                st.markdown(f"- **{result.get('topic_b', topic_b)}:** {d.get('b', '')}")
+        else:
+            st.info("Source me clear differences nahi mili.")
+        st.markdown("#### 🧾 Summary")
+        st.write(result.get("summary", ""))
 
 # ============================================================
 # STUDY PACK
