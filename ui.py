@@ -572,8 +572,10 @@ def auth_ui():
             except Exception:
                 pass
 
-    st.markdown("""    <style>
+    st.markdown("""
+    <style>
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
+
     .stApp {
         background: radial-gradient(
             1000px at 20% 10%,
@@ -582,6 +584,7 @@ def auth_ui():
             #FFFFFF 100%
         );
     }
+
     .login-card {
         background: rgba(255,255,255,0.95);
         backdrop-filter: blur(24px);
@@ -593,6 +596,7 @@ def auth_ui():
         max-width:440px;
         width:100%;
     }
+
     .login-title {
         font-family:'Space Grotesk';
         font-size:28px;
@@ -600,11 +604,13 @@ def auth_ui():
         color:#111827;
         line-height:1.2;
     }
+
     .login-sub {
         color:#6B7280;
         font-size:13px;
         margin-top:6px;
     }
+
     .pill {
         display:inline-block;
         background:linear-gradient(135deg,#EEF2FF,#E0E7FF);
@@ -616,17 +622,20 @@ def auth_ui():
         margin:3px;
         border:1px solid #C7D2FE;
     }
+
     .stButton>button {
         border-radius:12px;
         height:48px;
         font-weight:700;
     }
-    </style>""", unsafe_allow_html=True)
+    </style>
+    """, unsafe_allow_html=True)
 
     _, col, _ = st.columns([1, 2, 1])
 
     with col:
-        st.markdown("""        <div class="login-card">
+        st.markdown("""
+        <div class="login-card">
             <div style="font-size:52px; margin-bottom:8px;">🎓</div>
             <div class="login-title">
                 RAG Based AI<br>Teaching Assistant
@@ -640,7 +649,8 @@ def auth_ui():
                 <span class="pill">📝 QUIZ</span>
                 <span class="pill">🔊 AUDIO</span>
             </div>
-        </div><br>""", unsafe_allow_html=True)
+        </div><br>
+        """, unsafe_allow_html=True)
 
         t1, t2 = st.tabs(["🔐 Login", "✨ Sign Up"])
 
@@ -764,12 +774,17 @@ try:
         generate_podcast_script,
         generate_viva_questions,
         verify_viva_answer,
+        generate_adaptive_quiz,
+        generate_teach_back_feedback,
+        generate_revision,
+        generate_exam_attack,
+        generate_confusion_battle,
         create_ppt_file,
         text_to_audio_file,
         images_to_pdf,
         images_to_docx
     )
-except Exception:
+except ImportError:
     from rag_utils import (
         process_files,
         ask_question,
@@ -785,6 +800,11 @@ except Exception:
         generate_podcast_script,
         generate_viva_questions,
         verify_viva_answer,
+        generate_adaptive_quiz,
+        generate_teach_back_feedback,
+        generate_revision,
+        generate_exam_attack,
+        generate_confusion_battle,
         create_ppt_file,
         text_to_audio_file
     )
@@ -837,11 +857,14 @@ except Exception:
 # GLOBAL STYLE
 # ============================================================
 
-st.markdown("""<style>
+st.markdown("""
+<style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
+
 .main {
     background:#F8FAFF;
 }
+
 .hero-pro {
     background: linear-gradient(
         135deg,
@@ -855,6 +878,7 @@ st.markdown("""<style>
     color:white;
     box-shadow:0 16px 40px rgba(99,102,241,0.25);
 }
+
 .profile-card-pro {
     background:linear-gradient(
         180deg,
@@ -867,6 +891,7 @@ st.markdown("""<style>
     text-align:center;
     box-shadow:0 8px 24px rgba(99,102,241,0.08);
 }
+
 .img-circle {
     width:85px;
     height:85px;
@@ -880,6 +905,7 @@ st.markdown("""<style>
     display:block;
     margin:0 auto;
 }
+
 .avatar-letter {
     width:85px;
     height:85px;
@@ -899,6 +925,7 @@ st.markdown("""<style>
     font-weight:700;
     font-family:Space Grotesk;
 }
+
 .dev-badge {
     position:fixed;
     bottom:14px;
@@ -911,6 +938,7 @@ st.markdown("""<style>
     z-index:999;
     font-weight:600;
 }
+
 /* Dashboard buttons */
 section.main div[data-testid="stButton"] > button {
     border-radius:14px!important;
@@ -921,12 +949,14 @@ section.main div[data-testid="stButton"] > button {
     box-shadow:0 4px 12px rgba(0,0,0,0.06)!important;
     transition:all 0.32s cubic-bezier(0.34,1.56,0.64,1)!important;
 }
+
 section.main div[data-testid="stButton"] > button:hover {
     transform:translateY(-7px) scale(1.05)!important;
     box-shadow:0 20px 40px rgba(0,0,0,0.20)!important;
     z-index:20!important;
     border-color:transparent!important;
 }
+
 .feature-card {
     padding:18px;
     border-radius:18px;
@@ -935,6 +965,7 @@ section.main div[data-testid="stButton"] > button:hover {
     box-shadow:0 6px 18px rgba(0,0,0,0.05);
     margin-bottom:12px;
 }
+
 .mini-card {
     padding:14px;
     border-radius:16px;
@@ -942,18 +973,21 @@ section.main div[data-testid="stButton"] > button:hover {
     border:1px solid #E5E7EB;
     text-align:center;
 }
+
 .success-card {
     padding:18px;
     border-radius:18px;
     background:linear-gradient(135deg,#ECFDF5,#F0FDFA);
     border:1px solid #A7F3D0;
 }
+
 .warning-card {
     padding:18px;
     border-radius:18px;
     background:linear-gradient(135deg,#FFFBEB,#FFF7ED);
     border:1px solid #FDE68A;
 }
+
 .dark-card {
     padding:18px;
     border-radius:18px;
@@ -961,7 +995,9 @@ section.main div[data-testid="stButton"] > button:hover {
     color:white;
 }
 </style>
-<div class="dev-badge">V24 • Student AI Brain</div>""", unsafe_allow_html=True)
+
+<div class="dev-badge">V24 • Student AI Brain</div>
+""", unsafe_allow_html=True)
 
 
 # ============================================================
@@ -1069,7 +1105,8 @@ with st.sidebar:
         )
 
     st.markdown(
-        f"""        <div class="profile-card-pro">
+        f"""
+        <div class="profile-card-pro">
             {photo_html}
             <h4 style="
                 margin:12px 0 2px 0;
@@ -1079,6 +1116,7 @@ with st.sidebar:
             ">
                 {user["name"]}
             </h4>
+
             <p style="
                 margin:0;
                 color:#6366F1;
@@ -1087,6 +1125,7 @@ with st.sidebar:
             ">
                 @{user["username"]}
             </p>
+
             <div style="
                 margin-top:10px;
                 display:flex;
@@ -1101,6 +1140,7 @@ with st.sidebar:
                     font-size:10px;
                     font-weight:700;
                 ">PRO</span>
+
                 <span style="
                     background:#F0FDF4;
                     color:#16A34A;
@@ -1110,7 +1150,8 @@ with st.sidebar:
                     font-weight:700;
                 ">ACTIVE</span>
             </div>
-        </div>""",
+        </div>
+        """,
         unsafe_allow_html=True
     )
 
@@ -1232,7 +1273,8 @@ with st.sidebar:
 # ============================================================
 
 st.markdown(
-    f"""    <div class="hero-pro">
+    f"""
+    <div class="hero-pro">
         <div style="position:relative; z-index:2;">
             <h1 style="
                 margin:0;
@@ -1242,6 +1284,7 @@ st.markdown(
             ">
                 Welcome back, {user["name"].split()[0]}! 👋
             </h1>
+
             <h2 style="
                 margin:6px 0 0 0;
                 font-family:Space Grotesk;
@@ -1251,6 +1294,7 @@ st.markdown(
             ">
                 RAG Based AI Teaching Assistant
             </h2>
+
             <p style="
                 margin:8px 0 0 0;
                 opacity:0.90;
@@ -1260,7 +1304,8 @@ st.markdown(
             </p>
         </div>
     </div>
-    <br>""",
+    <br>
+    """,
     unsafe_allow_html=True
 )
 
@@ -1279,11 +1324,18 @@ if "viva_qs" not in st.session_state:
 
 if "quiz_data" not in st.session_state:
     st.session_state.quiz_data = None
-    st.session_state.quiz_results = []
+    st.session_state.quiz_results = {}
+    st.session_state.quiz_feedback = {}
 
 if "adaptive_quiz" not in st.session_state:
     st.session_state.adaptive_quiz = None
-    st.session_state.adaptive_results = []
+    st.session_state.adaptive_results = {}
+    st.session_state.adaptive_feedback = {}
+
+if "exam_quiz_data" not in st.session_state:
+    st.session_state.exam_quiz_data = None
+    st.session_state.exam_quiz_results = {}
+    st.session_state.exam_quiz_feedback = {}
 
 if "selected_topic" not in st.session_state:
     st.session_state.selected_topic = ""
@@ -1586,10 +1638,12 @@ elif active == "Profile":
             st.image(user["photo"], width=200)
         else:
             st.markdown(
-                f"""                <div class='avatar-letter'
+                f"""
+                <div class='avatar-letter'
                      style='width:180px;height:180px;font-size:60px;'>
                     {user["name"][0].upper()}
-                </div>""",
+                </div>
+                """,
                 unsafe_allow_html=True
             )
 
@@ -2017,122 +2071,54 @@ elif active == "Image2PDF":
 # ============================================================
 
 elif active == "Quiz":
-    st.markdown(
-        "### 📝 Knowledge Base Quiz"
-    )
-
-    n = st.number_input(
-        "Kitne Q?",
-        3,
-        15,
-        5,
-        key="quiz_n"
-    )
-
-    quiz_topic = st.text_input(
-        "Topic optional",
-        placeholder="Example: DBMS Transaction Management",
-        key="quiz_topic"
-    )
-
-    if st.button(
-        "Generate Quiz",
-        type="primary",
-        use_container_width=True,
-        key="quiz_gen"
-    ):
-        with st.spinner("Quiz bana raha hu..."):
-            quiz_list = generate_quiz(
-                n,
-                language=lang
-            )
-
-        st.session_state.quiz_data = quiz_list
-        st.session_state.quiz_results = []
+    st.markdown("## 📝 Knowledge Base Quiz")
+    st.caption("Topic optional hai. AI uploaded material se source-grounded MCQs banayega.")
+    n = st.number_input("Kitne Q?", 3, 15, 5, key="quiz_n")
+    quiz_topic = st.text_input("Topic optional", placeholder="Example: DBMS Transaction Management", key="quiz_topic")
+    if st.button("🚀 Generate Quiz", type="primary", use_container_width=True, key="quiz_gen"):
+        with st.spinner("AI high-quality MCQs bana raha hai..."):
+            st.session_state.quiz_data = generate_quiz(int(n), language=lang, topic=quiz_topic.strip() or None)
+        st.session_state.quiz_results = {}
+        st.session_state.quiz_feedback = {}
         st.rerun()
-
     if st.session_state.quiz_data:
-        for i, qd in enumerate(
-            st.session_state.quiz_data
-        ):
+        for i, qd in enumerate(st.session_state.quiz_data):
             with st.container(border=True):
-                question = qd.get(
-                    "question",
-                    f"Question {i+1}"
-                )
-
-                options = qd.get(
-                    "options",
-                    []
-                )
-
-                answer = qd.get(
-                    "answer",
-                    ""
-                )
-
-                topic = qd.get(
-                    "topic",
-                    quiz_topic or "General"
-                )
-
-                st.markdown(
-                    f"**Q{i+1}. {question}**"
-                )
-
-                if options:
-                    choice = st.radio(
-                        f"q_{i}",
-                        options,
-                        key=f"quiz_{i}",
-                        label_visibility="collapsed"
-                    )
-
-                    if st.button(
-                        f"Check Q{i+1}",
-                        key=f"chk_{i}"
-                    ):
-                        ok, fb = check_quiz_answer(
-                            question,
-                            choice,
-                            answer,
-                            topic
-                        )
-
-                        st.session_state.quiz_results.append(
-                            {"is_correct": ok}
-                        )
-
-                        if ok:
-                            log_event(
-                                user["id"],
-                                "quiz_correct",
-                                topic,
-                                1,
-                                question
-                            )
-                            st.success(fb)
-                        else:
-                            log_event(
-                                user["id"],
-                                "quiz_wrong",
-                                topic,
-                                0,
-                                question
-                            )
-
-                            add_mistake(
-                                user["id"],
-                                topic,
-                                question,
-                                choice,
-                                answer
-                            )
-
-                            st.error(fb)
-                            st.info(
-                                "❌ Ye question Mistake DNA me save ho gaya."
-                            )
+                question = qd.get("question", f"Question {i+1}")
+                options = qd.get("options", [])
+                answer = qd.get("answer", "")
+                topic = qd.get("topic", quiz_topic or "General")
+                st.markdown(f"**Q{i+1}. {question}**")
+                if len(options) != 4:
+                    st.error("4 valid options generate nahi hue. Quiz regenerate karo.")
+                    continue
+                choice = st.radio("Choose answer", options, key=f"quiz_{i}", label_visibility="collapsed")
+                checked = i in st.session_state.quiz_results
+                if st.button("Check Answer", key=f"chk_{i}", disabled=checked):
+                    ok, fb = check_quiz_answer(question, choice, answer, topic)
+                    st.session_state.quiz_results[i] = ok
+                    st.session_state.quiz_feedback[i] = fb
+                    if ok:
+                        log_event(user["id"], "quiz_correct", topic, 1, question)
+                    else:
+                        log_event(user["id"], "quiz_wrong", topic, 0, question)
+                        add_mistake(user["id"], topic, question, choice, answer)
+                    st.rerun()
+                if checked:
+                    if st.session_state.quiz_results[i]:
+                        st.success(st.session_state.quiz_feedback[i])
+                    else:
+                        st.error(st.session_state.quiz_feedback[i])
+                        st.info(f"Correct answer: {answer}")
+                        if qd.get("explanation"): st.caption(f"💡 {qd['explanation']}")
+        if st.session_state.quiz_results:
+            checked_n = len(st.session_state.quiz_results)
+            correct_n = sum(1 for x in st.session_state.quiz_results.values() if x)
+            st.progress(correct_n / checked_n)
+            st.success(f"Current score: {correct_n}/{checked_n} ({round(correct_n/checked_n*100)}%)")
+            if checked_n == len(st.session_state.quiz_data):
+                st.balloons()
+                st.info("🔥 Quiz complete! Mistake DNA aur Smart Revision me weak areas dekho.")
 
 
 # ============================================================
@@ -2417,12 +2403,14 @@ elif active == "Brain":
 
         for topic, attempts, acc, study in rows[:15]:
             st.markdown(
-                f"""                <div class="feature-card">
+                f"""
+                <div class="feature-card">
                     <b>{topic[:70]}</b><br>
                     Practice: {attempts} |
                     Accuracy: {acc}% |
                     Study actions: {study}
-                </div>""",
+                </div>
+                """,
                 unsafe_allow_html=True
             )
     else:
@@ -2471,10 +2459,27 @@ elif active == "Today":
         done / total if total else 0
     )
 
-    st.markdown(
-        f"### {done}/{total} tasks complete"
-    )
-
+    st.markdown(f"### {done}/{total} tasks complete")
+    if st.button("🧠 Start Adaptive 5-Question Practice", use_container_width=True, key="today_adaptive"):
+        with st.spinner("Tumhari weak areas ke according quiz bana raha hu..."):
+            st.session_state.adaptive_quiz=generate_adaptive_quiz(5,language=lang,weak_topics=get_weak_topics())
+        st.session_state.adaptive_results={}; st.session_state.adaptive_feedback={}; st.rerun()
+    if st.session_state.adaptive_quiz:
+        st.markdown("### 🧠 Adaptive Practice")
+        for i,qd in enumerate(st.session_state.adaptive_quiz):
+            with st.container(border=True):
+                question=qd.get("question",f"Q{i+1}"); options=qd.get("options",[]); answer=qd.get("answer",""); topic=qd.get("topic","Adaptive Practice")
+                st.markdown(f"**Q{i+1}. {question}**")
+                if len(options)==4:
+                    choice=st.radio("Answer",options,key=f"adaptive_{i}",label_visibility="collapsed"); checked=i in st.session_state.adaptive_results
+                    if st.button("Check",key=f"adaptive_check_{i}",disabled=checked):
+                        ok,fb=check_quiz_answer(question,choice,answer,topic); st.session_state.adaptive_results[i]=ok; st.session_state.adaptive_feedback[i]=fb
+                        if ok: log_event(user["id"],"quiz_correct",topic,1,question)
+                        else: log_event(user["id"],"quiz_wrong",topic,0,question); add_mistake(user["id"],topic,question,choice,answer)
+                        st.rerun()
+                    if checked:
+                        if st.session_state.adaptive_results[i]: st.success(st.session_state.adaptive_feedback[i])
+                        else: st.error(st.session_state.adaptive_feedback[i]); st.info(f"Correct: {answer}")
     for task_id, task, status in plan:
         col1, col2 = st.columns([5, 1])
 
@@ -2565,11 +2570,15 @@ elif active == "Revision":
         )
 
     st.divider()
-
+    selected_rev_topic=st.selectbox("🧠 AI Revision Topic",[x[0] for x in weak_topics] or ["General / Uploaded Material"],key="revision_topic_select")
+    if st.button("🔄 Generate Smart Revision",type="primary",use_container_width=True,key="smart_revision_gen"):
+        with st.spinner("Smart revision session bana raha hu..."):
+            st.session_state.smart_revision=generate_revision(selected_rev_topic,language=lang,focus="weakness")
+        log_event(user["id"],"revision",selected_rev_topic,1,"AI smart revision")
+    if "smart_revision" in st.session_state:
+        st.markdown(st.session_state.smart_revision); play_audio_block(st.session_state.smart_revision,lang,"smart_revision")
     if mistakes:
-        st.markdown(
-            "### ❌ Revision from Mistake Bank"
-        )
+        st.markdown("### ❌ Revision from Mistake Bank")
 
         for m in mistakes[:10]:
             mid, topic, q, ua, ca, ts, fixed = m
@@ -2843,87 +2852,59 @@ elif active == "Readiness":
 
 elif active == "ExamAttack":
     st.markdown("## 🚨 Exam Attack Mode")
-
-    st.info(
-        "Upload ki hui study material ke basis par "
-        "Important Questions + Summary + Quiz + Viva workflow."
-    )
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        if st.button(
-            "⭐ Generate Important Questions",
-            type="primary",
-            use_container_width=True,
-            key="exam_imp"
-        ):
-            with st.spinner("Exam questions bana raha hu..."):
-                exam_imp = predict_important_questions(
-                    language=lang
-                )
-
-            st.session_state.exam_imp = exam_imp
-
-            save_conversation(
-                user["id"],
-                "Exam Attack - Important Questions",
-                exam_imp,
-                "ExamAttack"
-            )
-
-    with col2:
-        if st.button(
-            "📄 Generate Rapid Summary",
-            type="primary",
-            use_container_width=True,
-            key="exam_sum"
-        ):
+    st.info("Important Questions + Rapid Summary + 30-minute plan + practice — all in one workflow.")
+    topic = st.text_input("Exam topic (optional)", placeholder="Example: DBMS Transaction Management", key="exam_topic")
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("⭐ Important Questions", type="primary", use_container_width=True, key="exam_imp"):
+            with st.spinner("Important questions bana raha hu..."):
+                st.session_state.exam_imp = predict_important_questions(language=lang, topic=topic.strip() or None)
+            save_conversation(user["id"], "Exam Attack - Important Questions", st.session_state.exam_imp, "ExamAttack")
+    with c2:
+        if st.button("📄 Rapid Summary", type="primary", use_container_width=True, key="exam_sum"):
             with st.spinner("Rapid summary bana raha hu..."):
-                exam_sum = generate_summary(
-                    language=lang
-                )
-
-            st.session_state.exam_sum = exam_sum
-
+                st.session_state.exam_sum = generate_summary(language=lang, topic=topic.strip() or None)
     if "exam_imp" in st.session_state:
-        st.markdown("### ⭐ Important Questions")
-        st.markdown(
-            st.session_state.exam_imp
-        )
-
+        st.markdown("### ⭐ Important Questions"); st.markdown(st.session_state.exam_imp)
     if "exam_sum" in st.session_state:
-        st.markdown("### 📄 Rapid Revision")
-        st.markdown(
-            st.session_state.exam_sum
-        )
-
+        st.markdown("### 📄 Rapid Revision"); st.markdown(st.session_state.exam_sum)
     st.divider()
-
-    st.markdown(
-        "### 📝 Quick Practice"
-    )
-
-    qn = st.slider(
-        "Questions",
-        3,
-        10,
-        5,
-        key="exam_quiz_n"
-    )
-
-    if st.button(
-        "Generate Exam Quiz",
-        use_container_width=True,
-        key="exam_quiz"
-    ):
-        with st.spinner("Exam quiz..."):
-            st.session_state.exam_quiz_data = generate_quiz(
-                qn,
-                language=lang
-            )
-
-        st.session_state.exam_quiz_results = []
+    attack_topic = topic.strip() or "all uploaded material"
+    if st.button("🚨 Build 30-Minute Exam Attack", use_container_width=True, key="exam_attack_plan"):
+        with st.spinner("Exam attack plan prepare ho raha hai..."):
+            st.session_state.exam_attack_plan = generate_exam_attack(attack_topic, language=lang)
+    if "exam_attack_plan" in st.session_state: st.markdown(st.session_state.exam_attack_plan)
+    st.divider()
+    st.markdown("### 📝 Quick Practice")
+    qn = st.slider("Questions", 3, 10, 5, key="exam_quiz_n")
+    if st.button("Generate Exam Quiz", type="primary", use_container_width=True, key="exam_quiz"):
+        with st.spinner("Exam quiz generate ho raha hai..."):
+            st.session_state.exam_quiz_data = generate_quiz(qn, language=lang, topic=topic.strip() or None)
+        st.session_state.exam_quiz_results = {}; st.session_state.exam_quiz_feedback = {}; st.rerun()
+    data = st.session_state.exam_quiz_data
+    if data:
+        for i, qd in enumerate(data):
+            with st.container(border=True):
+                question = qd.get("question", f"Question {i+1}"); options = qd.get("options", []); answer = qd.get("answer", ""); qtopic = qd.get("topic", attack_topic)
+                st.markdown(f"**Q{i+1}. {question}**")
+                if len(options) == 4:
+                    choice = st.radio("Answer", options, key=f"exam_q_{i}", label_visibility="collapsed")
+                    checked = i in st.session_state.exam_quiz_results
+                    if st.button("Check", key=f"exam_check_{i}", disabled=checked):
+                        ok, fb = check_quiz_answer(question, choice, answer, qtopic)
+                        st.session_state.exam_quiz_results[i] = ok; st.session_state.exam_quiz_feedback[i] = fb
+                        if ok: log_event(user["id"], "quiz_correct", qtopic, 1, question)
+                        else:
+                            log_event(user["id"], "quiz_wrong", qtopic, 0, question); add_mistake(user["id"], qtopic, question, choice, answer)
+                        st.rerun()
+                    if checked:
+                        if st.session_state.exam_quiz_results[i]: st.success(st.session_state.exam_quiz_feedback[i])
+                        else:
+                            st.error(st.session_state.exam_quiz_feedback[i]); st.info(f"Correct: {answer}")
+                            if qd.get("explanation"): st.caption(f"💡 {qd['explanation']}")
+        if st.session_state.exam_quiz_results:
+            checked_n=len(st.session_state.exam_quiz_results); correct_n=sum(st.session_state.exam_quiz_results.values())
+            st.metric("Exam Quiz Score", f"{correct_n}/{checked_n} ({round(correct_n/checked_n*100)}%)")
 
 
 # ============================================================
@@ -2932,74 +2913,23 @@ elif active == "ExamAttack":
 
 elif active == "TeachBack":
     st.markdown("## 🧑‍🏫 Teach-Back Mode")
-
-    st.write(
-        "Student teacher banega. Tum topic explain karo; "
-        "AI tumhari explanation me missing points identify karega."
-    )
-
-    topic = universal_input(
-        "teach_topic",
-        f"Topic ({lang})"
-    )
-
-    explanation = st.text_area(
-        "Apni explanation yahan likho",
-        height=220,
-        placeholder="Example: ACID property ko main aise explain karunga..."
-    )
-
-    if st.button(
-        "🧑‍🏫 Evaluate My Teaching",
-        type="primary",
-        use_container_width=True,
-        key="teach_eval"
-    ) and topic and explanation:
-
-        prompt = f"""
-Evaluate the student's explanation for teaching quality.
-
-Topic: {topic}
-
-Student explanation:
-{explanation}
-
-Give:
-1. What was explained correctly
-2. Missing concepts
-3. Incorrect concepts
-4. Simple correction
-5. 3 questions the student should answer next
-
-Language: {lang}
-"""
-
+    st.write("Tum teacher bano; AI source-grounded feedback dega.")
+    topic = universal_input("teach_topic", f"Topic ({lang})")
+    explanation = st.text_area("Apni explanation", height=220, placeholder="ACID property ko main aise explain karunga...")
+    if st.button("🧑‍🏫 Evaluate My Teaching", type="primary", use_container_width=True, key="teach_eval") and topic and explanation.strip():
         with st.spinner("AI explanation analyze kar raha hai..."):
-            try:
-                result, sources = ask_question(
-                    prompt,
-                    top_k,
-                    mode="normal",
-                    language=lang
-                )
-            except Exception as e:
-                result = f"Evaluation error: {e}"
-                sources = []
-
+            result = generate_teach_back_feedback(topic, explanation, language=lang)
         st.session_state.teach_result = result
-
-        log_event(
-            user["id"],
-            "teach_back",
-            topic,
-            1,
-            explanation[:500]
-        )
-
+        log_event(user["id"], "teach_back", topic, float(result.get("score", 0) or 0) / 10, explanation[:500])
+        st.rerun()
     if "teach_result" in st.session_state:
-        st.markdown(
-            st.session_state.teach_result
-        )
+        r=st.session_state.teach_result; score=float(r.get("score",0) or 0)
+        st.metric("Teach-Back Score", f"{score:.1f}/10")
+        st.write(f"**Verdict:** {r.get('verdict','Needs Work')}")
+        if r.get("what_was_correct"): st.markdown("### ✅ Correct points"); [st.write(f"• {x}") for x in r["what_was_correct"]]
+        if r.get("missing_or_wrong"): st.markdown("### ⚠️ Missing / Wrong"); [st.write(f"• {x}") for x in r["missing_or_wrong"]]
+        st.markdown("### 🧠 Better Explanation"); st.info(r.get("one_better_explanation", ""))
+        st.markdown("### 🎯 Next Question"); st.write(r.get("next_question", topic))
 
 
 # ============================================================
@@ -3008,64 +2938,16 @@ Language: {lang}
 
 elif active == "Confusion":
     st.markdown("## ⚔️ Confusion Battle")
-
-    st.write(
-        "Do similar concepts compare karo aur difference samjho."
-    )
-
-    a = st.text_input(
-        "Concept A",
-        placeholder="Example: Primary Key"
-    )
-
-    b = st.text_input(
-        "Concept B",
-        placeholder="Example: Foreign Key"
-    )
-
-    if st.button(
-        "⚔️ Compare Concepts",
-        type="primary",
-        use_container_width=True,
-        key="confusion_compare"
-    ) and a and b:
-
-        prompt = f"""
-Compare these two educational concepts for a student.
-
-Concept A: {a}
-Concept B: {b}
-
-Give:
-- Simple definition of both
-- Key differences in a table
-- Similarity
-- One practical example
-- Common confusion
-- 3 quick test questions
-
-Language: {lang}
-"""
-
+    st.write("Do similar concepts compare karo, phir challenge questions se test karo.")
+    a=st.text_input("Concept A", placeholder="Example: Primary Key", key="conf_a")
+    b=st.text_input("Concept B", placeholder="Example: Foreign Key", key="conf_b")
+    if st.button("⚔️ Start Battle", type="primary", use_container_width=True, key="confusion_compare") and a and b:
         with st.spinner("Concept battle prepare ho rahi hai..."):
-            try:
-                result, sources = ask_question(
-                    prompt,
-                    top_k,
-                    mode="normal",
-                    language=lang
-                )
-            except Exception as e:
-                result = f"Comparison error: {e}"
-
-        st.markdown(result)
-
-        save_conversation(
-            user["id"],
-            f"Compare: {a} vs {b}",
-            result,
-            "Confusion"
-        )
+            st.session_state.confusion_result=generate_confusion_battle(a,b,language=lang)
+        save_conversation(user["id"], f"Compare: {a} vs {b}", st.session_state.confusion_result, "Confusion")
+        log_event(user["id"], "study", f"{a} vs {b}", 1, "Confusion Battle")
+    if "confusion_result" in st.session_state:
+        st.markdown(st.session_state.confusion_result); play_audio_block(st.session_state.confusion_result,lang,"confusion")
 
 
 # ============================================================
@@ -3137,24 +3019,24 @@ elif active == "Streak":
     )
 
     st.markdown(
-        f"""        <div class="dark-card">
+        f"""
+        <div class="dark-card">
             <div style="font-size:42px;">🔥</div>
             <h1 style="margin:0;">{streak} Day Streak</h1>
             <p>Har din thoda practice karo aur learning habit build karo.</p>
-        </div>""",
+        </div>
+        """,
         unsafe_allow_html=True
     )
 
     st.write("")
 
-    active_dates = sorted(
-        {
-            datetime.fromisoformat(x[5]).date()
-            for x in events
-            if x[5]
-        },
-        reverse=True
-    )
+    active_date_set=set()
+    for x in events:
+        try:
+            if x[5]: active_date_set.add(datetime.fromisoformat(x[5]).date())
+        except Exception: pass
+    active_dates=sorted(active_date_set,reverse=True)
 
     st.metric(
         "Active days in last 30 days",
@@ -3188,25 +3070,14 @@ elif active == "Report":
         user["id"]
     )
 
-    stats = get_topic_stats(
-        user["id"]
-    )
-
-    attempts = sum(
-        s["attempts"]
-        for s in stats.values()
-    )
-
-    correct = sum(
-        s["correct"]
-        for s in stats.values()
-    )
-
-    accuracy = (
-        round(correct / attempts * 100)
-        if attempts
-        else 0
-    )
+    week_attempts=[e for e in events if e[1] in ("quiz_correct","quiz_wrong","viva_correct","viva_wrong")]
+    attempts=len(week_attempts)
+    correct=sum(1 for e in week_attempts if e[1] in ("quiz_correct","viva_correct"))
+    accuracy=round(correct/attempts*100) if attempts else 0
+    stats={}
+    for _,event_type,topic_name,score,details,created_at in week_attempts:
+        t=topic_name or "General"; stats.setdefault(t,{"attempts":0,"correct":0}); stats[t]["attempts"]+=1
+        if event_type in ("quiz_correct","viva_correct"): stats[t]["correct"]+=1
 
     week_mistakes = [
         m for m in mistakes
