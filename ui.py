@@ -394,8 +394,8 @@ def get_events(user_id, event_type=None, days=None):
     return rows
 
 
-def get_topic_stats(user_id):
-    rows = get_events(user_id)
+def get_topic_stats(user_id, days=None):
+    rows = get_events(user_id, days=days)
 
     stats = {}
 
@@ -758,104 +758,16 @@ st.session_state.user = user
 # EXISTING RAG FUNCTIONS
 # ============================================================
 
-try:
-    from rag_utils import (
-        process_files,
-        ask_question,
-        get_api_key,
-        generate_quiz,
-        generate_summary,
-        predict_important_questions,
-        check_quiz_answer,
-        get_weak_topics,
-        transcribe_audio,
-        story_mode_learning,
-        build_project_guide,
-        generate_podcast_script,
-        generate_viva_questions,
-        verify_viva_answer,
-        generate_adaptive_quiz,
-        generate_teach_back_feedback,
-        generate_revision,
-        generate_exam_attack,
-        generate_confusion_battle,
-        create_ppt_file,
-        text_to_audio_file,
-        images_to_pdf,
-        images_to_docx
-    )
-except ImportError:
-    from rag_utils import (
-        process_files,
-        ask_question,
-        get_api_key,
-        generate_quiz,
-        generate_summary,
-        predict_important_questions,
-        check_quiz_answer,
-        get_weak_topics,
-        transcribe_audio,
-        story_mode_learning,
-        build_project_guide,
-        generate_podcast_script,
-        generate_viva_questions,
-        verify_viva_answer,
-        generate_adaptive_quiz,
-        generate_teach_back_feedback,
-        generate_revision,
-        generate_exam_attack,
-        generate_confusion_battle,
-        create_ppt_file,
-        text_to_audio_file
-    )
+from rag_utils import (
+    process_files, ask_question, get_api_key, generate_quiz, generate_summary,
+    predict_important_questions, check_quiz_answer, get_weak_topics,
+    transcribe_audio, story_mode_learning, build_project_guide,
+    generate_podcast_script, generate_viva_questions, verify_viva_answer,
+    generate_adaptive_quiz, generate_teach_back_feedback, generate_revision,
+    generate_exam_attack, generate_confusion_battle, create_ppt_file,
+    text_to_audio_file, images_to_pdf, images_to_docx
+)
 
-    def images_to_pdf(image_files):
-        images = [
-            Image.open(img).convert("RGB")
-            for img in image_files
-        ]
-
-        if not images:
-            return io.BytesIO()
-
-        buf = io.BytesIO()
-
-        if len(images) > 1:
-            images[0].save(
-                buf,
-                format="PDF",
-                save_all=True,
-                append_images=images[1:]
-            )
-        else:
-            images[0].save(buf, format="PDF")
-
-        buf.seek(0)
-        return buf
-
-    def images_to_docx(image_files):
-        doc = Document()
-        doc.add_heading(
-            "RAG Based AI Teaching Assistant",
-            0
-        )
-
-        for img_file in image_files:
-            image = Image.open(img_file)
-            t = io.BytesIO()
-            image.save(t, format="PNG")
-            t.seek(0)
-            doc.add_picture(t, width=Inches(5.5))
-
-        buf = io.BytesIO()
-        doc.save(buf)
-        buf.seek(0)
-        return buf
-
-
-# ============================================================
-# GLOBAL STYLE
-# ============================================================
 
 st.markdown("""
 <style>
@@ -1032,11 +944,18 @@ def universal_input(key, placeholder="Bolo ya likho..."):
             tmp.write(aud.getvalue())
             path = tmp.name
 
-        with st.spinner("Sun raha hu..."):
-            vt = transcribe_audio(api_key, path)
-
-        if os.path.exists(path):
-            os.remove(path)
+        try:
+            with st.spinner("Sun raha hu..."):
+                vt = transcribe_audio(api_key, path)
+        except Exception as e:
+            vt = None
+            st.warning(f"Voice input unavailable: {e}")
+        finally:
+            if os.path.exists(path):
+                try:
+                    os.remove(path)
+                except Exception:
+                    pass
 
         if vt:
             st.success(f"🎧 {vt}")
@@ -1056,21 +975,22 @@ def play_audio_block(text, lang, key):
         use_container_width=True
     ):
         with st.spinner("Audio bana raha hu..."):
-            ap = text_to_audio_file(text, lang)
-
-            if (
-                ap
-                and os.path.exists(ap)
-                and os.path.getsize(ap) > 500
-            ):
-                with open(ap, "rb") as f:
-                    audio_bytes = f.read()
-
-                st.audio(
-                    audio_bytes,
-                    format="audio/mp3",
-                    autoplay=True
-                )
+            try:
+                ap = text_to_audio_file(text, lang)
+                if ap and os.path.exists(ap) and os.path.getsize(ap) > 500:
+                    with open(ap, "rb") as f:
+                        audio_bytes = f.read()
+                    st.audio(audio_bytes, format="audio/mp3", autoplay=True)
+                else:
+                    st.warning("Audio generate nahi ho paya. Internet/TTS check karo.")
+            except Exception as e:
+                st.warning(f"Audio error: {e}")
+            finally:
+                if 'ap' in locals() and ap and os.path.exists(ap):
+                    try:
+                        os.remove(ap)
+                    except Exception:
+                        pass
 
 
 # ============================================================
@@ -1324,18 +1244,11 @@ if "viva_qs" not in st.session_state:
 
 if "quiz_data" not in st.session_state:
     st.session_state.quiz_data = None
-    st.session_state.quiz_results = {}
-    st.session_state.quiz_feedback = {}
+    st.session_state.quiz_results = []
 
 if "adaptive_quiz" not in st.session_state:
     st.session_state.adaptive_quiz = None
-    st.session_state.adaptive_results = {}
-    st.session_state.adaptive_feedback = {}
-
-if "exam_quiz_data" not in st.session_state:
-    st.session_state.exam_quiz_data = None
-    st.session_state.exam_quiz_results = {}
-    st.session_state.exam_quiz_feedback = {}
+    st.session_state.adaptive_results = []
 
 if "selected_topic" not in st.session_state:
     st.session_state.selected_topic = ""
@@ -1675,16 +1588,12 @@ elif active == "Profile":
             use_container_width=True,
             key="upd_prof"
         ):
-            update_profile(
-                user["id"],
-                new_name,
-                new_email,
-                new_bio,
-                new_photo
-            )
-
-            st.success("Updated!")
-            st.rerun()
+            try:
+                update_profile(user["id"], new_name.strip(), new_email.strip(), new_bio.strip(), new_photo)
+                st.success("Updated!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Profile update failed: {e}")
 
 
 # ============================================================
@@ -2071,54 +1980,122 @@ elif active == "Image2PDF":
 # ============================================================
 
 elif active == "Quiz":
-    st.markdown("## 📝 Knowledge Base Quiz")
-    st.caption("Topic optional hai. AI uploaded material se source-grounded MCQs banayega.")
-    n = st.number_input("Kitne Q?", 3, 15, 5, key="quiz_n")
-    quiz_topic = st.text_input("Topic optional", placeholder="Example: DBMS Transaction Management", key="quiz_topic")
-    if st.button("🚀 Generate Quiz", type="primary", use_container_width=True, key="quiz_gen"):
-        with st.spinner("AI high-quality MCQs bana raha hai..."):
-            st.session_state.quiz_data = generate_quiz(int(n), language=lang, topic=quiz_topic.strip() or None)
-        st.session_state.quiz_results = {}
-        st.session_state.quiz_feedback = {}
+    st.markdown(
+        "### 📝 Knowledge Base Quiz"
+    )
+
+    n = st.number_input(
+        "Kitne Q?",
+        3,
+        15,
+        5,
+        key="quiz_n"
+    )
+
+    quiz_topic = st.text_input(
+        "Topic optional",
+        placeholder="Example: DBMS Transaction Management",
+        key="quiz_topic"
+    )
+
+    if st.button(
+        "Generate Quiz",
+        type="primary",
+        use_container_width=True,
+        key="quiz_gen"
+    ):
+        with st.spinner("Quiz bana raha hu..."):
+            quiz_list = generate_quiz(
+                n,
+                language=lang
+            )
+
+        st.session_state.quiz_data = quiz_list
+        st.session_state.quiz_results = []
         st.rerun()
+
     if st.session_state.quiz_data:
         for i, qd in enumerate(st.session_state.quiz_data):
             with st.container(border=True):
-                question = qd.get("question", f"Question {i+1}")
-                options = qd.get("options", [])
-                answer = qd.get("answer", "")
-                topic = qd.get("topic", quiz_topic or "General")
-                st.markdown(f"**Q{i+1}. {question}**")
-                if len(options) != 4:
-                    st.error("4 valid options generate nahi hue. Quiz regenerate karo.")
-                    continue
-                choice = st.radio("Choose answer", options, key=f"quiz_{i}", label_visibility="collapsed")
-                checked = i in st.session_state.quiz_results
-                if st.button("Check Answer", key=f"chk_{i}", disabled=checked):
-                    ok, fb = check_quiz_answer(question, choice, answer, topic)
-                    st.session_state.quiz_results[i] = ok
-                    st.session_state.quiz_feedback[i] = fb
-                    if ok:
-                        log_event(user["id"], "quiz_correct", topic, 1, question)
-                    else:
-                        log_event(user["id"], "quiz_wrong", topic, 0, question)
-                        add_mistake(user["id"], topic, question, choice, answer)
-                    st.rerun()
-                if checked:
-                    if st.session_state.quiz_results[i]:
-                        st.success(st.session_state.quiz_feedback[i])
-                    else:
-                        st.error(st.session_state.quiz_feedback[i])
-                        st.info(f"Correct answer: {answer}")
-                        if qd.get("explanation"): st.caption(f"💡 {qd['explanation']}")
-        if st.session_state.quiz_results:
-            checked_n = len(st.session_state.quiz_results)
-            correct_n = sum(1 for x in st.session_state.quiz_results.values() if x)
-            st.progress(correct_n / checked_n)
-            st.success(f"Current score: {correct_n}/{checked_n} ({round(correct_n/checked_n*100)}%)")
-            if checked_n == len(st.session_state.quiz_data):
-                st.balloons()
-                st.info("🔥 Quiz complete! Mistake DNA aur Smart Revision me weak areas dekho.")
+                question = qd.get(
+                    "question",
+                    f"Question {i+1}"
+                )
+
+                options = qd.get(
+                    "options",
+                    []
+                )
+
+                answer = qd.get(
+                    "answer",
+                    ""
+                )
+
+                topic = qd.get(
+                    "topic",
+                    quiz_topic or "General"
+                )
+
+                st.markdown(
+                    f"**Q{i+1}. {question}**"
+                )
+
+                if options:
+                    choice = st.radio(
+                        f"q_{i}",
+                        options,
+                        key=f"quiz_{i}",
+                        label_visibility="collapsed"
+                    )
+
+                    checked = bool(st.session_state.quiz_results.get(i)) if isinstance(st.session_state.quiz_results, dict) else False
+                    if st.button(
+                        f"Check Q{i+1}",
+                        key=f"chk_{i}",
+                        disabled=checked
+                    ):
+                        ok, fb = check_quiz_answer(
+                            question,
+                            choice,
+                            answer,
+                            topic
+                        )
+
+                        if not isinstance(st.session_state.quiz_results, dict):
+                            st.session_state.quiz_results = {}
+                        st.session_state.quiz_results[i] = {"is_correct": bool(ok)}
+
+                        if ok:
+                            log_event(
+                                user["id"],
+                                "quiz_correct",
+                                topic,
+                                1,
+                                question
+                            )
+                            st.success(fb)
+                        else:
+                            log_event(
+                                user["id"],
+                                "quiz_wrong",
+                                topic,
+                                0,
+                                question
+                            )
+
+                            add_mistake(
+                                user["id"],
+                                topic,
+                                question,
+                                choice,
+                                answer
+                            )
+
+                            st.error(fb)
+                            st.info(
+                                "❌ Ye question Mistake DNA me save ho gaya."
+                            )
 
 
 # ============================================================
@@ -2188,14 +2165,15 @@ elif active == "Viva":
                         language=lang
                     )
 
-                verdict = str(
-                    res.get("verdict", "")
-                ).lower()
+                if not isinstance(res, dict):
+                    res = {"verdict": "False", "score": 0, "feedback": str(res), "missing_points": []}
 
-                is_correct = (
-                    "true" in verdict
-                    or "correct" in verdict
-                )
+                verdict = str(res.get("verdict", "")).strip().lower()
+                is_correct = verdict in {"true", "correct", "yes", "pass", "strong"} or verdict.startswith("true")
+                try:
+                    viva_score_value = float(res.get("score", 0))
+                except Exception:
+                    viva_score_value = 0.0
 
                 st.session_state.viva_score.append(
                     {"is_correct": is_correct}
@@ -2459,27 +2437,10 @@ elif active == "Today":
         done / total if total else 0
     )
 
-    st.markdown(f"### {done}/{total} tasks complete")
-    if st.button("🧠 Start Adaptive 5-Question Practice", use_container_width=True, key="today_adaptive"):
-        with st.spinner("Tumhari weak areas ke according quiz bana raha hu..."):
-            st.session_state.adaptive_quiz=generate_adaptive_quiz(5,language=lang,weak_topics=get_weak_topics())
-        st.session_state.adaptive_results={}; st.session_state.adaptive_feedback={}; st.rerun()
-    if st.session_state.adaptive_quiz:
-        st.markdown("### 🧠 Adaptive Practice")
-        for i,qd in enumerate(st.session_state.adaptive_quiz):
-            with st.container(border=True):
-                question=qd.get("question",f"Q{i+1}"); options=qd.get("options",[]); answer=qd.get("answer",""); topic=qd.get("topic","Adaptive Practice")
-                st.markdown(f"**Q{i+1}. {question}**")
-                if len(options)==4:
-                    choice=st.radio("Answer",options,key=f"adaptive_{i}",label_visibility="collapsed"); checked=i in st.session_state.adaptive_results
-                    if st.button("Check",key=f"adaptive_check_{i}",disabled=checked):
-                        ok,fb=check_quiz_answer(question,choice,answer,topic); st.session_state.adaptive_results[i]=ok; st.session_state.adaptive_feedback[i]=fb
-                        if ok: log_event(user["id"],"quiz_correct",topic,1,question)
-                        else: log_event(user["id"],"quiz_wrong",topic,0,question); add_mistake(user["id"],topic,question,choice,answer)
-                        st.rerun()
-                    if checked:
-                        if st.session_state.adaptive_results[i]: st.success(st.session_state.adaptive_feedback[i])
-                        else: st.error(st.session_state.adaptive_feedback[i]); st.info(f"Correct: {answer}")
+    st.markdown(
+        f"### {done}/{total} tasks complete"
+    )
+
     for task_id, task, status in plan:
         col1, col2 = st.columns([5, 1])
 
@@ -2518,6 +2479,49 @@ elif active == "Today":
         st.success(
             "🔥 Today's mission complete!"
         )
+
+    st.divider()
+    st.markdown("### 🧠 Adaptive Weak-Topic Quiz")
+    st.caption("App ke recorded mistakes/weak topics ke basis par targeted practice.")
+    if st.button("🎯 Generate Adaptive Quiz", type="primary", key="adaptive_generate", use_container_width=True):
+        with st.spinner("Weak topics analyse karke quiz bana raha hu..."):
+            try:
+                st.session_state.adaptive_quiz = generate_adaptive_quiz(5, language=lang, weak_topics=get_weak_topics())
+                st.session_state.adaptive_results = {}
+            except Exception as e:
+                st.session_state.adaptive_quiz = None
+                st.error(f"Adaptive quiz error: {e}")
+        st.rerun()
+
+    aq = st.session_state.get("adaptive_quiz")
+    if aq:
+        if not isinstance(st.session_state.get("adaptive_results"), dict):
+            st.session_state.adaptive_results = {}
+        for i, qd in enumerate(aq):
+            if not isinstance(qd, dict):
+                continue
+            question = str(qd.get("question", f"Question {i+1}"))
+            options = qd.get("options", [])
+            answer = str(qd.get("answer", ""))
+            topic = str(qd.get("topic", "Adaptive"))
+            if not isinstance(options, list) or len(options) != 4:
+                continue
+            st.markdown(f"**Q{i+1}. {question}**")
+            choice = st.radio(f"Adaptive Q{i+1}", options, key=f"adaptive_radio_{i}", label_visibility="collapsed")
+            checked = i in st.session_state.adaptive_results
+            if st.button(f"Check Adaptive Q{i+1}", key=f"adaptive_chk_{i}", disabled=checked):
+                ok, fb = check_quiz_answer(question, choice, answer, topic)
+                st.session_state.adaptive_results[i] = {"is_correct": bool(ok), "feedback": fb}
+                if ok:
+                    log_event(user["id"], "quiz_correct", topic, 1, question)
+                    st.success(fb)
+                else:
+                    log_event(user["id"], "quiz_wrong", topic, 0, question)
+                    add_mistake(user["id"], topic, question, choice, answer)
+                    st.error(fb)
+                st.rerun()
+            if checked:
+                st.info(st.session_state.adaptive_results[i].get("feedback", "Checked"))
 
 
 # ============================================================
@@ -2570,15 +2574,28 @@ elif active == "Revision":
         )
 
     st.divider()
-    selected_rev_topic=st.selectbox("🧠 AI Revision Topic",[x[0] for x in weak_topics] or ["General / Uploaded Material"],key="revision_topic_select")
-    if st.button("🔄 Generate Smart Revision",type="primary",use_container_width=True,key="smart_revision_gen"):
-        with st.spinner("Smart revision session bana raha hu..."):
-            st.session_state.smart_revision=generate_revision(selected_rev_topic,language=lang,focus="weakness")
-        log_event(user["id"],"revision",selected_rev_topic,1,"AI smart revision")
-    if "smart_revision" in st.session_state:
-        st.markdown(st.session_state.smart_revision); play_audio_block(st.session_state.smart_revision,lang,"smart_revision")
+
+    rev_topic = st.text_input(
+        "Smart revision topic",
+        placeholder="Example: Transaction Management",
+        key="revision_topic"
+    )
+    if st.button("🧠 Generate Smart Revision", key="revision_generate", type="primary", use_container_width=True) and rev_topic.strip():
+        with st.spinner("Smart revision prepare ho rahi hai..."):
+            try:
+                st.session_state.revision_result = generate_revision(rev_topic.strip(), language=lang, focus="weakness")
+            except Exception as e:
+                st.session_state.revision_result = f"Revision error: {e}"
+
+    if st.session_state.get("revision_result"):
+        st.markdown("### 📚 AI Smart Revision")
+        st.markdown(str(st.session_state.revision_result))
+        play_audio_block(str(st.session_state.revision_result), lang, "smart_revision")
+
     if mistakes:
-        st.markdown("### ❌ Revision from Mistake Bank")
+        st.markdown(
+            "### ❌ Revision from Mistake Bank"
+        )
 
         for m in mistakes[:10]:
             mid, topic, q, ua, ca, ts, fixed = m
@@ -2852,59 +2869,137 @@ elif active == "Readiness":
 
 elif active == "ExamAttack":
     st.markdown("## 🚨 Exam Attack Mode")
-    st.info("Important Questions + Rapid Summary + 30-minute plan + practice — all in one workflow.")
-    topic = st.text_input("Exam topic (optional)", placeholder="Example: DBMS Transaction Management", key="exam_topic")
-    c1, c2 = st.columns(2)
-    with c1:
-        if st.button("⭐ Important Questions", type="primary", use_container_width=True, key="exam_imp"):
-            with st.spinner("Important questions bana raha hu..."):
-                st.session_state.exam_imp = predict_important_questions(language=lang, topic=topic.strip() or None)
-            save_conversation(user["id"], "Exam Attack - Important Questions", st.session_state.exam_imp, "ExamAttack")
-    with c2:
-        if st.button("📄 Rapid Summary", type="primary", use_container_width=True, key="exam_sum"):
+
+    st.info(
+        "Upload ki hui study material ke basis par "
+        "Important Questions + Summary + Quiz + Viva workflow."
+    )
+
+    exam_topic = st.text_input(
+        "Exam topic (optional)",
+        placeholder="Example: Transaction Management",
+        key="exam_topic"
+    )
+
+    if st.button("🚨 Build Exam Attack Plan", key="exam_attack_plan", use_container_width=True):
+        with st.spinner("Exam attack plan bana raha hu..."):
+            try:
+                st.session_state.exam_attack_plan = generate_exam_attack(exam_topic.strip() or "uploaded material", language=lang)
+            except Exception as e:
+                st.session_state.exam_attack_plan = f"Exam attack error: {e}"
+
+    if st.session_state.get("exam_attack_plan"):
+        st.markdown("### 🚨 Exam Attack Plan")
+        st.markdown(str(st.session_state.exam_attack_plan))
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button(
+            "⭐ Generate Important Questions",
+            type="primary",
+            use_container_width=True,
+            key="exam_imp"
+        ):
+            with st.spinner("Exam questions bana raha hu..."):
+                exam_imp = predict_important_questions(
+                    language=lang, topic=exam_topic.strip() or None
+                )
+
+            st.session_state.exam_imp = exam_imp
+
+            save_conversation(
+                user["id"],
+                "Exam Attack - Important Questions",
+                exam_imp,
+                "ExamAttack"
+            )
+
+    with col2:
+        if st.button(
+            "📄 Generate Rapid Summary",
+            type="primary",
+            use_container_width=True,
+            key="exam_sum"
+        ):
             with st.spinner("Rapid summary bana raha hu..."):
-                st.session_state.exam_sum = generate_summary(language=lang, topic=topic.strip() or None)
+                exam_sum = generate_summary(
+                    language=lang, topic=exam_topic.strip() or None
+                )
+
+            st.session_state.exam_sum = exam_sum
+
     if "exam_imp" in st.session_state:
-        st.markdown("### ⭐ Important Questions"); st.markdown(st.session_state.exam_imp)
+        st.markdown("### ⭐ Important Questions")
+        st.markdown(
+            st.session_state.exam_imp
+        )
+
     if "exam_sum" in st.session_state:
-        st.markdown("### 📄 Rapid Revision"); st.markdown(st.session_state.exam_sum)
+        st.markdown("### 📄 Rapid Revision")
+        st.markdown(
+            st.session_state.exam_sum
+        )
+
     st.divider()
-    attack_topic = topic.strip() or "all uploaded material"
-    if st.button("🚨 Build 30-Minute Exam Attack", use_container_width=True, key="exam_attack_plan"):
-        with st.spinner("Exam attack plan prepare ho raha hai..."):
-            st.session_state.exam_attack_plan = generate_exam_attack(attack_topic, language=lang)
-    if "exam_attack_plan" in st.session_state: st.markdown(st.session_state.exam_attack_plan)
-    st.divider()
-    st.markdown("### 📝 Quick Practice")
-    qn = st.slider("Questions", 3, 10, 5, key="exam_quiz_n")
-    if st.button("Generate Exam Quiz", type="primary", use_container_width=True, key="exam_quiz"):
-        with st.spinner("Exam quiz generate ho raha hai..."):
-            st.session_state.exam_quiz_data = generate_quiz(qn, language=lang, topic=topic.strip() or None)
-        st.session_state.exam_quiz_results = {}; st.session_state.exam_quiz_feedback = {}; st.rerun()
-    data = st.session_state.exam_quiz_data
-    if data:
-        for i, qd in enumerate(data):
-            with st.container(border=True):
-                question = qd.get("question", f"Question {i+1}"); options = qd.get("options", []); answer = qd.get("answer", ""); qtopic = qd.get("topic", attack_topic)
-                st.markdown(f"**Q{i+1}. {question}**")
-                if len(options) == 4:
-                    choice = st.radio("Answer", options, key=f"exam_q_{i}", label_visibility="collapsed")
-                    checked = i in st.session_state.exam_quiz_results
-                    if st.button("Check", key=f"exam_check_{i}", disabled=checked):
-                        ok, fb = check_quiz_answer(question, choice, answer, qtopic)
-                        st.session_state.exam_quiz_results[i] = ok; st.session_state.exam_quiz_feedback[i] = fb
-                        if ok: log_event(user["id"], "quiz_correct", qtopic, 1, question)
-                        else:
-                            log_event(user["id"], "quiz_wrong", qtopic, 0, question); add_mistake(user["id"], qtopic, question, choice, answer)
-                        st.rerun()
-                    if checked:
-                        if st.session_state.exam_quiz_results[i]: st.success(st.session_state.exam_quiz_feedback[i])
-                        else:
-                            st.error(st.session_state.exam_quiz_feedback[i]); st.info(f"Correct: {answer}")
-                            if qd.get("explanation"): st.caption(f"💡 {qd['explanation']}")
-        if st.session_state.exam_quiz_results:
-            checked_n=len(st.session_state.exam_quiz_results); correct_n=sum(st.session_state.exam_quiz_results.values())
-            st.metric("Exam Quiz Score", f"{correct_n}/{checked_n} ({round(correct_n/checked_n*100)}%)")
+
+    st.markdown(
+        "### 📝 Quick Practice"
+    )
+
+    qn = st.slider(
+        "Questions",
+        3,
+        10,
+        5,
+        key="exam_quiz_n"
+    )
+
+    if st.button(
+        "Generate Exam Quiz",
+        use_container_width=True,
+        key="exam_quiz"
+    ):
+        with st.spinner("Exam quiz..."):
+            st.session_state.exam_quiz_data = generate_quiz(
+                int(qn), language=lang, topic=exam_topic.strip() or None
+            )
+
+        st.session_state.exam_quiz_results = []
+
+
+    if st.session_state.get("exam_quiz_data"):
+        st.markdown("### 🎯 Exam Quiz")
+        if "exam_quiz_results" not in st.session_state or not isinstance(st.session_state.exam_quiz_results, dict):
+            st.session_state.exam_quiz_results = {}
+        for i, qd in enumerate(st.session_state.exam_quiz_data):
+            if not isinstance(qd, dict):
+                continue
+            question = str(qd.get("question", f"Question {i+1}"))
+            options = qd.get("options", [])
+            answer = str(qd.get("answer", ""))
+            topic = str(qd.get("topic", "Exam"))
+            if not isinstance(options, list) or len(options) != 4:
+                continue
+            st.markdown(f"**Q{i+1}. {question}**")
+            choice = st.radio(
+                f"Exam Q{i+1}", options, key=f"exam_radio_{i}",
+                label_visibility="collapsed"
+            )
+            checked = i in st.session_state.exam_quiz_results
+            if st.button(f"Check Exam Q{i+1}", key=f"exam_chk_{i}", disabled=checked):
+                ok, fb = check_quiz_answer(question, choice, answer, topic)
+                st.session_state.exam_quiz_results[i] = {"is_correct": bool(ok), "feedback": fb}
+                if ok:
+                    log_event(user["id"], "quiz_correct", topic, 1, question)
+                    st.success(fb)
+                else:
+                    log_event(user["id"], "quiz_wrong", topic, 0, question)
+                    add_mistake(user["id"], topic, question, choice, answer)
+                    st.error(fb)
+                st.rerun()
+            if checked:
+                st.info(st.session_state.exam_quiz_results[i].get("feedback", "Checked"))
 
 
 # ============================================================
@@ -2913,23 +3008,72 @@ elif active == "ExamAttack":
 
 elif active == "TeachBack":
     st.markdown("## 🧑‍🏫 Teach-Back Mode")
-    st.write("Tum teacher bano; AI source-grounded feedback dega.")
-    topic = universal_input("teach_topic", f"Topic ({lang})")
-    explanation = st.text_area("Apni explanation", height=220, placeholder="ACID property ko main aise explain karunga...")
-    if st.button("🧑‍🏫 Evaluate My Teaching", type="primary", use_container_width=True, key="teach_eval") and topic and explanation.strip():
+
+    st.write(
+        "Student teacher banega. Tum topic explain karo; "
+        "AI tumhari explanation me missing points identify karega."
+    )
+
+    topic = universal_input(
+        "teach_topic",
+        f"Topic ({lang})"
+    )
+
+    explanation = st.text_area(
+        "Apni explanation yahan likho",
+        height=220,
+        placeholder="Example: ACID property ko main aise explain karunga..."
+    )
+
+    if st.button(
+        "🧑‍🏫 Evaluate My Teaching",
+        type="primary",
+        use_container_width=True,
+        key="teach_eval"
+    ) and topic and explanation:
+
         with st.spinner("AI explanation analyze kar raha hai..."):
-            result = generate_teach_back_feedback(topic, explanation, language=lang)
+            try:
+                result = generate_teach_back_feedback(
+                    topic, explanation, language=lang
+                )
+            except Exception as e:
+                result = {
+                    "score": 0,
+                    "verdict": "Needs Work",
+                    "what_was_correct": [],
+                    "missing_or_wrong": [str(e)],
+                    "one_better_explanation": "Try again after checking your notes.",
+                    "next_question": topic
+                }
+
         st.session_state.teach_result = result
-        log_event(user["id"], "teach_back", topic, float(result.get("score", 0) or 0) / 10, explanation[:500])
-        st.rerun()
+
+        log_event(
+            user["id"],
+            "teach_back",
+            topic,
+            1,
+            explanation[:500]
+        )
+
     if "teach_result" in st.session_state:
-        r=st.session_state.teach_result; score=float(r.get("score",0) or 0)
-        st.metric("Teach-Back Score", f"{score:.1f}/10")
-        st.write(f"**Verdict:** {r.get('verdict','Needs Work')}")
-        if r.get("what_was_correct"): st.markdown("### ✅ Correct points"); [st.write(f"• {x}") for x in r["what_was_correct"]]
-        if r.get("missing_or_wrong"): st.markdown("### ⚠️ Missing / Wrong"); [st.write(f"• {x}") for x in r["missing_or_wrong"]]
-        st.markdown("### 🧠 Better Explanation"); st.info(r.get("one_better_explanation", ""))
-        st.markdown("### 🎯 Next Question"); st.write(r.get("next_question", topic))
+        tr = st.session_state.teach_result
+        if isinstance(tr, dict):
+            st.metric("Teach-back Score", f"{tr.get('score', 0)}/10")
+            st.success(str(tr.get("verdict", "Needs Work")))
+            st.markdown("**What was correct**")
+            for x in tr.get("what_was_correct", []) or []:
+                st.write("• " + str(x))
+            st.markdown("**Missing / wrong**")
+            for x in tr.get("missing_or_wrong", []) or []:
+                st.write("• " + str(x))
+            st.markdown("**Better explanation**")
+            st.write(tr.get("one_better_explanation", ""))
+            st.markdown("**Next question**")
+            st.write(tr.get("next_question", ""))
+        else:
+            st.markdown(str(tr))
 
 
 # ============================================================
@@ -2938,16 +3082,42 @@ elif active == "TeachBack":
 
 elif active == "Confusion":
     st.markdown("## ⚔️ Confusion Battle")
-    st.write("Do similar concepts compare karo, phir challenge questions se test karo.")
-    a=st.text_input("Concept A", placeholder="Example: Primary Key", key="conf_a")
-    b=st.text_input("Concept B", placeholder="Example: Foreign Key", key="conf_b")
-    if st.button("⚔️ Start Battle", type="primary", use_container_width=True, key="confusion_compare") and a and b:
+
+    st.write(
+        "Do similar concepts compare karo aur difference samjho."
+    )
+
+    a = st.text_input(
+        "Concept A",
+        placeholder="Example: Primary Key"
+    )
+
+    b = st.text_input(
+        "Concept B",
+        placeholder="Example: Foreign Key"
+    )
+
+    if st.button(
+        "⚔️ Compare Concepts",
+        type="primary",
+        use_container_width=True,
+        key="confusion_compare"
+    ) and a and b:
+
         with st.spinner("Concept battle prepare ho rahi hai..."):
-            st.session_state.confusion_result=generate_confusion_battle(a,b,language=lang)
-        save_conversation(user["id"], f"Compare: {a} vs {b}", st.session_state.confusion_result, "Confusion")
-        log_event(user["id"], "study", f"{a} vs {b}", 1, "Confusion Battle")
-    if "confusion_result" in st.session_state:
-        st.markdown(st.session_state.confusion_result); play_audio_block(st.session_state.confusion_result,lang,"confusion")
+            try:
+                result = generate_confusion_battle(a, b, language=lang)
+            except Exception as e:
+                result = f"Comparison error: {e}"
+
+        st.markdown(result)
+
+        save_conversation(
+            user["id"],
+            f"Compare: {a} vs {b}",
+            result,
+            "Confusion"
+        )
 
 
 # ============================================================
@@ -3031,12 +3201,14 @@ elif active == "Streak":
 
     st.write("")
 
-    active_date_set=set()
+    active_dates = set()
     for x in events:
         try:
-            if x[5]: active_date_set.add(datetime.fromisoformat(x[5]).date())
-        except Exception: pass
-    active_dates=sorted(active_date_set,reverse=True)
+            if x[5]:
+                active_dates.add(datetime.fromisoformat(x[5]).date())
+        except Exception:
+            continue
+    active_dates = sorted(active_dates, reverse=True)
 
     st.metric(
         "Active days in last 30 days",
@@ -3070,14 +3242,23 @@ elif active == "Report":
         user["id"]
     )
 
-    week_attempts=[e for e in events if e[1] in ("quiz_correct","quiz_wrong","viva_correct","viva_wrong")]
-    attempts=len(week_attempts)
-    correct=sum(1 for e in week_attempts if e[1] in ("quiz_correct","viva_correct"))
-    accuracy=round(correct/attempts*100) if attempts else 0
-    stats={}
-    for _,event_type,topic_name,score,details,created_at in week_attempts:
-        t=topic_name or "General"; stats.setdefault(t,{"attempts":0,"correct":0}); stats[t]["attempts"]+=1
-        if event_type in ("quiz_correct","viva_correct"): stats[t]["correct"]+=1
+    stats = get_topic_stats(user["id"], days=7)
+
+    attempts = sum(
+        s["attempts"]
+        for s in stats.values()
+    )
+
+    correct = sum(
+        s["correct"]
+        for s in stats.values()
+    )
+
+    accuracy = (
+        round(correct / attempts * 100)
+        if attempts
+        else 0
+    )
 
     week_mistakes = [
         m for m in mistakes
@@ -3180,9 +3361,9 @@ elif active == "FastStudy":
         type="primary",
         use_container_width=True,
         key="fast_start"
-    ) and topic:
+    ) and topic.strip():
 
-        st.session_state.fast_topic = topic
+        topic = topic.strip()
 
         with st.spinner("Quick lesson bana raha hu..."):
             try:
