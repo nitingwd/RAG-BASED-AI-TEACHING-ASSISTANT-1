@@ -1008,9 +1008,20 @@ def images_to_docx(image_files):
 # ============================================================
 
 def _source_context(query, k=8, per_doc=1800):
-    docs = hybrid_search(query, k=k)
+    """Return grounded context from the currently indexed knowledge base.
+
+    This helper is intentionally safe: if no files are indexed, it returns a
+    clear marker instead of allowing the new Source Studio features to crash.
+    """
+    try:
+        docs = hybrid_search(query, k=k)
+    except Exception as e:
+        print(f"Source retrieval error: {e}")
+        return "No indexed source context is available."
+
     if not docs:
         return "No indexed source context is available."
+
     blocks = []
     for i, doc in enumerate(docs, 1):
         meta = getattr(doc, "metadata", {}) or {}
@@ -1019,8 +1030,15 @@ def _source_context(query, k=8, per_doc=1800):
         label = f"Source {i}: {os.path.basename(str(src))}"
         if page not in ("", None):
             label += f" | page {page}"
-        blocks.append(f"[{label}]\n{_clean_text(getattr(doc, 'page_content', ''))[:per_doc]}")
-    return "\n\n".join(blocks)
+        text = _clean_text(getattr(doc, "page_content", ""))
+        if text:
+            blocks.append(f"[{label}]\n{text[:per_doc]}")
+    return "\n\n".join(blocks) if blocks else "No indexed source context is available."
+
+
+def _has_source_material():
+    """Fast check used by Source Studio generators."""
+    return st.session_state.get("vectordb") is not None
 
 
 def get_source_inventory():
@@ -1032,34 +1050,48 @@ def get_source_inventory():
         docs = list(db.docstore._dict.values())
     except Exception:
         docs = []
+
     grouped = {}
     for d in docs:
         meta = getattr(d, "metadata", {}) or {}
         src = str(meta.get("source", "Unknown source"))
-        name = os.path.basename(src)
+        name = os.path.basename(src) or "Unknown source"
         grouped.setdefault(name, {"name": name, "chunks": 0, "pages": set()})
         grouped[name]["chunks"] += 1
         p = meta.get("page", meta.get("page_number"))
         if p is not None:
             grouped[name]["pages"].add(str(p))
+
     sources = []
     for item in grouped.values():
-        item["pages"] = sorted(item["pages"], key=lambda x: int(x) if x.isdigit() else x)
+        item["pages"] = sorted(
+            item["pages"], key=lambda x: int(x) if str(x).isdigit() else str(x)
+        )
         sources.append(item)
-    return {"total_chunks": len(docs), "sources": sorted(sources, key=lambda x: x["name"].lower())}
+    return {
+        "total_chunks": len(docs),
+        "sources": sorted(sources, key=lambda x: x["name"].lower()),
+    }
 
 
 def _studio_json(prompt, fallback):
     try:
         data = _json_from_text(_invoke(prompt, temperature=0.35), default=None)
         return data if data is not None else fallback
-    except Exception:
+    except Exception as e:
+        print(f"Source Studio LLM error: {e}")
         return fallback
 
 
 def generate_source_brief(language="Hinglish"):
     inv = get_source_inventory()
-    context = _source_context("main topics, definitions, concepts, formulas, examples and important facts", k=10)
+    if not inv["sources"]:
+        return "## 📚 Source Brief\n\nNo indexed study material found. Please upload PDF/TXT/CSV in the Knowledge Base first."
+
+    context = _source_context(
+        "main topics, definitions, concepts, formulas, examples and important facts",
+        k=10,
+    )
     prompt = f"""You are a source-grounded academic assistant. Use ONLY the supplied source context.
 Create a concise but useful source brief in {language}.
 Include: overview, major topics, key concepts, formulas/facts if present, likely exam areas, and source coverage.
@@ -1067,65 +1099,206 @@ Do not invent facts. If something is not present, say it is not found.
 Return plain text with clear headings.
 Inventory: {json.dumps(inv, ensure_ascii=False)}
 SOURCE CONTEXT:\n{context}"""
-    return _invoke(prompt, temperature=0.25)
+    try:
+        return _invoke(prompt, temperature=0.25)
+    except Exception as e:
+        return f"## 📚 Source Brief\n\nCould not generate the AI brief right now.\n\nError: {e}"
 
 
 def generate_flashcards(topic="all material", num_cards=10, language="Hinglish"):
-    context = _source_context(topic, k=10)
     n = max(3, min(30, int(num_cards)))
-    fallback = [{"front": f"{topic} — Card {i+1}", "back": "Review the uploaded source material for this concept."} for i in range(n)]
+    if not _has_source_material():
+        return []
+
+    context = _source_context(topic, k=10)
+    fallback = [
+        {
+            "front": f"{topic} — Card {i + 1}",
+            "back": "Review the uploaded source material for this concept.",
+            "difficulty": "Medium",
+            "source": "Uploaded material",
+        }
+        for i in range(n)
+    ]
     prompt = f"""Create {n} high-quality study flashcards from ONLY the source context.
 Language: {language}. Topic: {topic}.
-Return ONLY JSON array: [{{"front":"question/term","back":"answer"}}]
+Return ONLY JSON array. Each object MUST contain:
+{{"front":"question/term","back":"answer","difficulty":"Easy|Medium|Hard","source":"source filename or Uploaded material"}}
 Avoid duplicates. Keep answers concise and source-grounded.
 SOURCE CONTEXT:\n{context}"""
     data = _studio_json(prompt, fallback)
-    return data[:n] if isinstance(data, list) else fallback
+    if not isinstance(data, list):
+        return fallback
+
+    normalized = []
+    for i, card in enumerate(data[:n]):
+        if not isinstance(card, dict):
+            continue
+        normalized.append(
+            {
+                "front": str(card.get("front") or card.get("question") or f"{topic} — Card {i + 1}"),
+                "back": str(card.get("back") or card.get("answer") or "Review the uploaded source material."),
+                "difficulty": str(card.get("difficulty") or "Medium"),
+                "source": str(card.get("source") or "Uploaded material"),
+            }
+        )
+    return normalized or fallback
 
 
 def generate_mind_map(topic, language="Hinglish"):
+    if not _has_source_material():
+        return {"topic": topic, "branches": [], "message": "Please upload study material first."}
+
     context = _source_context(topic, k=10)
-    fallback = {"topic": topic, "branches": [{"name": "Key Concepts", "children": ["Review source material"]}]}
+    fallback = {
+        "topic": topic,
+        "branches": [{"name": "Key Concepts", "children": ["Review source material"]}],
+    }
     prompt = f"""Build a source-grounded mind map for {topic} in {language}.
 Return ONLY JSON: {{"topic":"...","branches":[{{"name":"...","children":["..."]}}]}}
 Use only the supplied material; do not invent unsupported concepts.
 SOURCE CONTEXT:\n{context}"""
     data = _studio_json(prompt, fallback)
-    return data if isinstance(data, dict) else fallback
+    if not isinstance(data, dict):
+        return fallback
+
+    branches = data.get("branches", [])
+    normalized = []
+    if isinstance(branches, list):
+        for branch in branches:
+            if not isinstance(branch, dict):
+                continue
+            children = branch.get("children", [])
+            if isinstance(children, str):
+                children = [children]
+            if not isinstance(children, list):
+                children = []
+            normalized.append(
+                {
+                    "name": str(branch.get("name") or "Key Concept"),
+                    "children": [str(x) for x in children if str(x).strip()],
+                }
+            )
+    return {"topic": str(data.get("topic") or topic), "branches": normalized or fallback["branches"]}
 
 
 def generate_exam_paper(topic="all material", num_questions=10, difficulty="Mixed", language="Hinglish"):
-    context = _source_context(topic, k=12)
     n = max(3, min(30, int(num_questions)))
-    fallback = [{"question": f"Explain an important concept from {topic}.", "answer": "Refer to the uploaded source material.", "difficulty": difficulty} for _ in range(n)]
+    if not _has_source_material():
+        return []
+
+    context = _source_context(topic, k=12)
+    fallback = [
+        {
+            "question": f"Explain an important concept from {topic}.",
+            "answer": "Refer to the uploaded source material.",
+            "difficulty": difficulty,
+            "type": "Short Answer",
+            "marks": 5,
+            "topic": topic,
+        }
+        for _ in range(n)
+    ]
     prompt = f"""Generate an exam paper from ONLY the source material.
 Topic: {topic}; Questions: {n}; Difficulty: {difficulty}; Language: {language}.
-Return ONLY JSON array of objects with question, answer, difficulty.
+Return ONLY JSON array. Every object MUST contain:
+{{"question":"...","answer":"...","difficulty":"Easy|Medium|Hard|Mixed","type":"MCQ|Short Answer|Long Answer","marks":2|5|10,"topic":"..."}}
 Cover different concepts, avoid duplicates, and never invent source-specific facts.
 SOURCE CONTEXT:\n{context}"""
     data = _studio_json(prompt, fallback)
-    return data[:n] if isinstance(data, list) else fallback
+    if not isinstance(data, list):
+        return fallback
+
+    normalized = []
+    for i, q in enumerate(data[:n]):
+        if not isinstance(q, dict):
+            continue
+        try:
+            marks = int(q.get("marks", 5))
+        except Exception:
+            marks = 5
+        normalized.append(
+            {
+                "question": str(q.get("question") or f"Question {i + 1} from {topic}"),
+                "answer": str(q.get("answer") or "Refer to the uploaded source material."),
+                "difficulty": str(q.get("difficulty") or difficulty),
+                "type": str(q.get("type") or "Short Answer"),
+                "marks": max(1, marks),
+                "topic": str(q.get("topic") or topic),
+            }
+        )
+    return normalized or fallback
 
 
 def compare_source_topics(topic_a, topic_b, language="Hinglish"):
+    if not _has_source_material():
+        return {
+            "topic_a": topic_a,
+            "topic_b": topic_b,
+            "similarities": [],
+            "differences": [],
+            "summary": "Please upload study material first.",
+        }
+
     context = _source_context(f"{topic_a} and {topic_b}", k=12)
-    fallback = {"topic_a": topic_a, "topic_b": topic_b, "similarities": [], "differences": [], "summary": "Compare the two topics using the uploaded material."}
+    fallback = {
+        "topic_a": topic_a,
+        "topic_b": topic_b,
+        "similarities": [],
+        "differences": [],
+        "summary": "Compare the two topics using the uploaded material.",
+    }
     prompt = f"""Compare {topic_a} and {topic_b} using ONLY the source context.
 Language: {language}.
 Return ONLY JSON with keys topic_a, topic_b, similarities (array), differences (array of objects with aspect,a,b), summary.
 If the source does not support a comparison, state that clearly.
 SOURCE CONTEXT:\n{context}"""
     data = _studio_json(prompt, fallback)
-    return data if isinstance(data, dict) else fallback
+    if not isinstance(data, dict):
+        return fallback
+
+    similarities = data.get("similarities", [])
+    differences = data.get("differences", [])
+    if isinstance(similarities, str):
+        similarities = [similarities]
+    if not isinstance(similarities, list):
+        similarities = []
+    if not isinstance(differences, list):
+        differences = []
+
+    norm_diff = []
+    for d in differences:
+        if not isinstance(d, dict):
+            continue
+        norm_diff.append(
+            {
+                "aspect": str(d.get("aspect") or "Aspect"),
+                "a": str(d.get("a") or "Not found in source"),
+                "b": str(d.get("b") or "Not found in source"),
+            }
+        )
+    return {
+        "topic_a": str(data.get("topic_a") or topic_a),
+        "topic_b": str(data.get("topic_b") or topic_b),
+        "similarities": [str(x) for x in similarities],
+        "differences": norm_diff,
+        "summary": str(data.get("summary") or "No supported comparison summary found."),
+    }
 
 
 def generate_study_guide(topic="all material", language="Hinglish"):
+    if not _has_source_material():
+        return "## 📘 Study Guide\n\nPlease upload PDF/TXT/CSV material first."
+
     context = _source_context(topic, k=12)
     prompt = f"""Create a practical study guide for {topic} in {language}, grounded ONLY in the source context.
 Include: prerequisites, learning objectives, concepts in order, examples/applications found in source, common mistakes, revision checklist, and exam focus.
 Use headings and bullets. Do not invent unsupported information.
 SOURCE CONTEXT:\n{context}"""
-    return _invoke(prompt, temperature=0.25)
+    try:
+        return _invoke(prompt, temperature=0.25)
+    except Exception as e:
+        return f"## 📘 Study Guide\n\nCould not generate the AI guide right now.\n\nError: {e}"
 
 
 def build_study_pack(topic="all material", language="Hinglish"):
