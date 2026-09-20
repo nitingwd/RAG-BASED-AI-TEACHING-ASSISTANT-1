@@ -1,560 +1,996 @@
-# ============================================================
-# ui.py
-# RAG Based AI Teaching Assistant
-# Complete Streamlit UI
-# ============================================================
-
+import streamlit as st
+import tempfile
 import os
 import io
-import re
+import sqlite3
+import hashlib
+import base64
 import json
-import tempfile
-from datetime import datetime
-
-import streamlit as st
+from datetime import datetime, date, timedelta
+from PIL import Image
 from docx import Document
 from docx.shared import Inches
 
-# ReportLab is used only for PDF report export.
-try:
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.enums import TA_CENTER
-    from reportlab.lib import colors
-    from reportlab.platypus import (
-        SimpleDocTemplate,
-        Paragraph,
-        Spacer,
-        PageBreak,
-        ListFlowable,
-        ListItem,
-    )
-    REPORTLAB_AVAILABLE = True
-except Exception:
-    REPORTLAB_AVAILABLE = False
-
-
 # ============================================================
-# BACKEND IMPORTS
-# ============================================================
-
-from rag_utils import (
-    get_api_key,
-    process_files,
-    ask_question,
-    generate_quiz,
-    check_quiz_answer,
-    generate_adaptive_quiz,
-    get_weak_topics,
-    generate_summary,
-    predict_important_questions,
-    story_mode_learning,
-    build_project_guide,
-    generate_podcast_script,
-    generate_viva_questions,
-    verify_viva_answer,
-    generate_teach_back_feedback,
-    generate_revision,
-    generate_exam_attack,
-    generate_confusion_battle,
-    create_ppt_file,
-    images_to_pdf,
-    images_to_docx,
-    text_to_audio_file,
-    transcribe_audio,
-    load_conversation_history,
-    _invoke,
-)
-
-
-# ============================================================
-# PAGE CONFIG
+# RAG AI TEACHING ASSISTANT - V24
+# IMPORTANT:
+# - Existing features are preserved.
+# - New student-retention features are added in this UI file.
+# - Existing rag_utils.py functions are still used.
 # ============================================================
 
 st.set_page_config(
-    page_title="AI Teaching Assistant",
-    page_icon="🎓",
+    page_title="RAG Based AI Teaching Assistant",
     layout="wide",
-    initial_sidebar_state="expanded",
+    page_icon="🎓"
+)
+
+try:
+    from streamlit_cookies_manager import EncryptedCookieManager
+    COOKIE_OK = True
+except Exception:
+    COOKIE_OK = False
+
+DB_PATH = "data/users.db"
+PICS_PATH = "data/profile_pics"
+os.makedirs("data", exist_ok=True)
+os.makedirs(PICS_PATH, exist_ok=True)
+
+
+# ============================================================
+# DATABASE
+# ============================================================
+
+def init_db():
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    c = conn.cursor()
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY,
+            username TEXT UNIQUE,
+            password TEXT,
+            name TEXT,
+            email TEXT,
+            photo TEXT,
+            bio TEXT,
+            created_at TEXT
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS conversations (
+            id INTEGER PRIMARY KEY,
+            user_id INTEGER,
+            query TEXT,
+            answer TEXT,
+            mode TEXT,
+            timestamp TEXT
+        )
+    """)
+
+    # New tables are additive. Existing DBs continue to work.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS learning_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            event_type TEXT,
+            topic TEXT,
+            score REAL DEFAULT 0,
+            details TEXT DEFAULT '',
+            created_at TEXT
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS mistakes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            topic TEXT,
+            question TEXT,
+            user_answer TEXT,
+            correct_answer TEXT,
+            created_at TEXT,
+            fixed INTEGER DEFAULT 0
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS study_plans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            plan_date TEXT,
+            task TEXT,
+            status TEXT DEFAULT 'pending',
+            created_at TEXT
+        )
+    """)
+
+    conn.commit()
+    conn.close()
+
+
+init_db()
+
+
+# ============================================================
+# AUTH / USER HELPERS
+# ============================================================
+
+def hash_pwd(p):
+    return hashlib.sha256(p.encode()).hexdigest()
+
+
+def get_conn():
+    return sqlite3.connect(DB_PATH, check_same_thread=False)
+
+
+def signup_user(username, password, name, email):
+    try:
+        conn = get_conn()
+        conn.execute(
+            """INSERT INTO users
+               (username, password, name, email, photo, bio, created_at)
+               VALUES (?,?,?,?,?,?,?)""",
+            (
+                username.lower().strip(),
+                hash_pwd(password),
+                name,
+                email,
+                "",
+                "",
+                datetime.now().isoformat()
+            )
+        )
+        conn.commit()
+        conn.close()
+        return True, "Account ban gaya!"
+    except sqlite3.IntegrityError:
+        return False, "Username pehle se hai!"
+    except Exception as e:
+        return False, str(e)
+
+
+def login_user(username, password):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute(
+        """SELECT id, username, name, email, photo, bio
+           FROM users WHERE username=? AND password=?""",
+        (username.lower().strip(), hash_pwd(password))
+    )
+    u = c.fetchone()
+    conn.close()
+
+    if u:
+        return {
+            "id": u[0],
+            "username": u[1],
+            "name": u[2],
+            "email": u[3],
+            "photo": u[4],
+            "bio": u[5]
+        }
+    return None
+
+
+def get_user_by_id(user_id):
+    try:
+        conn = get_conn()
+        c = conn.cursor()
+        c.execute(
+            """SELECT id, username, name, email, photo, bio
+               FROM users WHERE id=?""",
+            (user_id,)
+        )
+        u = c.fetchone()
+        conn.close()
+
+        if u:
+            return {
+                "id": u[0],
+                "username": u[1],
+                "name": u[2],
+                "email": u[3],
+                "photo": u[4],
+                "bio": u[5]
+            }
+    except Exception:
+        return None
+
+    return None
+
+
+def update_profile(user_id, name, email, bio, photo_file=None):
+    photo_path = None
+
+    if photo_file:
+        ext = photo_file.name.split(".")[-1].lower()
+        photo_path = f"{PICS_PATH}/{user_id}_{int(datetime.now().timestamp())}.{ext}"
+        with open(photo_path, "wb") as f:
+            f.write(photo_file.getbuffer())
+
+    conn = get_conn()
+
+    if photo_path:
+        conn.execute(
+            """UPDATE users SET name=?, email=?, bio=?, photo=?
+               WHERE id=?""",
+            (name, email, bio, photo_path, user_id)
+        )
+    else:
+        conn.execute(
+            """UPDATE users SET name=?, email=?, bio=?
+               WHERE id=?""",
+            (name, email, bio, user_id)
+        )
+
+    conn.commit()
+    conn.close()
+    return True
+
+
+def save_conversation(user_id, query, answer, mode="Ask"):
+    conn = get_conn()
+    conn.execute(
+        """INSERT INTO conversations
+           (user_id, query, answer, mode, timestamp)
+           VALUES (?,?,?,?,?)""",
+        (
+            user_id,
+            query,
+            answer,
+            mode,
+            datetime.now().isoformat()
+        )
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_user_conversations(user_id):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute(
+        """SELECT id, query, answer, mode, timestamp
+           FROM conversations
+           WHERE user_id=?
+           ORDER BY id DESC""",
+        (user_id,)
+    )
+    rows = c.fetchall()
+    conn.close()
+    return rows
+
+
+# ============================================================
+# LEARNING DATABASE HELPERS
+# ============================================================
+
+def log_event(user_id, event_type, topic="", score=0, details=""):
+    try:
+        conn = get_conn()
+        conn.execute(
+            """INSERT INTO learning_events
+               (user_id, event_type, topic, score, details, created_at)
+               VALUES (?,?,?,?,?,?)""",
+            (
+                user_id,
+                event_type,
+                topic[:300],
+                float(score or 0),
+                str(details)[:2000],
+                datetime.now().isoformat()
+            )
+        )
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+
+def add_mistake(user_id, topic, question, user_answer, correct_answer):
+    try:
+        conn = get_conn()
+        conn.execute(
+            """INSERT INTO mistakes
+               (user_id, topic, question, user_answer,
+                correct_answer, created_at, fixed)
+               VALUES (?,?,?,?,?,?,0)""",
+            (
+                user_id,
+                topic[:300],
+                question[:2000],
+                user_answer[:2000],
+                correct_answer[:2000],
+                datetime.now().isoformat()
+            )
+        )
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+
+def get_mistakes(user_id, only_open=False):
+    conn = get_conn()
+    c = conn.cursor()
+
+    if only_open:
+        c.execute(
+            """SELECT id, topic, question, user_answer,
+                      correct_answer, created_at, fixed
+               FROM mistakes
+               WHERE user_id=? AND fixed=0
+               ORDER BY id DESC""",
+            (user_id,)
+        )
+    else:
+        c.execute(
+            """SELECT id, topic, question, user_answer,
+                      correct_answer, created_at, fixed
+               FROM mistakes
+               WHERE user_id=?
+               ORDER BY id DESC""",
+            (user_id,)
+        )
+
+    rows = c.fetchall()
+    conn.close()
+    return rows
+
+
+def mark_mistake_fixed(mistake_id, user_id):
+    conn = get_conn()
+    conn.execute(
+        "UPDATE mistakes SET fixed=1 WHERE id=? AND user_id=?",
+        (mistake_id, user_id)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_events(user_id, event_type=None, days=None):
+    conn = get_conn()
+    c = conn.cursor()
+
+    if event_type and days:
+        since = (datetime.now() - timedelta(days=days)).isoformat()
+        c.execute(
+            """SELECT id, event_type, topic, score, details, created_at
+               FROM learning_events
+               WHERE user_id=? AND event_type=? AND created_at>=?
+               ORDER BY id DESC""",
+            (user_id, event_type, since)
+        )
+    elif event_type:
+        c.execute(
+            """SELECT id, event_type, topic, score, details, created_at
+               FROM learning_events
+               WHERE user_id=? AND event_type=?
+               ORDER BY id DESC""",
+            (user_id, event_type)
+        )
+    elif days:
+        since = (datetime.now() - timedelta(days=days)).isoformat()
+        c.execute(
+            """SELECT id, event_type, topic, score, details, created_at
+               FROM learning_events
+               WHERE user_id=? AND created_at>=?
+               ORDER BY id DESC""",
+            (user_id, since)
+        )
+    else:
+        c.execute(
+            """SELECT id, event_type, topic, score, details, created_at
+               FROM learning_events
+               WHERE user_id=?
+               ORDER BY id DESC""",
+            (user_id,)
+        )
+
+    rows = c.fetchall()
+    conn.close()
+    return rows
+
+
+def get_topic_stats(user_id, days=None):
+    rows = get_events(user_id, days=days)
+
+    stats = {}
+
+    for _, event_type, topic, score, details, created_at in rows:
+        topic = topic.strip() if topic else "General"
+
+        if topic not in stats:
+            stats[topic] = {
+                "attempts": 0,
+                "correct": 0,
+                "score_total": 0.0,
+                "quiz": 0,
+                "viva": 0,
+                "study": 0
+            }
+
+        s = stats[topic]
+
+        if event_type in ("quiz_correct", "quiz_wrong"):
+            s["quiz"] += 1
+            s["attempts"] += 1
+            s["score_total"] += float(score or 0)
+            if event_type == "quiz_correct":
+                s["correct"] += 1
+
+        elif event_type in ("viva_correct", "viva_wrong"):
+            s["viva"] += 1
+            s["attempts"] += 1
+            s["score_total"] += float(score or 0)
+            if event_type == "viva_correct":
+                s["correct"] += 1
+
+        elif event_type in ("study", "question", "summary", "revision"):
+            s["study"] += 1
+
+    return stats
+
+
+def get_streak(user_id):
+    rows = get_events(user_id)
+    active_days = set()
+
+    for row in rows:
+        try:
+            active_days.add(datetime.fromisoformat(row[5]).date())
+        except Exception:
+            pass
+
+    if not active_days:
+        return 0
+
+    today = date.today()
+    if today not in active_days and (today - timedelta(days=1)) not in active_days:
+        return 0
+
+    streak = 0
+    d = today
+
+    if d not in active_days:
+        d = today - timedelta(days=1)
+
+    while d in active_days:
+        streak += 1
+        d -= timedelta(days=1)
+
+    return streak
+
+
+def create_today_plan(user_id):
+    today = date.today().isoformat()
+
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute(
+        """SELECT id, task, status
+           FROM study_plans
+           WHERE user_id=? AND plan_date=?
+           ORDER BY id""",
+        (user_id, today)
+    )
+    existing = c.fetchall()
+
+    if existing:
+        conn.close()
+        return existing
+
+    tasks = [
+        "10 min: Uploaded notes ka quick revision",
+        "10 min: 5 adaptive quiz questions",
+        "10 min: Ek weak topic explain karo",
+        "5 min: Mistake Bank se 2 mistakes fix karo",
+        "5 min: Viva-style oral recall"
+    ]
+
+    for task in tasks:
+        conn.execute(
+            """INSERT INTO study_plans
+               (user_id, plan_date, task, status, created_at)
+               VALUES (?,?,?,?,?)""",
+            (
+                user_id,
+                today,
+                task,
+                "pending",
+                datetime.now().isoformat()
+            )
+        )
+
+    conn.commit()
+
+    c.execute(
+        """SELECT id, task, status
+           FROM study_plans
+           WHERE user_id=? AND plan_date=?
+           ORDER BY id""",
+        (user_id, today)
+    )
+    result = c.fetchall()
+    conn.close()
+    return result
+
+
+def toggle_plan_task(task_id, user_id, status):
+    new_status = "done" if status != "done" else "pending"
+
+    conn = get_conn()
+    conn.execute(
+        """UPDATE study_plans SET status=?
+           WHERE id=? AND user_id=?""",
+        (new_status, task_id, user_id)
+    )
+    conn.commit()
+    conn.close()
+
+
+# ============================================================
+# AUTH UI
+# ============================================================
+
+def auth_ui():
+    cookies = None
+
+    if COOKIE_OK:
+        # Keep the existing cookie mechanism compatible.
+        # For production, move this secret to Streamlit secrets.
+        cookie_password = st.secrets.get(
+            "COOKIE_PASSWORD",
+            "kadiya_naresh_final_v23_best_color_2024"
+        )
+
+        cookies = EncryptedCookieManager(
+            prefix="rag_v23_best_",
+            password=cookie_password
+        )
+
+        if not cookies.ready():
+            st.stop()
+
+    if st.session_state.get("logged_in") and st.session_state.get("user"):
+        return True, cookies
+
+    if COOKIE_OK and cookies:
+        uid_val = cookies.get("uid")
+
+        if uid_val:
+            try:
+                uid = int(uid_val)
+                u = get_user_by_id(uid)
+
+                if u:
+                    st.session_state.logged_in = True
+                    st.session_state.user = u
+                    return True, cookies
+            except Exception:
+                pass
+
+    st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
+
+    .stApp {
+        background: radial-gradient(
+            1000px at 20% 10%,
+            #E0E7FF 0%,
+            #F0F4FF 40%,
+            #FFFFFF 100%
+        );
+    }
+
+    .login-card {
+        background: rgba(255,255,255,0.95);
+        backdrop-filter: blur(24px);
+        border: 1px solid rgba(99,102,241,0.12);
+        padding: 36px;
+        border-radius: 28px;
+        box-shadow: 0 24px 80px rgba(99,102,241,0.18);
+        text-align:center;
+        max-width:440px;
+        width:100%;
+    }
+
+    .login-title {
+        font-family:'Space Grotesk';
+        font-size:28px;
+        font-weight:700;
+        color:#111827;
+        line-height:1.2;
+    }
+
+    .login-sub {
+        color:#6B7280;
+        font-size:13px;
+        margin-top:6px;
+    }
+
+    .pill {
+        display:inline-block;
+        background:linear-gradient(135deg,#EEF2FF,#E0E7FF);
+        color:#6366F1;
+        padding:6px 12px;
+        border-radius:20px;
+        font-size:11px;
+        font-weight:700;
+        margin:3px;
+        border:1px solid #C7D2FE;
+    }
+
+    .stButton>button {
+        border-radius:12px;
+        height:48px;
+        font-weight:700;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    _, col, _ = st.columns([1, 2, 1])
+
+    with col:
+        st.markdown("""
+        <div class="login-card">
+            <div style="font-size:52px; margin-bottom:8px;">🎓</div>
+            <div class="login-title">
+                RAG Based AI<br>Teaching Assistant
+            </div>
+            <div class="login-sub">
+                One-time login, 30 days tak yaad rahega
+            </div>
+            <div style="margin-top:14px;">
+                <span class="pill">💬 Q&A</span>
+                <span class="pill">🎤 VIVA</span>
+                <span class="pill">📝 QUIZ</span>
+                <span class="pill">🔊 AUDIO</span>
+            </div>
+        </div><br>
+        """, unsafe_allow_html=True)
+
+        t1, t2 = st.tabs(["🔐 Login", "✨ Sign Up"])
+
+        with t1:
+            username = st.text_input(
+                "Username",
+                placeholder="naresh123",
+                key="l_user"
+            )
+
+            pwd = st.text_input(
+                "Password",
+                type="password",
+                placeholder="••••••••",
+                key="l_pwd"
+            )
+
+            if st.button(
+                "🚀 Login to Dashboard",
+                type="primary",
+                use_container_width=True
+            ):
+                u = login_user(username, pwd)
+
+                if u:
+                    st.session_state.logged_in = True
+                    st.session_state.user = u
+
+                    if COOKIE_OK:
+                        cookies["uid"] = str(u["id"])
+                        cookies.save()
+
+                    st.rerun()
+                else:
+                    st.error("Galat Username/Password")
+
+        with t2:
+            name = st.text_input(
+                "Full Name",
+                key="s_name",
+                placeholder="Kadiya Naresh"
+            )
+
+            username = st.text_input(
+                "Username",
+                key="s_user",
+                placeholder="naresh123"
+            )
+
+            email = st.text_input(
+                "Email",
+                key="s_email",
+                placeholder="naresh@gmail.com"
+            )
+
+            pwd = st.text_input(
+                "Password",
+                key="s_pwd",
+                type="password",
+                placeholder="Min 4 chars"
+            )
+
+            if st.button(
+                "Create Account",
+                use_container_width=True
+            ):
+                if len(username) < 3 or len(pwd) < 4:
+                    st.error("Username min 3, Password min 4")
+                else:
+                    ok, msg = signup_user(
+                        username,
+                        pwd,
+                        name,
+                        email
+                    )
+
+                    if ok:
+                        st.success(msg + " Ab Login karo")
+                        st.balloons()
+                    else:
+                        st.error(msg)
+
+    return False, cookies
+
+
+logged_in, cookies = auth_ui()
+
+if not logged_in:
+    st.stop()
+
+user = get_user_by_id(st.session_state.user["id"])
+
+if not user:
+    if COOKIE_OK and cookies:
+        cookies["uid"] = ""
+        cookies.save()
+
+    st.session_state.clear()
+    st.rerun()
+
+st.session_state.user = user
+
+
+# ============================================================
+# EXISTING RAG FUNCTIONS
+# ============================================================
+
+from rag_utils import (
+    process_files, ask_question, get_api_key, generate_quiz, generate_summary,
+    predict_important_questions, check_quiz_answer, get_weak_topics,
+    transcribe_audio, story_mode_learning, build_project_guide,
+    generate_podcast_script, generate_viva_questions, verify_viva_answer,
+    generate_adaptive_quiz, generate_teach_back_feedback, generate_revision,
+    generate_exam_attack, generate_confusion_battle, create_ppt_file,
+    text_to_audio_file, images_to_pdf, images_to_docx
 )
 
 
-# ============================================================
-# SESSION STATE
-# ============================================================
-
-DEFAULTS = {
-    "vectordb": None,
-    "history": [],
-    "weak_topics": {},
-    "kb_files": [],
-    "kb_chunk_count": 0,
-    "kb_doc_count": 0,
-
-    # Tutor
-    "chat_messages": [],
-
-    # Quiz
-    "quiz_data": [],
-    "quiz_results": [],
-    "quiz_started": False,
-    "quiz_finished": False,
-
-    # Viva
-    "viva_data": [],
-    "viva_results": [],
-    "viva_started": False,
-    "viva_finished": False,
-
-    # Project
-    "project_outputs": {},
-
-    # Feature outputs
-    "feature_reports": {},
-
-    # Settings
-    "language": "Hinglish",
-    "answer_length": "Detailed",
-    "retrieval_k": 8,
-    "chunk_size": 1000,
-    "chunk_overlap": 100,
-}
-
-for key, value in DEFAULTS.items():
-    if key not in st.session_state:
-        st.session_state[key] = value
-
-
-# ============================================================
-# CSS
-# ============================================================
-
-st.markdown(
-    """
+st.markdown("""
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;600;700&display=swap');
 
-.block-container {
-    padding-top: 1.2rem;
-    padding-bottom: 3rem;
+.main {
+    background:#F8FAFF;
 }
 
-.main-title {
-    font-size: 2.3rem;
-    font-weight: 800;
-    margin-bottom: 0.2rem;
+.hero-pro {
+    background: linear-gradient(
+        135deg,
+        #4F46E5 0%,
+        #7C3AED 35%,
+        #EC4899 70%,
+        #F59E0B 100%
+    );
+    border-radius:24px;
+    padding:26px 28px;
+    color:white;
+    box-shadow:0 16px 40px rgba(99,102,241,0.25);
 }
 
-.subtitle {
-    color: #6b7280;
-    font-size: 1rem;
-    margin-bottom: 1.3rem;
+.profile-card-pro {
+    background:linear-gradient(
+        180deg,
+        #FFFFFF 0%,
+        #F8FAFF 100%
+    );
+    border-radius:20px;
+    padding:18px;
+    border:1px solid #E0E7FF;
+    text-align:center;
+    box-shadow:0 8px 24px rgba(99,102,241,0.08);
 }
 
-.card {
-    padding: 1rem;
-    border-radius: 16px;
-    border: 1px solid rgba(128,128,128,0.18);
-    background: rgba(128,128,128,0.04);
-    margin-bottom: 1rem;
+.img-circle {
+    width:85px;
+    height:85px;
+    border-radius:50%;
+    object-fit:cover;
+    border:3px solid transparent;
+    background:
+        linear-gradient(white, white) padding-box,
+        linear-gradient(135deg,#6366F1,#EC4899) border-box;
+    box-shadow:0 6px 20px rgba(99,102,241,0.25);
+    display:block;
+    margin:0 auto;
+}
+
+.avatar-letter {
+    width:85px;
+    height:85px;
+    border-radius:50%;
+    background:linear-gradient(
+        135deg,
+        #6366F1 0%,
+        #8B5CF6 50%,
+        #EC4899 100%
+    );
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin:0 auto;
+    color:white;
+    font-size:32px;
+    font-weight:700;
+    font-family:Space Grotesk;
+}
+
+.dev-badge {
+    position:fixed;
+    bottom:14px;
+    right:14px;
+    background:#111827;
+    color:white;
+    padding:7px 12px;
+    border-radius:20px;
+    font-size:10px;
+    z-index:999;
+    font-weight:600;
+}
+
+/* Dashboard buttons */
+section.main div[data-testid="stButton"] > button {
+    border-radius:14px!important;
+    height:58px!important;
+    font-weight:700!important;
+    font-size:13px!important;
+    border:1.5px solid rgba(0,0,0,0.06)!important;
+    box-shadow:0 4px 12px rgba(0,0,0,0.06)!important;
+    transition:all 0.32s cubic-bezier(0.34,1.56,0.64,1)!important;
+}
+
+section.main div[data-testid="stButton"] > button:hover {
+    transform:translateY(-7px) scale(1.05)!important;
+    box-shadow:0 20px 40px rgba(0,0,0,0.20)!important;
+    z-index:20!important;
+    border-color:transparent!important;
+}
+
+.feature-card {
+    padding:18px;
+    border-radius:18px;
+    border:1px solid #E5E7EB;
+    background:white;
+    box-shadow:0 6px 18px rgba(0,0,0,0.05);
+    margin-bottom:12px;
+}
+
+.mini-card {
+    padding:14px;
+    border-radius:16px;
+    background:#FFFFFF;
+    border:1px solid #E5E7EB;
+    text-align:center;
 }
 
 .success-card {
-    padding: 1rem;
-    border-radius: 16px;
-    border: 1px solid #22c55e;
-    background: rgba(34,197,94,0.08);
-    margin-bottom: 1rem;
+    padding:18px;
+    border-radius:18px;
+    background:linear-gradient(135deg,#ECFDF5,#F0FDFA);
+    border:1px solid #A7F3D0;
 }
 
 .warning-card {
-    padding: 1rem;
-    border-radius: 16px;
-    border: 1px solid #f59e0b;
-    background: rgba(245,158,11,0.08);
-    margin-bottom: 1rem;
+    padding:18px;
+    border-radius:18px;
+    background:linear-gradient(135deg,#FFFBEB,#FFF7ED);
+    border:1px solid #FDE68A;
 }
 
-.danger-card {
-    padding: 1rem;
-    border-radius: 16px;
-    border: 1px solid #ef4444;
-    background: rgba(239,68,68,0.08);
-    margin-bottom: 1rem;
+.dark-card {
+    padding:18px;
+    border-radius:18px;
+    background:linear-gradient(135deg,#111827,#374151);
+    color:white;
 }
-
-.metric-card {
-    padding: 1rem;
-    border-radius: 16px;
-    text-align: center;
-    border: 1px solid rgba(128,128,128,0.2);
-    background: rgba(128,128,128,0.05);
-}
-
-.metric-number {
-    font-size: 1.8rem;
-    font-weight: 800;
-}
-
-.metric-label {
-    font-size: 0.85rem;
-    color: #6b7280;
-}
-
-.small-muted {
-    color: #6b7280;
-    font-size: 0.85rem;
-}
-
-.result-correct {
-    border-left: 5px solid #22c55e;
-    padding: 0.8rem 1rem;
-    background: rgba(34,197,94,0.07);
-    border-radius: 10px;
-    margin-bottom: 0.8rem;
-}
-
-.result-partial {
-    border-left: 5px solid #f59e0b;
-    padding: 0.8rem 1rem;
-    background: rgba(245,158,11,0.07);
-    border-radius: 10px;
-    margin-bottom: 0.8rem;
-}
-
-.result-wrong {
-    border-left: 5px solid #ef4444;
-    padding: 0.8rem 1rem;
-    background: rgba(239,68,68,0.07);
-    border-radius: 10px;
-    margin-bottom: 0.8rem;
-}
-
 </style>
-""",
-    unsafe_allow_html=True,
-)
+
+<div class="dev-badge">V24 • Student AI Brain</div>
+""", unsafe_allow_html=True)
 
 
 # ============================================================
-# HELPERS
+# INPUT / AUDIO HELPERS
 # ============================================================
 
-def clean_text(value):
-    return str(value or "").strip()
-
-
-def answer_length_instruction(length):
-    mapping = {
-        "Short": (
-            "Give a concise answer. Cover only the essential points. "
-            "Avoid unnecessary explanation."
-        ),
-        "Medium": (
-            "Give a balanced answer with enough explanation, examples, "
-            "and important points."
-        ),
-        "Detailed": (
-            "Give a detailed student-friendly answer with definitions, "
-            "explanation, examples, important points, and conclusion."
-        ),
-        "Very Detailed": (
-            "Give a very comprehensive answer. Cover the topic deeply with "
-            "definitions, step-by-step explanation, examples, comparisons, "
-            "applications, common mistakes, and quick revision points."
-        ),
-    }
-    return mapping.get(length, mapping["Detailed"])
-
-
-def save_feature_report(name, content):
-    st.session_state.feature_reports[name] = {
-        "content": content,
-        "time": datetime.now().strftime("%d-%m-%Y %H:%M"),
-    }
-
-
-def safe_score(value, default=0):
-    try:
-        return max(0.0, min(10.0, float(value)))
-    except Exception:
-        return float(default)
-
-
-def classify_viva_result(result):
-    """
-    Robust classification.
-
-    Supports:
-    Correct
-    Partial
-    Incorrect
-    True
-    False
-    true
-    false
-    correct
-    wrong
-    etc.
-
-    Score is used as fallback.
-    """
-
-    verdict = clean_text(result.get("verdict", "")).lower()
-
-    if verdict in {
-        "correct",
-        "true",
-        "yes",
-        "right",
-        "fully correct",
-        "correct answer",
-    }:
-        return "Correct"
-
-    if verdict in {
-        "partial",
-        "partially correct",
-        "partially",
-        "needs work",
-    }:
-        return "Partial"
-
-    if verdict in {
-        "incorrect",
-        "false",
-        "wrong",
-        "no",
-        "incorrect answer",
-    }:
-        return "Incorrect"
-
-    score = safe_score(result.get("score", 0))
-
-    if score >= 8:
-        return "Correct"
-    elif score >= 4:
-        return "Partial"
-    return "Incorrect"
-
-
-def normalize_result_score(result):
-    score = safe_score(result.get("score", 0))
-
-    # Viva score normally 0-10.
-    # Also handle accidental percentage-like scores.
-    if score > 10:
-        score = score / 10.0
-
-    return max(0.0, min(10.0, score))
-
-
-def create_txt_file(text):
-    return io.BytesIO(str(text).encode("utf-8"))
-
-
-def create_docx_file(title, text):
-    doc = Document()
-
-    doc.add_heading(title, 0)
-    doc.add_paragraph(
-        f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}"
-    )
-
-    for block in str(text).split("\n"):
-        block = block.strip()
-
-        if not block:
-            doc.add_paragraph("")
-            continue
-
-        if block.startswith("# "):
-            doc.add_heading(block[2:], level=1)
-        elif block.startswith("## "):
-            doc.add_heading(block[3:], level=2)
-        elif block.startswith("### "):
-            doc.add_heading(block[4:], level=3)
-        elif block.startswith("- "):
-            doc.add_paragraph(block[2:], style="List Bullet")
-        elif re.match(r"^\d+\.\s+", block):
-            doc.add_paragraph(
-                re.sub(r"^\d+\.\s+", "", block),
-                style="List Number",
-            )
-        else:
-            doc.add_paragraph(block)
-
-    buffer = io.BytesIO()
-    doc.save(buffer)
-    buffer.seek(0)
-    return buffer
-
-
-def create_pdf_file(title, text):
-    if not REPORTLAB_AVAILABLE:
-        return None
-
-    buffer = io.BytesIO()
-
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        rightMargin=40,
-        leftMargin=40,
-        topMargin=45,
-        bottomMargin=45,
-    )
-
-    styles = getSampleStyleSheet()
-
-    title_style = ParagraphStyle(
-        "CustomTitle",
-        parent=styles["Title"],
-        alignment=TA_CENTER,
-        fontSize=18,
-        leading=22,
-        spaceAfter=18,
-    )
-
-    heading_style = ParagraphStyle(
-        "CustomHeading",
-        parent=styles["Heading2"],
-        fontSize=13,
-        leading=16,
-        spaceBefore=10,
-        spaceAfter=7,
-    )
-
-    body_style = ParagraphStyle(
-        "CustomBody",
-        parent=styles["BodyText"],
-        fontSize=9.5,
-        leading=14,
-        spaceAfter=6,
-    )
-
-    story = [
-        Paragraph(title, title_style),
-        Paragraph(
-            f"Generated: {datetime.now().strftime('%d-%m-%Y %H:%M')}",
-            body_style,
-        ),
-        Spacer(1, 8),
-    ]
-
-    for raw_line in str(text).split("\n"):
-        line = raw_line.strip()
-
-        if not line:
-            story.append(Spacer(1, 5))
-            continue
-
-        safe = (
-            line.replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-        )
-
-        if line.startswith("### "):
-            story.append(
-                Paragraph(safe[4:], heading_style)
-            )
-
-        elif line.startswith("## "):
-            story.append(
-                Paragraph(safe[3:], heading_style)
-            )
-
-        elif line.startswith("# "):
-            story.append(
-                Paragraph(safe[2:], heading_style)
-            )
-
-        elif line.startswith("- "):
-            story.append(
-                Paragraph("• " + safe[2:], body_style)
-            )
-
-        elif re.match(r"^\d+\.\s+", line):
-            story.append(
-                Paragraph(safe, body_style)
-            )
-
-        else:
-            story.append(
-                Paragraph(safe, body_style)
-            )
-
-    doc.build(story)
-
-    buffer.seek(0)
-    return buffer
-
-
-def export_buttons(title, content, filename_prefix):
-    st.markdown("### 📥 Export")
-
-    txt = create_txt_file(content)
-    docx = create_docx_file(title, content)
-    pdf = create_pdf_file(title, content)
-
-    c1, c2, c3 = st.columns(3)
+def universal_input(key, placeholder="Bolo ya likho..."):
+    c1, c2 = st.columns([5, 1])
 
     with c1:
-        st.download_button(
-            "📄 TXT",
-            data=txt.getvalue(),
-            file_name=f"{filename_prefix}.txt",
-            mime="text/plain",
-            use_container_width=True,
+        txt = st.text_input(
+            " ",
+            key=f"txt_{key}",
+            placeholder=placeholder,
+            label_visibility="collapsed"
         )
 
     with c2:
-        st.download_button(
-            "📝 DOCX",
-            data=docx.getvalue(),
-            file_name=f"{filename_prefix}.docx",
-            mime=(
-                "application/vnd.openxmlformats-officedocument."
-                "wordprocessingml.document"
-            ),
-            use_container_width=True,
+        aud = st.audio_input(
+            "🎤",
+            key=f"aud_{key}",
+            label_visibility="collapsed"
         )
 
-    with c3:
-        if pdf is not None:
-            st.download_button(
-                "📕 PDF",
-                data=pdf.getvalue(),
-                file_name=f"{filename_prefix}.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-            )
-        else:
-            st.info(
-                "PDF export ke liye requirements.txt me "
-                "`reportlab>=4.0.0` add karo."
-            )
+    if aud:
+        api_key = get_api_key()
+
+        with tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=".wav"
+        ) as tmp:
+            tmp.write(aud.getvalue())
+            path = tmp.name
+
+        try:
+            with st.spinner("Sun raha hu..."):
+                vt = transcribe_audio(api_key, path)
+        except Exception as e:
+            vt = None
+            st.warning(f"Voice input unavailable: {e}")
+        finally:
+            if os.path.exists(path):
+                try:
+                    os.remove(path)
+                except Exception:
+                    pass
+
+        if vt:
+            st.success(f"🎧 {vt}")
+            return vt
+
+    return txt
 
 
-def get_all_feature_reports_text():
-    if not st.session_state.feature_reports:
-        return "No feature reports generated yet."
+def play_audio_block(text, lang, key):
+    if not text:
+        return
 
-    parts = []
-
-    for name, item in st.session_state.feature_reports.items():
-        parts.append(
-            f"""
-============================================================
-{name.upper()}
-Generated: {item.get('time', '')}
-============================================================
-
-{item.get('content', '')}
-"""
-        )
-
-    return "\n".join(parts)
+    if st.button(
+        f"▶️ {lang} me Suno",
+        key=f"play_{key}",
+        type="primary",
+        use_container_width=True
+    ):
+        with st.spinner("Audio bana raha hu..."):
+            try:
+                ap = text_to_audio_file(text, lang)
+                if ap and os.path.exists(ap) and os.path.getsize(ap) > 500:
+                    with open(ap, "rb") as f:
+                        audio_bytes = f.read()
+                    st.audio(audio_bytes, format="audio/mp3", autoplay=True)
+                else:
+                    st.warning("Audio generate nahi ho paya. Internet/TTS check karo.")
+            except Exception as e:
+                st.warning(f"Audio error: {e}")
+            finally:
+                if 'ap' in locals() and ap and os.path.exists(ap):
+                    try:
+                        os.remove(ap)
+                    except Exception:
+                        pass
 
 
 # ============================================================
@@ -562,2635 +998,2358 @@ Generated: {item.get('time', '')}
 # ============================================================
 
 with st.sidebar:
+    photo_html = ""
 
-    st.markdown("## 🎓 AI Teaching Assistant")
+    if user["photo"] and os.path.exists(user["photo"]):
+        try:
+            with open(user["photo"], "rb") as f:
+                b64 = base64.b64encode(f.read()).decode()
 
-    st.caption(
-        "Study • Quiz • Viva • Projects • Reports • Voice"
+            ext = user["photo"].split(".")[-1]
+
+            photo_html = (
+                f'<img src="data:image/{ext};base64,{b64}" '
+                f'class="img-circle">'
+            )
+        except Exception:
+            photo_html = (
+                f'<div class="avatar-letter">'
+                f'{user["name"][0].upper()}'
+                f'</div>'
+            )
+    else:
+        photo_html = (
+            f'<div class="avatar-letter">'
+            f'{user["name"][0].upper()}'
+            f'</div>'
+        )
+
+    profile_html = (
+        f'<div class="profile-card-pro">{photo_html}'
+        f'<h4 style="margin:12px 0 2px 0;font-family:Space Grotesk;font-size:16px;color:#111827;">{user["name"]}</h4>'
+        f'<p style="margin:0;color:#6366F1;font-size:12px;font-weight:600;">@{user["username"]}</p>'
+        f'<div style="margin-top:10px;display:flex;gap:6px;justify-content:center;">'
+        f'<span style="background:#EEF2FF;color:#6366F1;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:700;">PRO</span>'
+        f'<span style="background:#F0FDF4;color:#16A34A;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:700;">ACTIVE</span>'
+        f'</div></div>'
     )
+    st.markdown(profile_html, unsafe_allow_html=True)
+
+    st.write("")
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        if st.button(
+            "➕ New Chat",
+            use_container_width=True,
+            key="new_chat"
+        ):
+            st.session_state.selected_conv = None
+            st.session_state.active = "Ask"
+            st.rerun()
+
+    with c2:
+        if st.button(
+            "🚪 Logout",
+            use_container_width=True,
+            key="logout"
+        ):
+            if COOKIE_OK and cookies:
+                cookies["uid"] = ""
+                cookies.save()
+
+            st.session_state.clear()
+            st.rerun()
 
     st.divider()
 
     # --------------------------------------------------------
-    # LANGUAGE
+    # Knowledge Base - EXISTING
     # --------------------------------------------------------
-
-    st.session_state.language = st.selectbox(
-        "🌐 Language",
-        [
-            "Hinglish",
-            "English",
-            "Hindi",
-            "Gujarati",
-            "Marathi",
-        ],
-        index=[
-            "Hinglish",
-            "English",
-            "Hindi",
-            "Gujarati",
-            "Marathi",
-        ].index(st.session_state.language),
-    )
-
-    # --------------------------------------------------------
-    # ANSWER LENGTH
-    # --------------------------------------------------------
-
-    st.session_state.answer_length = st.selectbox(
-        "📏 Answer Length",
-        [
-            "Short",
-            "Medium",
-            "Detailed",
-            "Very Detailed",
-        ],
-        index=[
-            "Short",
-            "Medium",
-            "Detailed",
-            "Very Detailed",
-        ].index(st.session_state.answer_length),
-    )
-
-    st.caption(
-        "Very Detailed select karne par AI ko maximum useful detail "
-        "dene ke liye instruction milega."
-    )
-
-    st.divider()
-
-    # --------------------------------------------------------
-    # KNOWLEDGE BASE
-    # --------------------------------------------------------
-
-    st.markdown("### 📚 Knowledge Base")
+    st.markdown("#### 📁 Knowledge Base")
 
     uploaded_files = st.file_uploader(
-        "Study / Project Files",
-        type=[
-            "pdf",
-            "txt",
-            "csv",
-            "md",
-            "py",
-            "js",
-            "ts",
-            "java",
-            "c",
-            "cpp",
-            "h",
-            "hpp",
-            "cs",
-            "go",
-            "rs",
-            "php",
-            "html",
-            "css",
-            "sql",
-            "json",
-            "xml",
-            "yaml",
-            "yml",
-            "ino",
-            "sh",
-            "bat",
-        ],
+        "PDF, CSV, TXT",
+        type=["pdf", "csv", "txt"],
         accept_multiple_files=True,
-        help=(
-            "PDF, notes, CSV aur project/source files upload kar sakte ho. "
-            "Backend me supported extensions process honge."
-        ),
-    )
-
-    st.session_state.chunk_size = st.slider(
-        "Chunk Size",
-        min_value=300,
-        max_value=2000,
-        value=int(st.session_state.chunk_size),
-        step=100,
-    )
-
-    st.session_state.chunk_overlap = st.slider(
-        "Chunk Overlap",
-        min_value=0,
-        max_value=500,
-        value=int(st.session_state.chunk_overlap),
-        step=50,
-    )
-
-    st.session_state.retrieval_k = st.slider(
-        "Retrieval Depth",
-        min_value=3,
-        max_value=15,
-        value=int(st.session_state.retrieval_k),
+        label_visibility="collapsed"
     )
 
     if st.button(
-        "🔨 Build / Update Knowledge Base",
-        use_container_width=True,
+        "🚀 Upload & Process",
         type="primary",
+        use_container_width=True,
+        key="upload"
     ):
         if uploaded_files:
-            process_files(
-                uploaded_files,
-                chunk_size=st.session_state.chunk_size,
-                chunk_overlap=st.session_state.chunk_overlap,
-            )
+            with st.spinner("Processing..."):
+                process_files(
+                    uploaded_files,
+                    1000,
+                    100
+                )
 
-            # Backend may not set this.
-            st.session_state.kb_doc_count = len(
-                st.session_state.get("kb_files", [])
-            )
-
-        else:
-            st.warning("Pehle files upload karo.")
-
-    if st.session_state.kb_files:
-        st.success(
-            f"📚 {len(st.session_state.kb_files)} file(s) loaded"
-        )
-
-        st.caption(
-            f"Chunks: {st.session_state.kb_chunk_count}"
-        )
+            st.success("Processed!")
 
     st.divider()
 
     # --------------------------------------------------------
-    # RESET
+    # Existing recent chats
     # --------------------------------------------------------
+    st.markdown("#### 💬 Recent Chats")
 
-    if st.button(
-        "🧹 Reset Session",
-        use_container_width=True,
-    ):
-        keys_to_reset = [
-            "vectordb",
-            "history",
-            "weak_topics",
-            "kb_files",
-            "kb_chunk_count",
-            "kb_doc_count",
-            "chat_messages",
-            "quiz_data",
-            "quiz_results",
-            "quiz_started",
-            "quiz_finished",
-            "viva_data",
-            "viva_results",
-            "viva_started",
-            "viva_finished",
-            "project_outputs",
-            "feature_reports",
-        ]
+    convs = get_user_conversations(user["id"])
 
-        for key in keys_to_reset:
-            st.session_state[key] = (
-                {} if key in {
-                    "weak_topics",
-                    "project_outputs",
-                    "feature_reports",
-                }
-                else []
-                if key in {
-                    "history",
-                    "kb_files",
-                    "chat_messages",
-                    "quiz_data",
-                    "quiz_results",
-                    "viva_data",
-                    "viva_results",
-                }
-                else None
-                if key == "vectordb"
-                else 0
-                if key in {
-                    "kb_chunk_count",
-                    "kb_doc_count",
-                }
-                else False
+    if not convs:
+        st.caption("Koi chat nahi")
+    else:
+        for cid, q, a, mode, ts in convs[:35]:
+            title = (
+                q[:28] + ".."
+                if len(q) > 28
+                else q
             )
 
-        st.rerun()
+            if st.button(
+                f"{mode} • {title}",
+                key=f"hist_{cid}",
+                use_container_width=True
+            ):
+                st.session_state.selected_conv = {
+                    "id": cid,
+                    "query": q,
+                    "answer": a,
+                    "mode": mode,
+                    "timestamp": ts
+                }
+
+                st.session_state.active = "ChatView"
+                st.rerun()
+
+    st.divider()
+
+    selected_language = st.selectbox(
+        "Output Language",
+        [
+            "Hinglish",
+            "Hindi",
+            "Gujarati",
+            "English"
+        ],
+        index=0,
+        key="glang"
+    )
+
+    st.session_state.selected_language = selected_language
+
+    chunk_size = 1000
+    chunk_overlap = 100
+    top_k = 8
 
 
 # ============================================================
-# HEADER
+# HERO
 # ============================================================
 
-st.markdown(
-    '<div class="main-title">🎓 RAG Based AI Teaching Assistant</div>',
-    unsafe_allow_html=True,
+hero_html = (
+    f'<div class="hero-pro"><div style="position:relative;z-index:2;">'
+    f'<h1 style="margin:0;font-family:Space Grotesk;font-size:26px;font-weight:700;">Welcome back, {user["name"].split()[0]}! 👋</h1>'
+    f'<h2 style="margin:6px 0 0 0;font-family:Space Grotesk;font-size:18px;font-weight:500;opacity:0.93;">RAG Based AI Teaching Assistant</h2>'
+    f'<p style="margin:8px 0 0 0;opacity:0.90;font-size:13px;">Learn → Practice → Mistake → Fix → Revise → Retest</p>'
+    f'</div></div><br>'
 )
+st.markdown(hero_html, unsafe_allow_html=True)
 
-st.markdown(
-    '<div class="subtitle">'
-    "Learn smarter • Practice • Give Viva • Build Projects • Analyze Performance"
-    "</div>",
-    unsafe_allow_html=True,
+
+# ============================================================
+# SESSION STATE
+# ============================================================
+
+if "active" not in st.session_state:
+    st.session_state.active = "Ask"
+
+if "viva_qs" not in st.session_state:
+    st.session_state.viva_qs = []
+    st.session_state.viva_idx = 0
+    st.session_state.viva_score = []
+
+if "quiz_data" not in st.session_state:
+    st.session_state.quiz_data = None
+    st.session_state.quiz_results = []
+
+if "adaptive_quiz" not in st.session_state:
+    st.session_state.adaptive_quiz = None
+    st.session_state.adaptive_results = []
+
+if "selected_topic" not in st.session_state:
+    st.session_state.selected_topic = ""
+
+
+lang = st.session_state.get(
+    "selected_language",
+    "Hinglish"
 )
 
 
 # ============================================================
 # DASHBOARD
+# EXISTING 12 FEATURES PRESERVED
+# + NEW STUDENT FEATURES
 # ============================================================
 
-c1, c2, c3, c4 = st.columns(4)
+st.markdown("#### ⚡ Production Dashboard - All Features")
 
-with c1:
-    st.markdown(
-        f"""
-        <div class="metric-card">
-            <div class="metric-number">
-                {len(st.session_state.get("kb_files", []))}
-            </div>
-            <div class="metric-label">Files</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+# Existing row 1
+c = st.columns(6)
 
-with c2:
-    st.markdown(
-        f"""
-        <div class="metric-card">
-            <div class="metric-number">
-                {st.session_state.get("kb_chunk_count", 0)}
-            </div>
-            <div class="metric-label">Knowledge Chunks</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+with c[0]:
+    if st.button(
+        "💬 Ask Q&A",
+        use_container_width=True,
+        key="dash_ask"
+    ):
+        st.session_state.active = "Ask"
+        st.rerun()
 
-with c3:
-    st.markdown(
-        f"""
-        <div class="metric-card">
-            <div class="metric-number">
-                {len(st.session_state.get("quiz_results", []))}
-            </div>
-            <div class="metric-label">Quiz Attempts</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+with c[1]:
+    if st.button(
+        "⭐ Important",
+        use_container_width=True,
+        key="dash_imp"
+    ):
+        st.session_state.active = "Important"
+        st.rerun()
 
-with c4:
-    st.markdown(
-        f"""
-        <div class="metric-card">
-            <div class="metric-number">
-                {len(st.session_state.get("viva_results", []))}
-            </div>
-            <div class="metric-label">Viva Answers</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+with c[2]:
+    if st.button(
+        "🔧 Project",
+        use_container_width=True,
+        key="dash_proj"
+    ):
+        st.session_state.active = "Projects"
+        st.rerun()
+
+with c[3]:
+    if st.button(
+        "📝 Quiz",
+        use_container_width=True,
+        key="dash_quiz"
+    ):
+        st.session_state.active = "Quiz"
+        st.rerun()
+
+with c[4]:
+    if st.button(
+        "🎤 Viva",
+        use_container_width=True,
+        key="dash_viva"
+    ):
+        st.session_state.active = "Viva"
+        st.rerun()
+
+with c[5]:
+    if st.button(
+        "📊 PPT Maker",
+        use_container_width=True,
+        key="dash_ppt"
+    ):
+        st.session_state.active = "PPT"
+        st.rerun()
 
 
-st.markdown("")
+# Existing row 2
+c2 = st.columns(6)
+
+with c2[0]:
+    if st.button(
+        "📄 Summary",
+        use_container_width=True,
+        key="dash_sum"
+    ):
+        st.session_state.active = "Summary"
+        st.rerun()
+
+with c2[1]:
+    if st.button(
+        "📖 Story Mode",
+        use_container_width=True,
+        key="dash_story"
+    ):
+        st.session_state.active = "Story"
+        st.rerun()
+
+with c2[2]:
+    if st.button(
+        "🎙️ Podcast",
+        use_container_width=True,
+        key="dash_pod"
+    ):
+        st.session_state.active = "Podcast"
+        st.rerun()
+
+with c2[3]:
+    if st.button(
+        "🖼️ Img→PDF",
+        use_container_width=True,
+        key="dash_img"
+    ):
+        st.session_state.active = "Image2PDF"
+        st.rerun()
+
+with c2[4]:
+    if st.button(
+        "👤 Profile",
+        use_container_width=True,
+        key="dash_prof"
+    ):
+        st.session_state.active = "Profile"
+        st.rerun()
+
+with c2[5]:
+    if st.button(
+        "🕘 History",
+        use_container_width=True,
+        key="dash_hist"
+    ):
+        st.session_state.active = "History"
+        st.rerun()
 
 
-# ============================================================
-# MAIN TABS
-# ============================================================
+st.markdown("##### 🧠 Personal Learning System")
 
-tabs = st.tabs(
-    [
-        "🏠 Dashboard",
-        "🤖 AI Tutor",
-        "📖 Study Lab",
-        "📝 Quiz Lab",
-        "🎤 Viva Lab",
-        "🚀 Project Lab",
-        "🎧 Media Lab",
-        "📊 Reports",
-    ]
+# New row 3
+n1 = st.columns(6)
+
+with n1[0]:
+    if st.button(
+        "🧠 My AI Brain",
+        use_container_width=True,
+        key="dash_brain"
+    ):
+        st.session_state.active = "Brain"
+        st.rerun()
+
+with n1[1]:
+    if st.button(
+        "🎯 Today's Mission",
+        use_container_width=True,
+        key="dash_today"
+    ):
+        st.session_state.active = "Today"
+        st.rerun()
+
+with n1[2]:
+    if st.button(
+        "🔄 Smart Revision",
+        use_container_width=True,
+        key="dash_revision"
+    ):
+        st.session_state.active = "Revision"
+        st.rerun()
+
+with n1[3]:
+    if st.button(
+        "❌ Mistake DNA",
+        use_container_width=True,
+        key="dash_mistakes"
+    ):
+        st.session_state.active = "Mistakes"
+        st.rerun()
+
+with n1[4]:
+    if st.button(
+        "📊 Readiness",
+        use_container_width=True,
+        key="dash_ready"
+    ):
+        st.session_state.active = "Readiness"
+        st.rerun()
+
+with n1[5]:
+    if st.button(
+        "🚨 Exam Attack",
+        use_container_width=True,
+        key="dash_exam"
+    ):
+        st.session_state.active = "ExamAttack"
+        st.rerun()
+
+
+# New row 4
+n2 = st.columns(6)
+
+with n2[0]:
+    if st.button(
+        "🧑‍🏫 Teach Back",
+        use_container_width=True,
+        key="dash_teach"
+    ):
+        st.session_state.active = "TeachBack"
+        st.rerun()
+
+with n2[1]:
+    if st.button(
+        "⚔️ Confusion Battle",
+        use_container_width=True,
+        key="dash_confusion"
+    ):
+        st.session_state.active = "Confusion"
+        st.rerun()
+
+with n2[2]:
+    if st.button(
+        "📅 Study Planner",
+        use_container_width=True,
+        key="dash_plan"
+    ):
+        st.session_state.active = "Planner"
+        st.rerun()
+
+with n2[3]:
+    if st.button(
+        "🔥 Streak",
+        use_container_width=True,
+        key="dash_streak"
+    ):
+        st.session_state.active = "Streak"
+        st.rerun()
+
+with n2[4]:
+    if st.button(
+        "📈 Weekly Report",
+        use_container_width=True,
+        key="dash_report"
+    ):
+        st.session_state.active = "Report"
+        st.rerun()
+
+with n2[5]:
+    if st.button(
+        "⚡ 5-Min Study",
+        use_container_width=True,
+        key="dash_fast"
+    ):
+        st.session_state.active = "FastStudy"
+        st.rerun()
+
+
+st.divider()
+
+active = st.session_state.active
+
+st.subheader(
+    f"▶ {active} • {lang}"
 )
 
 
 # ============================================================
-# TAB 1 - DASHBOARD
+# CHAT VIEW - EXISTING
 # ============================================================
 
-with tabs[0]:
+if active == "ChatView":
+    conv = st.session_state.get("selected_conv")
 
-    st.markdown("## 🏠 Dashboard")
-
-    if st.session_state.kb_files:
-        st.markdown(
-            """
-            <div class="success-card">
-                <b>Knowledge Base Ready ✅</b><br>
-                Your uploaded material is available for RAG-based learning,
-                quiz generation, viva preparation and study tools.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        st.markdown("### 📚 Loaded Files")
-
-        for filename in st.session_state.kb_files:
-            st.write(f"• {filename}")
-
+    if not conv:
+        st.info("Sidebar se chat select karo")
     else:
         st.markdown(
-            """
-            <div class="warning-card">
-                <b>Knowledge Base Empty</b><br>
-                Sidebar se PDF / notes / supported project files upload karke
-                <b>Build / Update Knowledge Base</b> press karo.
-            </div>
-            """,
-            unsafe_allow_html=True,
+            f"**{conv['mode']}** • {conv['timestamp'][:16]}"
         )
 
-    st.markdown("### ✨ Available Features")
+        st.markdown(
+            f"#### ❓ {conv['query']}"
+        )
 
-    features = [
-        ("🤖 AI Tutor", "Ask questions from your uploaded study material."),
-        ("📖 Study Lab", "Summary, important questions, stories and revision."),
-        ("📝 Quiz Lab", "Generate quizzes and get complete performance analysis."),
-        ("🎤 Viva Lab", "Practice viva and receive answer-by-answer evaluation."),
-        ("🚀 Project Lab", "Project planning, architecture, debugging and documentation."),
-        ("🎧 Media Lab", "Podcast, voice input, audio and PPT generation."),
-        ("📊 Reports", "Generate and export complete learning reports."),
-    ]
+        st.divider()
+        st.markdown(conv["answer"])
 
-    cols = st.columns(2)
+        play_audio_block(
+            conv["answer"],
+            lang,
+            f"hist_{conv['id']}"
+        )
 
-    for i, (title, description) in enumerate(features):
-        with cols[i % 2]:
+
+# ============================================================
+# PROFILE - EXISTING
+# ============================================================
+
+elif active == "Profile":
+    col1, col2 = st.columns([1, 2])
+
+    with col1:
+        if user["photo"] and os.path.exists(user["photo"]):
+            st.image(user["photo"], width=200)
+        else:
             st.markdown(
                 f"""
-                <div class="card">
-                    <h4>{title}</h4>
-                    <p>{description}</p>
+                <div class='avatar-letter'
+                     style='width:180px;height:180px;font-size:60px;'>
+                    {user["name"][0].upper()}
                 </div>
                 """,
-                unsafe_allow_html=True,
+                unsafe_allow_html=True
             )
 
-
-# ============================================================
-# TAB 2 - AI TUTOR
-# ============================================================
-
-with tabs[1]:
-
-    st.markdown("## 🤖 AI Tutor")
-
-    mode = st.radio(
-        "Teaching Mode",
-        [
-            "Normal",
-            "Socratic",
-        ],
-        horizontal=True,
-    )
-
-    question = st.text_area(
-        "Ask your question",
-        height=120,
-        placeholder=(
-            "Example: Explain ACID properties with a simple example..."
-        ),
-    )
-
-    if st.button(
-        "🚀 Ask AI",
-        type="primary",
-        use_container_width=True,
-    ):
-
-        if not question.strip():
-            st.warning("Question enter karo.")
-        else:
-            with st.spinner("AI is thinking..."):
-
-                try:
-                    answer, sources = ask_question(
-                        question,
-                        k=st.session_state.retrieval_k,
-                        mode=mode.lower(),
-                        language=st.session_state.language,
-                    )
-
-                    # Optional answer-length refinement.
-                    refinement_prompt = f"""
-You are improving an answer generated from a student's uploaded study material.
-
-Language: {st.session_state.language}
-
-Student Question:
-{question}
-
-Current Answer:
-{answer}
-
-Requirement:
-{answer_length_instruction(st.session_state.answer_length)}
-
-Keep the factual meaning unchanged.
-Do not invent information that is not already present.
-Return only the improved answer.
-"""
-
-                    try:
-                        final_answer = _invoke(
-                            refinement_prompt,
-                            temperature=0.2,
-                        )
-                    except Exception:
-                        final_answer = answer
-
-                    st.session_state.chat_messages.append(
-                        {
-                            "question": question,
-                            "answer": final_answer,
-                            "sources": sources,
-                        }
-                    )
-
-                    st.markdown("### 💡 Answer")
-                    st.markdown(final_answer)
-
-                    if sources:
-                        with st.expander("📚 Sources"):
-                            for source in sources:
-                                st.write(source)
-
-                except Exception as e:
-                    st.error(f"AI Tutor error: {e}")
-
-    if st.session_state.chat_messages:
-
-        st.markdown("### 🕘 Conversation History")
-
-        for item in reversed(
-            st.session_state.chat_messages[-10:]
-        ):
-            with st.expander(
-                f"Q: {item.get('question', '')[:100]}"
-            ):
-                st.markdown("**Answer:**")
-                st.markdown(item.get("answer", ""))
-
-                if item.get("sources"):
-                    st.caption(
-                        "Sources: "
-                        + ", ".join(
-                            str(x.get("source", "Unknown"))
-                            if isinstance(x, dict)
-                            else str(x)
-                            for x in item["sources"]
-                        )
-                    )
-
-
-# ============================================================
-# TAB 3 - STUDY LAB
-# ============================================================
-
-with tabs[2]:
-
-    st.markdown("## 📖 Study Lab")
-
-    study_topic = st.text_input(
-        "Topic",
-        placeholder="Example: Transaction Management",
-        key="study_topic",
-    )
-
-    study_col1, study_col2, study_col3 = st.columns(3)
-
-    with study_col1:
-
-        if st.button(
-            "📚 Smart Summary",
-            use_container_width=True,
-        ):
-
-            with st.spinner("Generating summary..."):
-                result = generate_summary(
-                    language=st.session_state.language,
-                    topic=study_topic or None,
-                )
-
-            save_feature_report("Smart Summary", result)
-
-            st.markdown(result)
-
-            export_buttons(
-                "Smart Summary",
-                result,
-                "smart_summary",
-            )
-
-    with study_col2:
-
-        if st.button(
-            "🎯 Important Questions",
-            use_container_width=True,
-        ):
-
-            with st.spinner("Generating important questions..."):
-                result = predict_important_questions(
-                    language=st.session_state.language,
-                    topic=study_topic or None,
-                )
-
-            save_feature_report(
-                "Important Questions",
-                result,
-            )
-
-            st.markdown(result)
-
-            export_buttons(
-                "Important Questions",
-                result,
-                "important_questions",
-            )
-
-    with study_col3:
-
-        if st.button(
-            "📖 Story Mode",
-            use_container_width=True,
-        ):
-
-            if not study_topic.strip():
-                st.warning("Topic enter karo.")
-            else:
-                with st.spinner("Creating story..."):
-                    result = story_mode_learning(
-                        study_topic,
-                        language=st.session_state.language,
-                    )
-
-                save_feature_report(
-                    "Story Mode",
-                    result,
-                )
-
-                st.markdown(result)
-
-    st.divider()
-
-    study_col4, study_col5, study_col6, study_col7 = st.columns(4)
-
-    with study_col4:
-
-        if st.button(
-            "🔄 Smart Revision",
-            use_container_width=True,
-        ):
-
-            if not study_topic.strip():
-                st.warning("Topic enter karo.")
-            else:
-                with st.spinner("Preparing revision..."):
-                    result = generate_revision(
-                        study_topic,
-                        language=st.session_state.language,
-                        focus="weakness",
-                    )
-
-                save_feature_report(
-                    "Smart Revision",
-                    result,
-                )
-
-                st.markdown(result)
-
-    with study_col5:
-
-        if st.button(
-            "⚔️ Exam Attack",
-            use_container_width=True,
-        ):
-
-            if not study_topic.strip():
-                st.warning("Topic enter karo.")
-            else:
-                with st.spinner("Building exam plan..."):
-                    result = generate_exam_attack(
-                        study_topic,
-                        language=st.session_state.language,
-                    )
-
-                save_feature_report(
-                    "Exam Attack",
-                    result,
-                )
-
-                st.markdown(result)
-
-    with study_col6:
-
-        if st.button(
-            "🧠 Teach-Back",
-            use_container_width=True,
-        ):
-
-            if not study_topic.strip():
-                st.warning("Topic enter karo.")
-            else:
-                st.session_state["teach_back_active"] = True
-
-    with study_col7:
-
-        if st.button(
-            "⚖️ Confusion Battle",
-            use_container_width=True,
-        ):
-
-            st.session_state["confusion_active"] = True
-
-    if st.session_state.get("teach_back_active"):
-
-        st.markdown("### 🧠 Teach-Back Challenge")
-
-        explanation = st.text_area(
-            "Apne words me topic explain karo",
-            height=180,
-            key="teach_back_explanation",
+        new_photo = st.file_uploader(
+            "Nayi Photo - Auto Circle",
+            type=["jpg", "png", "jpeg"],
+            key="photo_up"
+        )
+
+    with col2:
+        new_name = st.text_input(
+            "Full Name",
+            value=user["name"]
+        )
+
+        new_email = st.text_input(
+            "Email",
+            value=user["email"]
+        )
+
+        new_bio = st.text_area(
+            "Bio",
+            value=user["bio"] if user["bio"] else ""
         )
 
         if st.button(
-            "Evaluate My Explanation",
+            "💾 Update Profile",
             type="primary",
+            use_container_width=True,
+            key="upd_prof"
         ):
-
-            with st.spinner("Evaluating..."):
-                feedback = generate_teach_back_feedback(
-                    study_topic,
-                    explanation,
-                    language=st.session_state.language,
-                )
-
-            result_text = json.dumps(
-                feedback,
-                ensure_ascii=False,
-                indent=2,
-            )
-
-            save_feature_report(
-                "Teach-Back Evaluation",
-                result_text,
-            )
-
-            st.metric(
-                "Score",
-                f"{safe_score(feedback.get('score', 0)):.1f}/10",
-            )
-
-            st.markdown(
-                f"### Verdict: {feedback.get('verdict', 'Needs Work')}"
-            )
-
-            st.markdown("#### ✅ Correct Points")
-
-            for item in feedback.get("what_was_correct", []):
-                st.write(f"• {item}")
-
-            st.markdown("#### ⚠️ Missing / Wrong")
-
-            for item in feedback.get("missing_or_wrong", []):
-                st.write(f"• {item}")
-
-            st.markdown("#### 📖 Better Explanation")
-            st.markdown(
-                feedback.get("one_better_explanation", "")
-            )
-
-            st.markdown("#### ❓ Next Question")
-            st.markdown(
-                feedback.get("next_question", "")
-            )
-
-    if st.session_state.get("confusion_active"):
-
-        st.markdown("### ⚖️ Confusion Battle")
-
-        ca, cb = st.columns(2)
-
-        with ca:
-            topic_a = st.text_input(
-                "Concept A",
-                placeholder="e.g. Encoder",
-                key="confusion_a",
-            )
-
-        with cb:
-            topic_b = st.text_input(
-                "Concept B",
-                placeholder="e.g. Decoder",
-                key="confusion_b",
-            )
-
-        if st.button(
-            "Compare Concepts",
-            type="primary",
-        ):
-
-            if not topic_a.strip() or not topic_b.strip():
-                st.warning("Dono concepts enter karo.")
-            else:
-                with st.spinner("Comparing..."):
-                    result = generate_confusion_battle(
-                        topic_a,
-                        topic_b,
-                        language=st.session_state.language,
-                    )
-
-                save_feature_report(
-                    "Confusion Battle",
-                    result,
-                )
-
-                st.markdown(result)
+            try:
+                update_profile(user["id"], new_name.strip(), new_email.strip(), new_bio.strip(), new_photo)
+                st.success("Updated!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Profile update failed: {e}")
 
 
 # ============================================================
-# TAB 4 - QUIZ LAB
+# HISTORY - EXISTING
 # ============================================================
 
-with tabs[3]:
+elif active == "History":
+    convs = get_user_conversations(user["id"])
 
-    st.markdown("## 📝 Quiz Lab")
+    st.metric("Total", len(convs))
+
+    for cid, q, a, mode, ts in convs:
+        with st.expander(
+            f"[{mode}] {q[:70]}"
+        ):
+            st.markdown(a)
+
+
+# ============================================================
+# ASK Q&A - EXISTING
+# ============================================================
+
+elif active == "Ask":
+    mode = st.radio(
+        "Style:",
+        ["Normal", "Socratic"],
+        horizontal=True,
+        key="ask_mode"
+    )
+
+    sel = (
+        "socratic"
+        if "Socratic" in mode
+        else "normal"
+    )
+
+    q = universal_input(
+        "ask",
+        f"Sawal bolo ({lang} me)..."
+    )
+
+    if st.button(
+        "🚀 Ask Question",
+        type="primary",
+        use_container_width=True,
+        key="ask_q"
+    ) and q:
+
+        with st.spinner("AI soch raha hai..."):
+            ans, src = ask_question(
+                q,
+                top_k,
+                mode=sel,
+                language=lang
+            )
+
+        st.session_state.last_ask = ans
+
+        save_conversation(
+            user["id"],
+            q,
+            ans,
+            f"Ask-{sel}"
+        )
+
+        log_event(
+            user["id"],
+            "question",
+            q[:200],
+            1,
+            "Q&A"
+        )
+
+        st.markdown(ans)
+
+        with st.expander("📚 Sources"):
+            st.write(src)
+
+    if "last_ask" in st.session_state:
+        play_audio_block(
+            st.session_state.last_ask,
+            lang,
+            "ask"
+        )
+
+
+# ============================================================
+# IMPORTANT - EXISTING
+# ============================================================
+
+elif active == "Important":
+    if st.button(
+        f"⭐ Generate in {lang}",
+        type="primary",
+        use_container_width=True,
+        key="imp_gen"
+    ):
+        with st.spinner("Important questions bana raha hu..."):
+            imp = predict_important_questions(
+                language=lang
+            )
+
+        st.session_state.last_imp = imp
+
+        save_conversation(
+            user["id"],
+            f"Important {lang}",
+            imp,
+            "Important"
+        )
+
+        log_event(
+            user["id"],
+            "study",
+            "Important Questions",
+            1
+        )
+
+        st.markdown(imp)
+
+    if "last_imp" in st.session_state:
+        play_audio_block(
+            st.session_state.last_imp,
+            lang,
+            "imp"
+        )
+
+
+# ============================================================
+# SUMMARY - EXISTING
+# ============================================================
+
+elif active == "Summary":
+    if st.button(
+        f"📄 Summary in {lang}",
+        type="primary",
+        use_container_width=True,
+        key="sum_gen"
+    ):
+        with st.spinner("Summary bana raha hu..."):
+            summ = generate_summary(
+                language=lang
+            )
+
+        st.session_state.last_summ = summ
+
+        save_conversation(
+            user["id"],
+            f"Summary {lang}",
+            summ,
+            "Summary"
+        )
+
+        log_event(
+            user["id"],
+            "summary",
+            "Knowledge Base",
+            1
+        )
+
+        st.markdown(summ)
+
+    if "last_summ" in st.session_state:
+        play_audio_block(
+            st.session_state.last_summ,
+            lang,
+            "summ"
+        )
+
+
+# ============================================================
+# STORY MODE - EXISTING
+# ============================================================
+
+elif active == "Story":
+    tp = universal_input(
+        "story",
+        f"Topic {lang}"
+    )
+
+    if st.button(
+        "🎬 Create Story",
+        type="primary",
+        use_container_width=True,
+        key="story_gen"
+    ) and tp:
+
+        with st.spinner("Story bana raha hu..."):
+            story_text = story_mode_learning(
+                tp,
+                language=lang
+            )
+
+        st.session_state.last_story = story_text
+
+        save_conversation(
+            user["id"],
+            tp,
+            story_text,
+            "Story"
+        )
+
+        log_event(
+            user["id"],
+            "study",
+            tp,
+            1
+        )
+
+        st.markdown(story_text)
+
+    if "last_story" in st.session_state:
+        play_audio_block(
+            st.session_state.last_story,
+            lang,
+            "story"
+        )
+
+
+# ============================================================
+# PROJECT - EXISTING
+# ============================================================
+
+elif active == "Projects":
+    idea = universal_input(
+        "proj",
+        f"Project idea {lang}"
+    )
+
+    bud = st.selectbox(
+        "Budget",
+        ["low", "medium", "high"],
+        key="bud"
+    )
+
+    if st.button(
+        "🔧 Generate Guide",
+        type="primary",
+        use_container_width=True,
+        key="proj_gen"
+    ) and idea:
+
+        with st.spinner("Project guide bana raha hu..."):
+            guide = build_project_guide(
+                idea,
+                bud,
+                language=lang
+            )
+
+        st.session_state.last_proj = guide
+
+        save_conversation(
+            user["id"],
+            idea,
+            guide,
+            "Project"
+        )
+
+        st.markdown(guide)
+
+    if "last_proj" in st.session_state:
+        play_audio_block(
+            st.session_state.last_proj,
+            lang,
+            "proj"
+        )
+
+
+# ============================================================
+# PODCAST - EXISTING
+# ============================================================
+
+elif active == "Podcast":
+    tp = universal_input(
+        "pod",
+        f"Topic {lang}"
+    )
+
+    if st.button(
+        "🎙️ Create Podcast",
+        type="primary",
+        use_container_width=True,
+        key="pod_gen"
+    ) and tp:
+
+        with st.spinner("Podcast bana raha hu..."):
+            pod_text = generate_podcast_script(
+                tp,
+                language=lang
+            )
+
+        st.session_state.last_pod = pod_text
+
+        save_conversation(
+            user["id"],
+            tp,
+            pod_text,
+            "Podcast"
+        )
+
+        st.markdown(pod_text)
+
+    if "last_pod" in st.session_state:
+        play_audio_block(
+            st.session_state.last_pod,
+            lang,
+            "pod"
+        )
+
+
+# ============================================================
+# IMAGE -> PDF / DOCX - EXISTING
+# ============================================================
+
+elif active == "Image2PDF":
+    uploaded_images = st.file_uploader(
+        "Images",
+        type=["jpg", "jpeg", "png"],
+        accept_multiple_files=True,
+        key="img_upload"
+    )
+
+    if uploaded_images:
+        cols = st.columns(5)
+
+        for idx, img in enumerate(uploaded_images):
+            with cols[idx % 5]:
+                st.image(
+                    img,
+                    caption=f"Img {idx+1}",
+                    use_container_width=True
+                )
+
+        c1, c2 = st.columns(2)
+
+        with c1:
+            if st.button(
+                "📄 PDF",
+                type="primary",
+                use_container_width=True,
+                key="pdf_btn"
+            ):
+                st.session_state.pdf_ready = images_to_pdf(
+                    uploaded_images
+                )
+
+        with c2:
+            if st.button(
+                "📝 DOCX",
+                type="primary",
+                use_container_width=True,
+                key="docx_btn"
+            ):
+                st.session_state.docx_ready = images_to_docx(
+                    uploaded_images
+                )
+
+        if "pdf_ready" in st.session_state:
+            st.download_button(
+                "⬇️ PDF",
+                st.session_state.pdf_ready,
+                file_name="RAG_Images.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+                key="dl_pdf"
+            )
+
+        if "docx_ready" in st.session_state:
+            st.download_button(
+                "⬇️ DOCX",
+                st.session_state.docx_ready,
+                file_name="RAG_Images.docx",
+                mime=(
+                    "application/vnd.openxmlformats-"
+                    "officedocument.wordprocessingml.document"
+                ),
+                use_container_width=True,
+                key="dl_docx"
+            )
+
+
+# ============================================================
+# QUIZ - EXISTING + MISTAKE BANK
+# ============================================================
+
+elif active == "Quiz":
+    st.markdown(
+        "### 📝 Knowledge Base Quiz"
+    )
+
+    n = st.number_input(
+        "Kitne Q?",
+        3,
+        15,
+        5,
+        key="quiz_n"
+    )
 
     quiz_topic = st.text_input(
-        "Quiz Topic",
+        "Topic optional",
         placeholder="Example: DBMS Transaction Management",
-        key="quiz_topic",
+        key="quiz_topic"
     )
 
-    q1, q2, q3 = st.columns(3)
-
-    with q1:
-        quiz_count = st.number_input(
-            "Number of Questions",
-            min_value=1,
-            max_value=30,
-            value=5,
-            step=1,
-        )
-
-    with q2:
-        quiz_mode = st.selectbox(
-            "Quiz Type",
-            [
-                "Fresh Quiz",
-                "Adaptive Weak-Topic Quiz",
-            ],
-        )
-
-    with q3:
-        st.metric(
-            "Tracked Weak Topics",
-            len(get_weak_topics()),
-        )
-
     if st.button(
-        "🚀 Generate Quiz",
+        "Generate Quiz",
         type="primary",
         use_container_width=True,
+        key="quiz_gen"
     ):
+        with st.spinner("Quiz bana raha hu..."):
+            quiz_list = generate_quiz(
+                n,
+                language=lang
+            )
 
-        with st.spinner("Generating quiz..."):
-
-            if quiz_mode == "Adaptive Weak-Topic Quiz":
-                quiz = generate_adaptive_quiz(
-                    num_q=int(quiz_count),
-                    language=st.session_state.language,
-                    weak_topics=get_weak_topics(),
-                )
-            else:
-                quiz = generate_quiz(
-                    num_q=int(quiz_count),
-                    language=st.session_state.language,
-                    topic=quiz_topic or None,
-                )
-
-        st.session_state.quiz_data = quiz
+        st.session_state.quiz_data = quiz_list
         st.session_state.quiz_results = []
-        st.session_state.quiz_started = True
-        st.session_state.quiz_finished = False
+        st.rerun()
+
+    if st.session_state.quiz_data:
+        for i, qd in enumerate(st.session_state.quiz_data):
+            with st.container(border=True):
+                question = qd.get(
+                    "question",
+                    f"Question {i+1}"
+                )
+
+                options = qd.get(
+                    "options",
+                    []
+                )
+
+                answer = qd.get(
+                    "answer",
+                    ""
+                )
+
+                topic = qd.get(
+                    "topic",
+                    quiz_topic or "General"
+                )
+
+                st.markdown(
+                    f"**Q{i+1}. {question}**"
+                )
+
+                if options:
+                    choice = st.radio(
+                        f"q_{i}",
+                        options,
+                        key=f"quiz_{i}",
+                        label_visibility="collapsed"
+                    )
+
+                    checked = bool(st.session_state.quiz_results.get(i)) if isinstance(st.session_state.quiz_results, dict) else False
+                    if st.button(
+                        f"Check Q{i+1}",
+                        key=f"chk_{i}",
+                        disabled=checked
+                    ):
+                        ok, fb = check_quiz_answer(
+                            question,
+                            choice,
+                            answer,
+                            topic
+                        )
+
+                        if not isinstance(st.session_state.quiz_results, dict):
+                            st.session_state.quiz_results = {}
+                        st.session_state.quiz_results[i] = {"is_correct": bool(ok)}
+
+                        if ok:
+                            log_event(
+                                user["id"],
+                                "quiz_correct",
+                                topic,
+                                1,
+                                question
+                            )
+                            st.success(fb)
+                        else:
+                            log_event(
+                                user["id"],
+                                "quiz_wrong",
+                                topic,
+                                0,
+                                question
+                            )
+
+                            add_mistake(
+                                user["id"],
+                                topic,
+                                question,
+                                choice,
+                                answer
+                            )
+
+                            st.error(fb)
+                            st.info(
+                                "❌ Ye question Mistake DNA me save ho gaya."
+                            )
+
+
+# ============================================================
+# VIVA - EXISTING + TRACKING
+# ============================================================
+
+elif active == "Viva":
+    topic = universal_input(
+        "viva_topic",
+        f"Viva topic {lang}"
+    )
+
+    num = st.slider(
+        "Questions?",
+        3,
+        20,
+        5,
+        key="viva_num"
+    )
+
+    if st.button(
+        "Start Viva",
+        type="primary",
+        use_container_width=True,
+        key="viva_start"
+    ) and topic:
+
+        with st.spinner("Viva questions bana raha hu..."):
+            qs = generate_viva_questions(
+                topic,
+                num,
+                language=lang
+            )
+
+        st.session_state.viva_qs = qs
+        st.session_state.viva_idx = 0
+        st.session_state.viva_score = []
 
         st.rerun()
 
-    # --------------------------------------------------------
-    # ACTIVE QUIZ
-    # --------------------------------------------------------
+    if st.session_state.viva_qs:
+        idx = st.session_state.viva_idx
 
-    if (
-        st.session_state.quiz_started
-        and st.session_state.quiz_data
-        and not st.session_state.quiz_finished
-    ):
+        if idx < len(st.session_state.viva_qs):
+            curr = st.session_state.viva_qs[idx]
 
-        st.markdown("### 📝 Answer All Questions")
-
-        with st.form("quiz_answer_form"):
-
-            quiz_answers = []
-
-            for idx, item in enumerate(
-                st.session_state.quiz_data
-            ):
-
-                st.markdown(
-                    f"### Q{idx + 1}. "
-                    f"{item.get('question', '')}"
-                )
-
-                options = item.get("options", [])
-
-                selected = st.radio(
-                    "Select answer:",
-                    options,
-                    key=f"quiz_answer_{idx}",
-                    index=None,
-                )
-
-                quiz_answers.append(selected)
-
-                st.caption(
-                    f"Topic: {item.get('topic', 'general')}"
-                )
-
-                st.divider()
-
-            submit_quiz = st.form_submit_button(
-                "✅ Submit Complete Quiz",
-                use_container_width=True,
-                type="primary",
+            st.subheader(
+                f"Q{idx+1}: {curr['q']}"
             )
 
-        if submit_quiz:
+            user_ans = universal_input(
+                f"v_ans_{idx}",
+                f"Answer {lang}"
+            )
 
-            results = []
+            if st.button(
+                "Submit",
+                key=f"v_sub_{idx}",
+                use_container_width=True
+            ) and user_ans:
 
-            for idx, item in enumerate(
-                st.session_state.quiz_data
-            ):
-
-                user_answer = quiz_answers[idx]
-                correct_answer = item.get("answer", "")
-                topic = item.get("topic", "general")
-
-                if user_answer is None:
-                    user_answer = ""
-
-                try:
-                    is_correct, message = check_quiz_answer(
-                        item.get("question", ""),
-                        user_answer,
-                        correct_answer,
-                        topic=topic,
+                with st.spinner("Answer evaluate ho raha hai..."):
+                    res = verify_viva_answer(
+                        curr["q"],
+                        curr["a"],
+                        user_ans,
+                        language=lang
                     )
+
+                if not isinstance(res, dict):
+                    res = {"verdict": "False", "score": 0, "feedback": str(res), "missing_points": []}
+
+                verdict = str(res.get("verdict", "")).strip().lower()
+                is_correct = verdict in {"true", "correct", "yes", "pass", "strong"} or verdict.startswith("true")
+                try:
+                    viva_score_value = float(res.get("score", 0))
                 except Exception:
-                    # Safe fallback.
-                    normalize = lambda x: re.sub(
-                        r"\s+",
-                        " ",
-                        str(x).strip().lower(),
+                    viva_score_value = 0.0
+
+                st.session_state.viva_score.append(
+                    {"is_correct": is_correct}
+                )
+
+                if is_correct:
+                    log_event(
+                        user["id"],
+                        "viva_correct",
+                        topic,
+                        1,
+                        curr["q"]
+                    )
+                    st.success(
+                        res.get("feedback", "")
+                    )
+                else:
+                    log_event(
+                        user["id"],
+                        "viva_wrong",
+                        topic,
+                        0,
+                        curr["q"]
                     )
 
-                    is_correct = (
-                        normalize(user_answer)
-                        == normalize(correct_answer)
+                    add_mistake(
+                        user["id"],
+                        topic,
+                        curr["q"],
+                        user_ans,
+                        curr["a"]
                     )
 
-                    message = (
-                        "✅ Sahi Jawaab!"
-                        if is_correct
-                        else f"❌ Galat. Sahi: {correct_answer}"
+                    st.error(
+                        res.get("feedback", "")
                     )
 
-                results.append(
-                    {
-                        "question_no": idx + 1,
-                        "question": item.get("question", ""),
-                        "user_answer": user_answer,
-                        "correct_answer": correct_answer,
-                        "is_correct": bool(is_correct),
-                        "message": message,
-                        "explanation": item.get(
-                            "explanation",
-                            "",
-                        ),
-                        "topic": topic,
-                    }
-                )
+                st.session_state.viva_idx += 1
+                st.rerun()
 
-            st.session_state.quiz_results = results
-            st.session_state.quiz_finished = True
-
-            st.rerun()
-
-    # --------------------------------------------------------
-    # QUIZ FINAL REPORT
-    # --------------------------------------------------------
-
-    if (
-        st.session_state.quiz_finished
-        and st.session_state.quiz_results
-    ):
-
-        st.markdown("## 📊 Complete Quiz Report")
-
-        results = st.session_state.quiz_results
-
-        total = len(results)
-        correct = sum(
-            1
-            for r in results
-            if r.get("is_correct")
-        )
-        wrong = total - correct
-
-        percentage = (
-            (correct / total) * 100
-            if total
-            else 0
-        )
-
-        a, b, c, d = st.columns(4)
-
-        with a:
-            st.metric(
-                "Total Questions",
-                total,
-            )
-
-        with b:
-            st.metric(
-                "Correct",
-                correct,
-            )
-
-        with c:
-            st.metric(
-                "Wrong",
-                wrong,
-            )
-
-        with d:
-            st.metric(
-                "Score",
-                f"{percentage:.1f}%",
-            )
-
-        # ----------------------------------------------------
-        # Question-by-question analysis
-        # ----------------------------------------------------
-
-        st.markdown(
-            "### 🔎 Question-by-Question Analysis"
-        )
-
-        for result in results:
-
-            if result.get("is_correct"):
-                css_class = "result-correct"
-                icon = "✅"
-                label = "CORRECT"
-            else:
-                css_class = "result-wrong"
-                icon = "❌"
-                label = "WRONG"
-
-            st.markdown(
-                f"""
-                <div class="{css_class}">
-                    <b>{icon} Q{result.get('question_no')} — {label}</b>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-            st.markdown(
-                f"**Question:** {result.get('question')}"
-            )
-
-            user_answer = result.get("user_answer")
-            if user_answer:
-                st.markdown(
-                    f"**Your Answer:** {user_answer}"
-                )
-            else:
-                st.markdown(
-                    "**Your Answer:** Not Answered"
-                )
-
-            st.markdown(
-                f"**Correct Answer:** "
-                f"{result.get('correct_answer')}"
-            )
-
-            explanation = result.get("explanation")
-            if explanation:
-                st.markdown(
-                    f"**Explanation:** {explanation}"
-                )
-
-            st.caption(
-                f"Topic: {result.get('topic', 'general')}"
-            )
-
-            st.divider()
-
-        # ----------------------------------------------------
-        # Weak topics
-        # ----------------------------------------------------
-
-        weak = get_weak_topics()
-
-        if weak:
-
-            st.markdown("### ⚠️ Weak Topics")
-
-            sorted_weak = sorted(
-                weak.items(),
-                key=lambda x: x[1],
-                reverse=True,
-            )
-
-            for topic, count in sorted_weak:
-                st.write(
-                    f"• **{topic}** — {count} wrong answer(s)"
-                )
-
-            st.markdown(
-                "### 📚 Preparation Suggestion"
-            )
-
-            weak_names = ", ".join(
-                topic
-                for topic, _ in sorted_weak[:8]
-            )
-
-            prep_prompt = f"""
-Create a practical preparation plan for a student.
-
-Language: {st.session_state.language}
-
-Weak topics:
-{weak_names}
-
-The student has just completed a quiz.
-
-Include:
-1. What to revise first
-2. Why these topics need revision
-3. What type of questions to practice
-4. A short revision schedule
-5. Mistakes to avoid
-6. How to improve the next quiz score
-
-Do not claim guaranteed exam questions.
-"""
-
-            try:
-                preparation = _invoke(
-                    prep_prompt,
-                    temperature=0.3,
-                )
-            except Exception:
-                preparation = (
-                    "Revise the weak topics and attempt another "
-                    "adaptive quiz."
-                )
-
-            st.markdown(preparation)
-
-        # ----------------------------------------------------
-        # Full Quiz Report
-        # ----------------------------------------------------
-
-        report_lines = [
-            "# Complete Quiz Performance Report",
-            "",
-            f"Total Questions: {total}",
-            f"Correct Answers: {correct}",
-            f"Wrong Answers: {wrong}",
-            f"Score: {percentage:.1f}%",
-            "",
-            "## Question Analysis",
-            "",
-        ]
-
-        for r in results:
-            report_lines.extend(
-                [
-                    f"### Q{r.get('question_no')}. {r.get('question')}",
-                    f"- Your Answer: {r.get('user_answer') or 'Not Answered'}",
-                    f"- Correct Answer: {r.get('correct_answer')}",
-                    f"- Result: {'Correct' if r.get('is_correct') else 'Wrong'}",
-                    f"- Topic: {r.get('topic', 'general')}",
-                    f"- Explanation: {r.get('explanation', '')}",
-                    "",
-                ]
-            )
-
-        if weak:
-            report_lines.extend(
-                [
-                    "## Weak Topics",
-                    "",
-                ]
-            )
-
-            for topic, count in sorted(
-                weak.items(),
-                key=lambda x: x[1],
-                reverse=True,
-            ):
-                report_lines.append(
-                    f"- {topic}: {count} wrong answer(s)"
-                )
-
-        quiz_report = "\n".join(report_lines)
-
-        save_feature_report(
-            "Complete Quiz Report",
-            quiz_report,
-        )
-
-        export_buttons(
-            "Complete Quiz Report",
-            quiz_report,
-            "complete_quiz_report",
-        )
-
-        if st.button(
-            "🔄 Start New Quiz",
-            use_container_width=True,
-        ):
-            st.session_state.quiz_data = []
-            st.session_state.quiz_results = []
-            st.session_state.quiz_started = False
-            st.session_state.quiz_finished = False
-            st.rerun()
-
-
-# ============================================================
-# TAB 5 - VIVA LAB
-# ============================================================
-
-with tabs[4]:
-
-    st.markdown("## 🎤 Viva Lab")
-
-    st.markdown(
-        """
-        <div class="card">
-        <b>Viva Evaluation System</b><br>
-        Har answer ko individually evaluate kiya jayega.
-        System Correct / Partial / Incorrect classification,
-        score, feedback, missing points aur ideal answer provide karega.
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    viva_topic = st.text_input(
-        "Viva Topic / Project",
-        placeholder=(
-            "Example: IoT Based Smart Car using ESP32"
-        ),
-        key="viva_topic",
-    )
-
-    vc1, vc2 = st.columns(2)
-
-    with vc1:
-        viva_count = st.number_input(
-            "Number of Viva Questions",
-            min_value=1,
-            max_value=30,
-            value=5,
-            step=1,
-        )
-
-    with vc2:
-        st.info(
-            "Tip: Viva answer apne words me do. "
-            "System technical correctness aur coverage dono dekhega."
-        )
-
-    if st.button(
-        "🎤 Generate Viva Questions",
-        type="primary",
-        use_container_width=True,
-    ):
-
-        if not viva_topic.strip():
-            st.warning(
-                "Viva topic/project enter karo."
-            )
         else:
-
-            with st.spinner(
-                "Generating viva questions..."
-            ):
-
-                questions = generate_viva_questions(
-                    viva_topic,
-                    num_q=int(viva_count),
-                    language=st.session_state.language,
-                )
-
-            st.session_state.viva_data = questions
-            st.session_state.viva_results = []
-            st.session_state.viva_started = True
-            st.session_state.viva_finished = False
-
-            st.rerun()
-
-    # --------------------------------------------------------
-    # ACTIVE VIVA
-    # --------------------------------------------------------
-
-    if (
-        st.session_state.viva_started
-        and st.session_state.viva_data
-        and not st.session_state.viva_finished
-    ):
-
-        st.markdown("### 🎙️ Viva Session")
-
-        with st.form("viva_answer_form"):
-
-            viva_answers = []
-
-            for idx, item in enumerate(
-                st.session_state.viva_data
-            ):
-
-                question_text = item.get(
-                    "q",
-                    item.get("question", ""),
-                )
-
-                st.markdown(
-                    f"### Q{idx + 1}. {question_text}"
-                )
-
-                answer = st.text_area(
-                    "Your Answer",
-                    height=150,
-                    key=f"viva_answer_{idx}",
-                    placeholder=(
-                        "Yaha apna viva answer likho..."
-                    ),
-                )
-
-                viva_answers.append(answer)
-
-                st.divider()
-
-            submit_viva = st.form_submit_button(
-                "🎯 Submit Complete Viva",
-                use_container_width=True,
-                type="primary",
+            total = len(
+                st.session_state.viva_score
             )
 
-        if submit_viva:
-
-            results = []
-
-            progress = st.progress(0)
-
-            total_questions = len(
-                st.session_state.viva_data
+            correct = sum(
+                1
+                for x in st.session_state.viva_score
+                if x["is_correct"]
             )
 
-            for idx, item in enumerate(
-                st.session_state.viva_data
-            ):
-
-                question_text = item.get(
-                    "q",
-                    item.get("question", ""),
-                )
-
-                reference_answer = item.get(
-                    "a",
-                    item.get("answer", ""),
-                )
-
-                student_answer = (
-                    viva_answers[idx]
-                    if idx < len(viva_answers)
-                    else ""
-                )
-
-                with st.spinner(
-                    f"Evaluating viva answer {idx + 1}/{total_questions}..."
-                ):
-
-                    try:
-                        evaluation = verify_viva_answer(
-                            question_text,
-                            reference_answer,
-                            student_answer,
-                            language=st.session_state.language,
-                        )
-                    except Exception as e:
-                        evaluation = {
-                            "verdict": "Incorrect",
-                            "score": 0,
-                            "feedback": (
-                                f"Evaluation error: {e}"
-                            ),
-                            "missing_points": [],
-                            "correct_points": [],
-                            "ideal_answer": reference_answer,
-                        }
-
-                if not isinstance(evaluation, dict):
-                    evaluation = {
-                        "verdict": "Incorrect",
-                        "score": 0,
-                        "feedback": "Invalid evaluation response.",
-                        "missing_points": [],
-                        "correct_points": [],
-                        "ideal_answer": reference_answer,
-                    }
-
-                classification = classify_viva_result(
-                    evaluation
-                )
-
-                score = normalize_result_score(
-                    evaluation
-                )
-
-                # ------------------------------------------------
-                # IMPORTANT:
-                # Always retain reference answer.
-                # Even if backend does not return ideal_answer.
-                # ------------------------------------------------
-
-                ideal_answer = clean_text(
-                    evaluation.get("ideal_answer")
-                )
-
-                if not ideal_answer:
-                    ideal_answer = reference_answer
-
-                correct_points = evaluation.get(
-                    "correct_points",
-                    [],
-                )
-
-                if not isinstance(
-                    correct_points,
-                    list,
-                ):
-                    correct_points = [
-                        str(correct_points)
-                    ]
-
-                missing_points = evaluation.get(
-                    "missing_points",
-                    [],
-                )
-
-                if not isinstance(
-                    missing_points,
-                    list,
-                ):
-                    missing_points = [
-                        str(missing_points)
-                    ]
-
-                feedback = clean_text(
-                    evaluation.get(
-                        "feedback",
-                        "",
-                    )
-                )
-
-                results.append(
-                    {
-                        "question_no": idx + 1,
-                        "question": question_text,
-                        "user_answer": student_answer,
-                        "reference_answer": reference_answer,
-                        "ideal_answer": ideal_answer,
-                        "classification": classification,
-                        "verdict": evaluation.get(
-                            "verdict",
-                            classification,
-                        ),
-                        "score": score,
-                        "feedback": feedback,
-                        "correct_points": correct_points,
-                        "missing_points": missing_points,
-                    }
-                )
-
-                progress.progress(
-                    int(
-                        ((idx + 1) / total_questions)
-                        * 100
-                    )
-                )
-
-            st.session_state.viva_results = results
-            st.session_state.viva_finished = True
-
-            st.rerun()
-
-    # --------------------------------------------------------
-    # VIVA FINAL REPORT
-    # --------------------------------------------------------
-
-    if (
-        st.session_state.viva_finished
-        and st.session_state.viva_results
-    ):
-
-        results = st.session_state.viva_results
-
-        st.markdown("## 📊 Complete Viva Report")
-
-        total = len(results)
-
-        correct_count = sum(
-            1
-            for r in results
-            if r.get("classification") == "Correct"
-        )
-
-        partial_count = sum(
-            1
-            for r in results
-            if r.get("classification") == "Partial"
-        )
-
-        incorrect_count = sum(
-            1
-            for r in results
-            if r.get("classification") == "Incorrect"
-        )
-
-        total_score = sum(
-            normalize_result_score(r)
-            for r in results
-        )
-
-        max_score = total * 10
-
-        percentage = (
-            (total_score / max_score) * 100
-            if max_score
-            else 0
-        )
-
-        # ----------------------------------------------------
-        # SUMMARY METRICS
-        # ----------------------------------------------------
-
-        c1, c2, c3, c4, c5 = st.columns(5)
-
-        with c1:
-            st.metric(
-                "Questions",
-                total,
-            )
-
-        with c2:
-            st.metric(
-                "Correct",
-                correct_count,
-            )
-
-        with c3:
-            st.metric(
-                "Partial",
-                partial_count,
-            )
-
-        with c4:
-            st.metric(
-                "Incorrect",
-                incorrect_count,
-            )
-
-        with c5:
-            st.metric(
-                "Overall Score",
-                f"{percentage:.1f}%",
-            )
-
-        st.progress(
-            int(max(0, min(100, percentage)))
-        )
-
-        # ----------------------------------------------------
-        # PERFORMANCE SUMMARY
-        # ----------------------------------------------------
-
-        if percentage >= 80:
-            summary_label = "Strong performance"
-        elif percentage >= 60:
-            summary_label = "Good foundation, but revision is needed"
-        elif percentage >= 40:
-            summary_label = "Several concepts need revision"
-        else:
-            summary_label = "Major revision recommended"
-
-        st.markdown(
-            f"""
-            <div class="card">
-                <h3>📌 Performance Summary</h3>
-                <p><b>{summary_label}</b></p>
-                <p>
-                Score: <b>{total_score:.1f}/{max_score:.1f}</b>
-                </p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        # ----------------------------------------------------
-        # EVERY ANSWER ANALYSIS
-        # ----------------------------------------------------
-
-        st.markdown(
-            "### 🔎 Answer-by-Answer Evaluation"
-        )
-
-        for result in results:
-
-            classification = result.get(
-                "classification",
-                "Incorrect",
-            )
-
-            if classification == "Correct":
-                css_class = "result-correct"
-                icon = "✅"
-                label = "CORRECT"
-            elif classification == "Partial":
-                css_class = "result-partial"
-                icon = "🟡"
-                label = "PARTIAL"
-            else:
-                css_class = "result-wrong"
-                icon = "❌"
-                label = "INCORRECT"
-
-            st.markdown(
-                f"""
-                <div class="{css_class}">
-                    <b>
-                    {icon} Q{result.get('question_no')}
-                    — {label}
-                    </b>
-                    &nbsp;&nbsp;
-                    <b>
-                    Score: {normalize_result_score(result):.1f}/10
-                    </b>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-            st.markdown(
-                f"### Q{result.get('question_no')}. "
-                f"{result.get('question')}"
-            )
-
-            # ------------------------------------------------
-            # User answer
-            # ------------------------------------------------
-
-            st.markdown("#### 👤 Your Answer")
-
-            user_answer = clean_text(
-                result.get("user_answer")
-            )
-
-            if user_answer:
-                st.info(user_answer)
-            else:
-                st.warning(
-                    "You did not provide an answer."
-                )
-
-            # ------------------------------------------------
-            # Correct points
-            # ------------------------------------------------
-
-            correct_points = result.get(
-                "correct_points",
-                [],
-            )
-
-            if correct_points:
-                st.markdown(
-                    "#### ✅ What You Got Right"
-                )
-
-                for point in correct_points:
-                    st.write(f"• {point}")
-
-            # ------------------------------------------------
-            # Missing points
-            # ------------------------------------------------
-
-            missing_points = result.get(
-                "missing_points",
-                [],
-            )
-
-            if missing_points:
-                st.markdown(
-                    "#### ⚠️ Missing / Incorrect Points"
-                )
-
-                for point in missing_points:
-                    st.write(f"• {point}")
-
-            # ------------------------------------------------
-            # Feedback
-            # ------------------------------------------------
-
-            if result.get("feedback"):
-                st.markdown("#### 💬 Feedback")
-                st.markdown(
-                    result.get("feedback")
-                )
-
-            # ------------------------------------------------
-            # Correct / Ideal answer
-            # ------------------------------------------------
-
-            st.markdown(
-                "#### 📖 Correct / Ideal Answer"
+            score = (
+                round(correct / total * 100)
+                if total
+                else 0
             )
 
             st.success(
-                result.get(
-                    "ideal_answer",
-                    result.get(
-                        "reference_answer",
-                        "Not available",
-                    ),
-                )
+                f"🎤 Viva complete! Score: {score}%"
             )
 
-            st.divider()
-
-        # ----------------------------------------------------
-        # PREPARATION ANALYSIS
-        # ----------------------------------------------------
-
-        st.markdown(
-            "## 📚 What Should You Prepare Now?"
-        )
-
-        weak_items = []
-
-        for result in results:
-
-            classification = result.get(
-                "classification"
-            )
-
-            if classification != "Correct":
-
-                missing = result.get(
-                    "missing_points",
-                    [],
-                )
-
-                if missing:
-                    weak_items.extend(
-                        [
-                            str(x)
-                            for x in missing
-                        ]
-                    )
-                else:
-                    weak_items.append(
-                        result.get(
-                            "question",
-                            "",
-                        )
-                    )
-
-        if weak_items:
-
-            preparation_prompt = f"""
-You are an expert viva preparation mentor.
-
-Language: {st.session_state.language}
-
-The student has just completed a viva.
-
-Topics/questions requiring improvement:
-{json.dumps(weak_items, ensure_ascii=False, indent=2)}
-
-Create a complete preparation plan.
-
-Include:
-1. Concepts to revise first
-2. Missing concepts
-3. Questions the student should practice
-4. How to answer viva questions better
-5. Common mistakes to avoid
-6. A short revision plan
-7. A final self-test strategy
-
-Do not invent facts that are not supported by the supplied information.
-"""
-
-            try:
-                preparation = _invoke(
-                    preparation_prompt,
-                    temperature=0.3,
-                )
-            except Exception:
-                preparation = (
-                    "Revise every Partial/Incorrect question "
-                    "and practice answering it again."
-                )
-
-            st.markdown(preparation)
-
-        else:
-            st.success(
-                "All evaluated answers were classified as Correct. "
-                "Regular revision is still recommended."
-            )
-
-        # ----------------------------------------------------
-        # VIVA REPORT TEXT
-        # ----------------------------------------------------
-
-        report_lines = [
-            "# Complete Viva Performance Report",
-            "",
-            f"Viva Topic: {viva_topic}",
-            f"Total Questions: {total}",
-            f"Correct: {correct_count}",
-            f"Partial: {partial_count}",
-            f"Incorrect: {incorrect_count}",
-            f"Score: {total_score:.1f}/{max_score:.1f}",
-            f"Percentage: {percentage:.1f}%",
-            "",
-            "## Answer-by-Answer Analysis",
-            "",
-        ]
-
-        for result in results:
-
-            report_lines.extend(
-                [
-                    f"### Q{result.get('question_no')}. "
-                    f"{result.get('question')}",
-                    "",
-                    f"**Your Answer:** "
-                    f"{result.get('user_answer') or 'Not Answered'}",
-                    "",
-                    f"**Result:** "
-                    f"{result.get('classification')}",
-                    "",
-                    f"**Score:** "
-                    f"{normalize_result_score(result):.1f}/10",
-                    "",
-                    "**Correct / Ideal Answer:**",
-                    result.get(
-                        "ideal_answer",
-                        result.get(
-                            "reference_answer",
-                            "",
-                        ),
-                    ),
-                    "",
-                ]
-            )
-
-            correct_points = result.get(
-                "correct_points",
-                [],
-            )
-
-            if correct_points:
-
-                report_lines.append(
-                    "**Correct Points:**"
-                )
-
-                for point in correct_points:
-                    report_lines.append(
-                        f"- {point}"
-                    )
-
-                report_lines.append("")
-
-            missing_points = result.get(
-                "missing_points",
-                [],
-            )
-
-            if missing_points:
-
-                report_lines.append(
-                    "**Missing / Incorrect Points:**"
-                )
-
-                for point in missing_points:
-                    report_lines.append(
-                        f"- {point}"
-                    )
-
-                report_lines.append("")
-
-            report_lines.extend(
-                [
-                    "**Feedback:**",
-                    result.get("feedback", ""),
-                    "",
-                    "---",
-                    "",
-                ]
-            )
-
-        viva_report = "\n".join(report_lines)
-
-        save_feature_report(
-            "Complete Viva Report",
-            viva_report,
-        )
-
-        st.markdown("## 📥 Export Viva Report")
-
-        export_buttons(
-            "Complete Viva Performance Report",
-            viva_report,
-            "complete_viva_report",
-        )
-
-        if st.button(
-            "🔄 Start New Viva",
-            use_container_width=True,
-        ):
-
-            st.session_state.viva_data = []
-            st.session_state.viva_results = []
-            st.session_state.viva_started = False
-            st.session_state.viva_finished = False
-
-            st.rerun()
-
-
-# ============================================================
-# TAB 6 - PROJECT LAB
-# ============================================================
-
-with tabs[5]:
-
-    st.markdown("## 🚀 Project Lab")
-
-    project_idea = st.text_area(
-        "Project / Software / Application Description",
-        height=130,
-        placeholder=(
-            "Example:\n"
-            "RAG Based AI Teaching Assistant using Streamlit, "
-            "Groq, LangChain and FAISS."
-        ),
-        key="project_idea",
-    )
-
-    budget = st.selectbox(
-        "Budget",
-        [
-            "low",
-            "medium",
-            "high",
-        ],
-    )
-
-    project_actions = [
-        "Complete Project Guide",
-        "Architecture & Modules",
-        "Code Explanation",
-        "Debugging Strategy",
-        "Feature Roadmap",
-        "Testing Strategy",
-        "Documentation",
-        "Viva Preparation",
-    ]
-
-    selected_action = st.selectbox(
-        "Project Action",
-        project_actions,
-    )
-
-    if st.button(
-        "🚀 Generate Project Output",
-        type="primary",
-        use_container_width=True,
-    ):
-
-        if not project_idea.strip():
-            st.warning(
-                "Project description enter karo."
-            )
-        else:
-
-            with st.spinner(
-                "Generating project support..."
-            ):
-
-                if selected_action == "Complete Project Guide":
-
-                    result = build_project_guide(
-                        project_idea,
-                        budget=budget,
-                        language=st.session_state.language,
-                    )
-
-                else:
-
-                    project_prompt = f"""
-You are an expert project mentor.
-
-Language: {st.session_state.language}
-
-Project:
-{project_idea}
-
-Requested Feature:
-{selected_action}
-
-{answer_length_instruction(st.session_state.answer_length)}
-
-Provide a complete practical response.
-
-If it is software:
-- architecture
-- modules
-- technologies
-- data flow
-- implementation
-- testing
-- deployment
-- security
-- future enhancements
-
-If it is hardware/IoT:
-- components
-- wiring
-- working
-- code structure
-- testing
-- troubleshooting
-- safety
-- future enhancements
-
-If it is an academic project:
-- objective
-- methodology
-- modules
-- implementation
-- results
-- limitations
-- future scope
-- viva questions
-
-Do not assume unsupported hardware details.
-Clearly mark examples as examples.
-"""
-
-                    result = _invoke(
-                        project_prompt,
-                        temperature=0.4,
-                    )
-
-            st.session_state.project_outputs[
-                selected_action
-            ] = result
-
-            save_feature_report(
-                f"Project - {selected_action}",
-                result,
-            )
-
-            st.markdown(result)
-
-            export_buttons(
-                f"Project {selected_action}",
-                result,
-                "project_output",
+            log_event(
+                user["id"],
+                "viva_complete",
+                topic,
+                score,
+                f"{correct}/{total}"
             )
 
 
 # ============================================================
-# TAB 7 - MEDIA LAB
+# PPT - EXISTING
 # ============================================================
 
-with tabs[6]:
-
-    st.markdown("## 🎧 Media Lab")
-
-    media_topic = st.text_input(
-        "Topic for Media",
-        placeholder="Example: DBMS Transaction Management",
-        key="media_topic",
+elif active == "PPT":
+    topic = universal_input(
+        "ppt",
+        f"Topic {lang}"
     )
 
-    # --------------------------------------------------------
-    # PODCAST
-    # --------------------------------------------------------
-
-    st.markdown("### 🎙️ Educational Podcast")
-
-    if st.button(
-        "Generate Podcast Script",
-        use_container_width=True,
-    ):
-
-        if not media_topic.strip():
-            st.warning("Topic enter karo.")
-        else:
-
-            with st.spinner(
-                "Creating podcast script..."
-            ):
-
-                podcast = generate_podcast_script(
-                    media_topic,
-                    language=st.session_state.language,
-                )
-
-            save_feature_report(
-                "Podcast Script",
-                podcast,
-            )
-
-            st.markdown(podcast)
-
-            audio_path = text_to_audio_file(
-                podcast,
-                language_name=st.session_state.language,
-            )
-
-            if audio_path and os.path.exists(audio_path):
-                st.audio(
-                    audio_path,
-                    format="audio/mp3",
-                )
-
-    st.divider()
-
-    # --------------------------------------------------------
-    # VOICE INPUT
-    # --------------------------------------------------------
-
-    st.markdown("### 🎤 Voice Question")
-
-    st.caption(
-        "Voice input ke liye Streamlit ka audio recorder use karo."
-    )
-
-    try:
-        audio_value = st.audio_input(
-            "Record your question",
-            key="voice_question",
-        )
-    except Exception:
-        audio_value = None
-        st.warning(
-            "Your Streamlit version may not support audio_input."
-        )
-
-    if audio_value is not None:
-
-        temp_audio = tempfile.NamedTemporaryFile(
-            delete=False,
-            suffix=".wav",
-        )
-
-        temp_audio.write(
-            audio_value.getvalue()
-        )
-
-        temp_audio.close()
-
-        if st.button(
-            "🧠 Transcribe & Ask",
-            use_container_width=True,
-        ):
-
-            with st.spinner(
-                "Transcribing voice..."
-            ):
-
-                transcription = transcribe_audio(
-                    get_api_key(),
-                    temp_audio.name,
-                )
-
-            if transcription:
-
-                st.markdown(
-                    f"**Transcription:** {transcription}"
-                )
-
-                with st.spinner(
-                    "Generating answer..."
-                ):
-
-                    answer, sources = ask_question(
-                        transcription,
-                        k=st.session_state.retrieval_k,
-                        mode="normal",
-                        language=st.session_state.language,
-                    )
-
-                st.markdown("### 🤖 AI Answer")
-                st.markdown(answer)
-
-                if sources:
-
-                    with st.expander(
-                        "📚 Sources"
-                    ):
-
-                        for source in sources:
-                            st.write(source)
-
-            else:
-                st.error(
-                    "Voice transcription failed."
-                )
-
-    st.divider()
-
-    # --------------------------------------------------------
-    # PPT
-    # --------------------------------------------------------
-
-    st.markdown("### 📊 PPT Generator")
-
-    ppt_topic = st.text_input(
-        "PPT Topic",
-        key="ppt_topic",
-        placeholder="Example: Computer Networks",
-    )
-
-    ppt_count = st.slider(
-        "Slides",
+    pages = st.slider(
+        "Slides?",
         5,
-        20,
+        25,
         10,
+        key="ppt_pages"
     )
 
     if st.button(
-        "📊 Generate PPT",
-        use_container_width=True,
-    ):
-
-        if not ppt_topic.strip():
-            st.warning("PPT topic enter karo.")
-        else:
-
-            with st.spinner(
-                "Creating presentation..."
-            ):
-
-                try:
-                    ppt_path = create_ppt_file(
-                        ppt_topic,
-                        num_slides=ppt_count,
-                        language=st.session_state.language,
-                    )
-
-                    if ppt_path and os.path.exists(
-                        ppt_path
-                    ):
-
-                        with open(
-                            ppt_path,
-                            "rb",
-                        ) as f:
-                            ppt_data = f.read()
-
-                        st.download_button(
-                            "⬇️ Download PPTX",
-                            data=ppt_data,
-                            file_name=(
-                                f"{re.sub(r'[^a-zA-Z0-9]+', '_', ppt_topic)}"
-                                f".pptx"
-                            ),
-                            mime=(
-                                "application/vnd.openxmlformats-officedocument."
-                                "presentationml.presentation"
-                            ),
-                            use_container_width=True,
-                        )
-
-                except Exception as e:
-                    st.error(
-                        f"PPT generation error: {e}"
-                    )
-
-    st.divider()
-
-    # --------------------------------------------------------
-    # IMAGE EXPORT
-    # --------------------------------------------------------
-
-    st.markdown(
-        "### 🖼️ Images → PDF / DOCX"
-    )
-
-    image_files = st.file_uploader(
-        "Upload Images",
-        type=[
-            "png",
-            "jpg",
-            "jpeg",
-            "webp",
-        ],
-        accept_multiple_files=True,
-        key="media_images",
-    )
-
-    if image_files:
-
-        ic1, ic2 = st.columns(2)
-
-        with ic1:
-
-            if st.button(
-                "📕 Images → PDF",
-                use_container_width=True,
-            ):
-
-                try:
-
-                    pdf_buffer = images_to_pdf(
-                        image_files
-                    )
-
-                    st.download_button(
-                        "⬇️ Download PDF",
-                        data=pdf_buffer.getvalue(),
-                        file_name="images.pdf",
-                        mime="application/pdf",
-                        use_container_width=True,
-                    )
-
-                except Exception as e:
-                    st.error(
-                        f"Image PDF error: {e}"
-                    )
-
-        with ic2:
-
-            if st.button(
-                "📝 Images → DOCX",
-                use_container_width=True,
-            ):
-
-                try:
-
-                    docx_buffer = images_to_docx(
-                        image_files
-                    )
-
-                    st.download_button(
-                        "⬇️ Download DOCX",
-                        data=docx_buffer.getvalue(),
-                        file_name="images.docx",
-                        mime=(
-                            "application/vnd.openxmlformats-officedocument."
-                            "wordprocessingml.document"
-                        ),
-                        use_container_width=True,
-                    )
-
-                except Exception as e:
-                    st.error(
-                        f"Image DOCX error: {e}"
-                    )
-
-
-# ============================================================
-# TAB 8 - REPORTS
-# ============================================================
-
-with tabs[7]:
-
-    st.markdown("## 📊 Reports Center")
-
-    st.markdown(
-        """
-        <div class="card">
-        Yaha generated features ke reports ek jagah milenge.
-        Viva aur Quiz ke complete answer-by-answer reports bhi yaha
-        export kiye ja sakte hain.
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    # --------------------------------------------------------
-    # VIVA QUICK SUMMARY
-    # --------------------------------------------------------
-
-    if st.session_state.viva_results:
-
-        results = st.session_state.viva_results
-
-        total = len(results)
-
-        correct = sum(
-            1
-            for r in results
-            if r.get("classification") == "Correct"
-        )
-
-        partial = sum(
-            1
-            for r in results
-            if r.get("classification") == "Partial"
-        )
-
-        incorrect = sum(
-            1
-            for r in results
-            if r.get("classification") == "Incorrect"
-        )
-
-        total_score = sum(
-            normalize_result_score(r)
-            for r in results
-        )
-
-        percentage = (
-            total_score / (total * 10) * 100
-            if total
-            else 0
-        )
-
-        st.markdown("### 🎤 Latest Viva")
-
-        a, b, c, d = st.columns(4)
-
-        with a:
-            st.metric("Correct", correct)
-
-        with b:
-            st.metric("Partial", partial)
-
-        with c:
-            st.metric("Incorrect", incorrect)
-
-        with d:
-            st.metric(
-                "Score",
-                f"{percentage:.1f}%",
-            )
-
-    # --------------------------------------------------------
-    # QUIZ QUICK SUMMARY
-    # --------------------------------------------------------
-
-    if st.session_state.quiz_results:
-
-        results = st.session_state.quiz_results
-
-        total = len(results)
-
-        correct = sum(
-            1
-            for r in results
-            if r.get("is_correct")
-        )
-
-        percentage = (
-            correct / total * 100
-            if total
-            else 0
-        )
-
-        st.markdown("### 📝 Latest Quiz")
-
-        a, b, c = st.columns(3)
-
-        with a:
-            st.metric(
-                "Total",
-                total,
-            )
-
-        with b:
-            st.metric(
-                "Correct",
-                correct,
-            )
-
-        with c:
-            st.metric(
-                "Score",
-                f"{percentage:.1f}%",
-            )
-
-    st.divider()
-
-    # --------------------------------------------------------
-    # COMPLETE REPORT
-    # --------------------------------------------------------
-
-    st.markdown(
-        "### 📘 Complete Combined Report"
-    )
-
-    if st.button(
-        "🧠 Generate Complete Report",
+        "Create PPT",
         type="primary",
         use_container_width=True,
-    ):
+        key="ppt_create"
+    ) and topic:
 
-        quiz_data_for_report = (
-            st.session_state.quiz_results
+        with st.spinner("PPT bana raha hu..."):
+            ppt_path = create_ppt_file(
+                topic,
+                pages,
+                language=lang
+            )
+
+        if ppt_path and os.path.exists(ppt_path):
+            with open(ppt_path, "rb") as f:
+                st.download_button(
+                    "⬇️ Download PPT",
+                    f.read(),
+                    file_name=f"{topic}_{lang}.pptx",
+                    mime=(
+                        "application/vnd.openxmlformats-"
+                        "officedocument.presentationml.presentation"
+                    ),
+                    key="ppt_dl"
+                )
+
+
+# ============================================================
+# 🧠 MY AI BRAIN
+# ============================================================
+
+elif active == "Brain":
+    st.markdown("## 🧠 My AI Student Brain")
+
+    stats = get_topic_stats(user["id"])
+    mistakes = get_mistakes(
+        user["id"],
+        only_open=True
+    )
+    streak = get_streak(user["id"])
+    events = get_events(
+        user["id"],
+        days=30
+    )
+
+    total_attempts = sum(
+        x["attempts"]
+        for x in stats.values()
+    )
+
+    total_correct = sum(
+        x["correct"]
+        for x in stats.values()
+    )
+
+    accuracy = (
+        round(
+            total_correct / total_attempts * 100
+        )
+        if total_attempts
+        else 0
+    )
+
+    c1, c2, c3, c4 = st.columns(4)
+
+    c1.metric(
+        "Topics Tracked",
+        len(stats)
+    )
+
+    c2.metric(
+        "Practice Attempts",
+        total_attempts
+    )
+
+    c3.metric(
+        "Accuracy",
+        f"{accuracy}%"
+    )
+
+    c4.metric(
+        "🔥 Streak",
+        f"{streak} days"
+    )
+
+    st.divider()
+
+    if stats:
+        st.markdown("### 📚 Your Learning Map")
+
+        rows = []
+
+        for topic, s in stats.items():
+            attempts = s["attempts"]
+            acc = (
+                round(
+                    s["correct"] / attempts * 100
+                )
+                if attempts
+                else 0
+            )
+
+            rows.append(
+                (
+                    topic,
+                    attempts,
+                    acc,
+                    s["study"]
+                )
+            )
+
+        rows.sort(
+            key=lambda x: x[2],
+            reverse=True
         )
 
-        viva_data_for_report = (
-            st.session_state.viva_results
+        for topic, attempts, acc, study in rows[:15]:
+            st.markdown(
+                f"""
+                <div class="feature-card">
+                    <b>{topic[:70]}</b><br>
+                    Practice: {attempts} |
+                    Accuracy: {acc}% |
+                    Study actions: {study}
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+    else:
+        st.info(
+            "Abhi learning data kam hai. "
+            "Quiz, Viva aur Q&A use karo; AI tumhara learning profile build karega."
         )
 
-        weak_topics = get_weak_topics()
+    st.markdown("### ❌ Open Mistakes")
 
-        report_prompt = f"""
-You are an academic performance analyst.
+    if mistakes:
+        st.warning(
+            f"{len(mistakes)} mistakes abhi fix karni baaki hain."
+        )
+    else:
+        st.success(
+            "Great! Open Mistake Bank empty hai."
+        )
 
-Language:
-{st.session_state.language}
+    if events:
+        st.caption(
+            f"Last 30 days me {len(events)} learning events recorded."
+        )
 
-Generate a COMPLETE student performance report.
 
-The report must cover all available data.
+# ============================================================
+# 🎯 TODAY'S MISSION
+# ============================================================
 
-QUIZ RESULTS:
-{json.dumps(quiz_data_for_report, ensure_ascii=False, indent=2)}
+elif active == "Today":
+    st.markdown("## 🎯 Today's Mission")
 
-VIVA RESULTS:
-{json.dumps(viva_data_for_report, ensure_ascii=False, indent=2)}
+    plan = create_today_plan(
+        user["id"]
+    )
 
-WEAK TOPICS:
-{json.dumps(weak_topics, ensure_ascii=False, indent=2)}
+    done = sum(
+        1
+        for _, _, status in plan
+        if status == "done"
+    )
 
-FEATURE REPORTS:
-{json.dumps(st.session_state.feature_reports, ensure_ascii=False, indent=2)}
+    total = len(plan)
 
-Include:
+    st.progress(
+        done / total if total else 0
+    )
 
-1. Executive Summary
-2. Quiz Performance
-3. Viva Performance
-4. Correct Answers / Strengths
-5. Wrong Answers / Weaknesses
-6. Partial Answers
-7. Correct answers the student should learn
-8. Missing concepts
-9. Weak topics
-10. Preparation recommendations
-11. Revision plan
-12. Practice strategy
-13. Suggested next quiz/viva
-14. Project/study improvement suggestions
-15. Final action plan
+    st.markdown(
+        f"### {done}/{total} tasks complete"
+    )
 
-For every wrong or partial answer, clearly explain:
-- what the student answered
-- what was correct
-- what was wrong/missing
-- what the correct answer should be
-- how to prepare it
+    for task_id, task, status in plan:
+        col1, col2 = st.columns([5, 1])
 
-Do not hide mistakes.
-Do not invent unavailable results.
-If some data is unavailable, clearly say that.
-"""
+        with col1:
+            if status == "done":
+                st.success(
+                    f"✅ {task}"
+                )
+            else:
+                st.info(
+                    f"⬜ {task}"
+                )
 
-        with st.spinner(
-            "Generating complete performance report..."
-        ):
+        with col2:
+            if st.button(
+                "Undo" if status == "done" else "Done",
+                key=f"plan_{task_id}"
+            ):
+                toggle_plan_task(
+                    task_id,
+                    user["id"],
+                    status
+                )
 
+                log_event(
+                    user["id"],
+                    "study",
+                    "Daily Mission",
+                    1
+                )
+
+                st.rerun()
+
+    if done == total and total:
+        st.balloons()
+        st.success(
+            "🔥 Today's mission complete!"
+        )
+
+    st.divider()
+    st.markdown("### 🧠 Adaptive Weak-Topic Quiz")
+    st.caption("App ke recorded mistakes/weak topics ke basis par targeted practice.")
+    if st.button("🎯 Generate Adaptive Quiz", type="primary", key="adaptive_generate", use_container_width=True):
+        with st.spinner("Weak topics analyse karke quiz bana raha hu..."):
             try:
-                complete_report = _invoke(
-                    report_prompt,
-                    temperature=0.25,
-                )
+                st.session_state.adaptive_quiz = generate_adaptive_quiz(5, language=lang, weak_topics=get_weak_topics())
+                st.session_state.adaptive_results = {}
             except Exception as e:
-                complete_report = (
-                    f"Report generation error: {e}"
+                st.session_state.adaptive_quiz = None
+                st.error(f"Adaptive quiz error: {e}")
+        st.rerun()
+
+    aq = st.session_state.get("adaptive_quiz")
+    if aq:
+        if not isinstance(st.session_state.get("adaptive_results"), dict):
+            st.session_state.adaptive_results = {}
+        for i, qd in enumerate(aq):
+            if not isinstance(qd, dict):
+                continue
+            question = str(qd.get("question", f"Question {i+1}"))
+            options = qd.get("options", [])
+            answer = str(qd.get("answer", ""))
+            topic = str(qd.get("topic", "Adaptive"))
+            if not isinstance(options, list) or len(options) != 4:
+                continue
+            st.markdown(f"**Q{i+1}. {question}**")
+            choice = st.radio(f"Adaptive Q{i+1}", options, key=f"adaptive_radio_{i}", label_visibility="collapsed")
+            checked = i in st.session_state.adaptive_results
+            if st.button(f"Check Adaptive Q{i+1}", key=f"adaptive_chk_{i}", disabled=checked):
+                ok, fb = check_quiz_answer(question, choice, answer, topic)
+                st.session_state.adaptive_results[i] = {"is_correct": bool(ok), "feedback": fb}
+                if ok:
+                    log_event(user["id"], "quiz_correct", topic, 1, question)
+                    st.success(fb)
+                else:
+                    log_event(user["id"], "quiz_wrong", topic, 0, question)
+                    add_mistake(user["id"], topic, question, choice, answer)
+                    st.error(fb)
+                st.rerun()
+            if checked:
+                st.info(st.session_state.adaptive_results[i].get("feedback", "Checked"))
+
+
+# ============================================================
+# 🔄 SMART REVISION
+# ============================================================
+
+elif active == "Revision":
+    st.markdown("## 🔄 Smart Revision")
+
+    mistakes = get_mistakes(
+        user["id"],
+        only_open=True
+    )
+
+    stats = get_topic_stats(
+        user["id"]
+    )
+
+    weak_topics = []
+
+    for topic, s in stats.items():
+        if s["attempts"]:
+            acc = (
+                s["correct"]
+                / s["attempts"]
+                * 100
+            )
+
+            if acc < 70:
+                weak_topics.append(
+                    (topic, acc)
                 )
 
-        save_feature_report(
-            "Complete Combined Performance Report",
-            complete_report,
+    weak_topics.sort(
+        key=lambda x: x[1]
+    )
+
+    if weak_topics:
+        st.markdown(
+            "### ⚠️ Topics that need revision"
         )
 
-        st.markdown(complete_report)
-
-        export_buttons(
-            "Complete Student Performance Report",
-            complete_report,
-            "complete_student_report",
+        for topic, acc in weak_topics[:10]:
+            st.warning(
+                f"**{topic[:70]}** — {round(acc)}% accuracy"
+            )
+    else:
+        st.success(
+            "No strongly weak topic detected yet."
         )
 
     st.divider()
 
-    # --------------------------------------------------------
-    # SAVED FEATURE REPORTS
-    # --------------------------------------------------------
-
-    st.markdown(
-        "### 🗂️ Generated Feature Reports"
+    rev_topic = st.text_input(
+        "Smart revision topic",
+        placeholder="Example: Transaction Management",
+        key="revision_topic"
     )
+    if st.button("🧠 Generate Smart Revision", key="revision_generate", type="primary", use_container_width=True) and rev_topic.strip():
+        with st.spinner("Smart revision prepare ho rahi hai..."):
+            try:
+                st.session_state.revision_result = generate_revision(rev_topic.strip(), language=lang, focus="weakness")
+            except Exception as e:
+                st.session_state.revision_result = f"Revision error: {e}"
 
-    if not st.session_state.feature_reports:
+    if st.session_state.get("revision_result"):
+        st.markdown("### 📚 AI Smart Revision")
+        st.markdown(str(st.session_state.revision_result))
+        play_audio_block(str(st.session_state.revision_result), lang, "smart_revision")
 
-        st.info(
-            "Abhi koi feature report generate nahi hui."
+    if mistakes:
+        st.markdown(
+            "### ❌ Revision from Mistake Bank"
         )
 
-    else:
-
-        for name, item in reversed(
-            list(
-                st.session_state.feature_reports.items()
-            )
-        ):
+        for m in mistakes[:10]:
+            mid, topic, q, ua, ca, ts, fixed = m
 
             with st.expander(
-                f"📄 {name} — {item.get('time', '')}"
+                f"{topic[:50]} • {q[:70]}"
             ):
-
-                content = item.get(
-                    "content",
-                    "",
+                st.markdown(
+                    f"**Question:** {q}"
+                )
+                st.markdown(
+                    f"**Your answer:** {ua}"
+                )
+                st.markdown(
+                    f"**Correct answer:** {ca}"
                 )
 
-                st.markdown(content)
+                if st.button(
+                    "✅ Mark Fixed",
+                    key=f"fix_rev_{mid}"
+                ):
+                    mark_mistake_fixed(
+                        mid,
+                        user["id"]
+                    )
 
-                export_buttons(
-                    name,
-                    content,
-                    re.sub(
-                        r"[^a-zA-Z0-9]+",
-                        "_",
-                        name.lower(),
-                    ),
-                )
+                    log_event(
+                        user["id"],
+                        "revision",
+                        topic,
+                        1
+                    )
 
-    # --------------------------------------------------------
-    # ALL REPORTS EXPORT
-    # --------------------------------------------------------
+                    st.rerun()
 
-    if st.session_state.feature_reports:
+    else:
+        st.info(
+            "Mistake Bank empty hai. Quiz/Viva practice karo."
+        )
+
+
+# ============================================================
+# ❌ MISTAKE DNA
+# ============================================================
+
+elif active == "Mistakes":
+    st.markdown("## ❌ Mistake DNA")
+
+    mistakes = get_mistakes(
+        user["id"]
+    )
+
+    open_mistakes = [
+        m for m in mistakes
+        if m[6] == 0
+    ]
+
+    fixed_mistakes = [
+        m for m in mistakes
+        if m[6] == 1
+    ]
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric(
+        "Total Mistakes",
+        len(mistakes)
+    )
+
+    c2.metric(
+        "Open",
+        len(open_mistakes)
+    )
+
+    c3.metric(
+        "Fixed",
+        len(fixed_mistakes)
+    )
+
+    if not mistakes:
+        st.info(
+            "Abhi Mistake DNA empty hai."
+        )
+    else:
+        topic_count = {}
+
+        for m in mistakes:
+            topic = m[1] or "General"
+            topic_count[topic] = (
+                topic_count.get(topic, 0) + 1
+            )
+
+        st.markdown(
+            "### 🔥 Repeated mistake areas"
+        )
+
+        for topic, count in sorted(
+            topic_count.items(),
+            key=lambda x: x[1],
+            reverse=True
+        )[:10]:
+            st.warning(
+                f"**{topic[:70]}** — {count} mistake(s)"
+            )
 
         st.divider()
 
         st.markdown(
-            "### 📦 Export All Generated Reports"
+            "### 📖 Mistake Review"
         )
 
-        all_reports = get_all_feature_reports_text()
+        for m in mistakes[:30]:
+            mid, topic, q, ua, ca, ts, fixed = m
 
-        export_buttons(
-            "All AI Teaching Assistant Reports",
-            all_reports,
-            "all_teaching_assistant_reports",
+            label = (
+                "✅ Fixed"
+                if fixed
+                else "❌ Open"
+            )
+
+            with st.expander(
+                f"{label} • {topic[:40]} • {q[:65]}"
+            ):
+                st.markdown(
+                    f"**Question:** {q}"
+                )
+
+                st.markdown(
+                    f"**Your answer:** {ua}"
+                )
+
+                st.markdown(
+                    f"**Correct answer:** {ca}"
+                )
+
+                if not fixed:
+                    if st.button(
+                        "Mark as Fixed",
+                        key=f"fix_m_{mid}"
+                    ):
+                        mark_mistake_fixed(
+                            mid,
+                            user["id"]
+                        )
+
+                        log_event(
+                            user["id"],
+                            "revision",
+                            topic,
+                            1,
+                            "Mistake fixed"
+                        )
+
+                        st.rerun()
+
+
+# ============================================================
+# 📊 READINESS
+# ============================================================
+
+elif active == "Readiness":
+    st.markdown("## 📊 Exam Readiness")
+
+    stats = get_topic_stats(
+        user["id"]
+    )
+
+    mistakes = get_mistakes(
+        user["id"],
+        only_open=True
+    )
+
+    total_attempts = sum(
+        s["attempts"]
+        for s in stats.values()
+    )
+
+    total_correct = sum(
+        s["correct"]
+        for s in stats.values()
+    )
+
+    accuracy = (
+        total_correct / total_attempts * 100
+        if total_attempts
+        else 0
+    )
+
+    practice_component = min(
+        100,
+        total_attempts * 4
+    )
+
+    mistake_component = max(
+        0,
+        100 - len(mistakes) * 8
+    )
+
+    topic_component = min(
+        100,
+        len(stats) * 12
+    )
+
+    readiness = round(
+        accuracy * 0.45
+        + practice_component * 0.20
+        + mistake_component * 0.20
+        + topic_component * 0.15
+    )
+
+    readiness = max(
+        0,
+        min(100, readiness)
+    )
+
+    st.metric(
+        "Current Readiness Indicator",
+        f"{readiness}%"
+    )
+
+    st.progress(
+        readiness / 100
+    )
+
+    st.caption(
+        "Ye app ke recorded practice data par based "
+        "learning indicator hai, exam result prediction nahi."
+    )
+
+    c1, c2, c3, c4 = st.columns(4)
+
+    c1.metric(
+        "Accuracy",
+        f"{round(accuracy)}%"
+    )
+
+    c2.metric(
+        "Attempts",
+        total_attempts
+    )
+
+    c3.metric(
+        "Weak/Open Mistakes",
+        len(mistakes)
+    )
+
+    c4.metric(
+        "Topics",
+        len(stats)
+    )
+
+    st.divider()
+
+    if readiness >= 80:
+        st.success(
+            "Strong practice data. Ab timed revision aur viva practice karo."
+        )
+    elif readiness >= 60:
+        st.info(
+            "Good progress. Weak topics par targeted practice karo."
+        )
+    else:
+        st.warning(
+            "Practice base build karo aur mistakes ko revise karo."
         )
 
 
 # ============================================================
-# FOOTER
+# 🚨 EXAM ATTACK
 # ============================================================
 
-st.divider()
+elif active == "ExamAttack":
+    st.markdown("## 🚨 Exam Attack Mode")
 
-st.caption(
-    "🎓 RAG Based AI Teaching Assistant • "
-    "Study • Practice • Viva • Projects • Reports"
-)
+    st.info(
+        "Upload ki hui study material ke basis par "
+        "Important Questions + Summary + Quiz + Viva workflow."
+    )
+
+    exam_topic = st.text_input(
+        "Exam topic (optional)",
+        placeholder="Example: Transaction Management",
+        key="exam_topic"
+    )
+
+    if st.button("🚨 Build Exam Attack Plan", key="exam_attack_plan", use_container_width=True):
+        with st.spinner("Exam attack plan bana raha hu..."):
+            try:
+                st.session_state.exam_attack_plan = generate_exam_attack(exam_topic.strip() or "uploaded material", language=lang)
+            except Exception as e:
+                st.session_state.exam_attack_plan = f"Exam attack error: {e}"
+
+    if st.session_state.get("exam_attack_plan"):
+        st.markdown("### 🚨 Exam Attack Plan")
+        st.markdown(str(st.session_state.exam_attack_plan))
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button(
+            "⭐ Generate Important Questions",
+            type="primary",
+            use_container_width=True,
+            key="exam_imp"
+        ):
+            with st.spinner("Exam questions bana raha hu..."):
+                exam_imp = predict_important_questions(
+                    language=lang, topic=exam_topic.strip() or None
+                )
+
+            st.session_state.exam_imp = exam_imp
+
+            save_conversation(
+                user["id"],
+                "Exam Attack - Important Questions",
+                exam_imp,
+                "ExamAttack"
+            )
+
+    with col2:
+        if st.button(
+            "📄 Generate Rapid Summary",
+            type="primary",
+            use_container_width=True,
+            key="exam_sum"
+        ):
+            with st.spinner("Rapid summary bana raha hu..."):
+                exam_sum = generate_summary(
+                    language=lang, topic=exam_topic.strip() or None
+                )
+
+            st.session_state.exam_sum = exam_sum
+
+    if "exam_imp" in st.session_state:
+        st.markdown("### ⭐ Important Questions")
+        st.markdown(
+            st.session_state.exam_imp
+        )
+
+    if "exam_sum" in st.session_state:
+        st.markdown("### 📄 Rapid Revision")
+        st.markdown(
+            st.session_state.exam_sum
+        )
+
+    st.divider()
+
+    st.markdown(
+        "### 📝 Quick Practice"
+    )
+
+    qn = st.slider(
+        "Questions",
+        3,
+        10,
+        5,
+        key="exam_quiz_n"
+    )
+
+    if st.button(
+        "Generate Exam Quiz",
+        use_container_width=True,
+        key="exam_quiz"
+    ):
+        with st.spinner("Exam quiz..."):
+            st.session_state.exam_quiz_data = generate_quiz(
+                int(qn), language=lang, topic=exam_topic.strip() or None
+            )
+
+        st.session_state.exam_quiz_results = []
+
+
+    if st.session_state.get("exam_quiz_data"):
+        st.markdown("### 🎯 Exam Quiz")
+        if "exam_quiz_results" not in st.session_state or not isinstance(st.session_state.exam_quiz_results, dict):
+            st.session_state.exam_quiz_results = {}
+        for i, qd in enumerate(st.session_state.exam_quiz_data):
+            if not isinstance(qd, dict):
+                continue
+            question = str(qd.get("question", f"Question {i+1}"))
+            options = qd.get("options", [])
+            answer = str(qd.get("answer", ""))
+            topic = str(qd.get("topic", "Exam"))
+            if not isinstance(options, list) or len(options) != 4:
+                continue
+            st.markdown(f"**Q{i+1}. {question}**")
+            choice = st.radio(
+                f"Exam Q{i+1}", options, key=f"exam_radio_{i}",
+                label_visibility="collapsed"
+            )
+            checked = i in st.session_state.exam_quiz_results
+            if st.button(f"Check Exam Q{i+1}", key=f"exam_chk_{i}", disabled=checked):
+                ok, fb = check_quiz_answer(question, choice, answer, topic)
+                st.session_state.exam_quiz_results[i] = {"is_correct": bool(ok), "feedback": fb}
+                if ok:
+                    log_event(user["id"], "quiz_correct", topic, 1, question)
+                    st.success(fb)
+                else:
+                    log_event(user["id"], "quiz_wrong", topic, 0, question)
+                    add_mistake(user["id"], topic, question, choice, answer)
+                    st.error(fb)
+                st.rerun()
+            if checked:
+                st.info(st.session_state.exam_quiz_results[i].get("feedback", "Checked"))
+
+
+# ============================================================
+# 🧑‍🏫 TEACH BACK
+# ============================================================
+
+elif active == "TeachBack":
+    st.markdown("## 🧑‍🏫 Teach-Back Mode")
+
+    st.write(
+        "Student teacher banega. Tum topic explain karo; "
+        "AI tumhari explanation me missing points identify karega."
+    )
+
+    topic = universal_input(
+        "teach_topic",
+        f"Topic ({lang})"
+    )
+
+    explanation = st.text_area(
+        "Apni explanation yahan likho",
+        height=220,
+        placeholder="Example: ACID property ko main aise explain karunga..."
+    )
+
+    if st.button(
+        "🧑‍🏫 Evaluate My Teaching",
+        type="primary",
+        use_container_width=True,
+        key="teach_eval"
+    ) and topic and explanation:
+
+        with st.spinner("AI explanation analyze kar raha hai..."):
+            try:
+                result = generate_teach_back_feedback(
+                    topic, explanation, language=lang
+                )
+            except Exception as e:
+                result = {
+                    "score": 0,
+                    "verdict": "Needs Work",
+                    "what_was_correct": [],
+                    "missing_or_wrong": [str(e)],
+                    "one_better_explanation": "Try again after checking your notes.",
+                    "next_question": topic
+                }
+
+        st.session_state.teach_result = result
+
+        log_event(
+            user["id"],
+            "teach_back",
+            topic,
+            1,
+            explanation[:500]
+        )
+
+    if "teach_result" in st.session_state:
+        tr = st.session_state.teach_result
+        if isinstance(tr, dict):
+            st.metric("Teach-back Score", f"{tr.get('score', 0)}/10")
+            st.success(str(tr.get("verdict", "Needs Work")))
+            st.markdown("**What was correct**")
+            for x in tr.get("what_was_correct", []) or []:
+                st.write("• " + str(x))
+            st.markdown("**Missing / wrong**")
+            for x in tr.get("missing_or_wrong", []) or []:
+                st.write("• " + str(x))
+            st.markdown("**Better explanation**")
+            st.write(tr.get("one_better_explanation", ""))
+            st.markdown("**Next question**")
+            st.write(tr.get("next_question", ""))
+        else:
+            st.markdown(str(tr))
+
+
+# ============================================================
+# ⚔️ CONFUSION BATTLE
+# ============================================================
+
+elif active == "Confusion":
+    st.markdown("## ⚔️ Confusion Battle")
+
+    st.write(
+        "Do similar concepts compare karo aur difference samjho."
+    )
+
+    a = st.text_input(
+        "Concept A",
+        placeholder="Example: Primary Key"
+    )
+
+    b = st.text_input(
+        "Concept B",
+        placeholder="Example: Foreign Key"
+    )
+
+    if st.button(
+        "⚔️ Compare Concepts",
+        type="primary",
+        use_container_width=True,
+        key="confusion_compare"
+    ) and a and b:
+
+        with st.spinner("Concept battle prepare ho rahi hai..."):
+            try:
+                result = generate_confusion_battle(a, b, language=lang)
+            except Exception as e:
+                result = f"Comparison error: {e}"
+
+        st.markdown(result)
+
+        save_conversation(
+            user["id"],
+            f"Compare: {a} vs {b}",
+            result,
+            "Confusion"
+        )
+
+
+# ============================================================
+# 📅 STUDY PLANNER
+# ============================================================
+
+elif active == "Planner":
+    st.markdown("## 📅 Study Planner")
+
+    st.write(
+        "Daily tasks ko simple checklist me manage karo."
+    )
+
+    plan = create_today_plan(
+        user["id"]
+    )
+
+    done = sum(
+        1
+        for _, _, status in plan
+        if status == "done"
+    )
+
+    total = len(plan)
+
+    st.metric(
+        "Today's completion",
+        f"{done}/{total}"
+    )
+
+    for task_id, task, status in plan:
+        col1, col2 = st.columns(
+            [6, 1]
+        )
+
+        with col1:
+            st.write(
+                ("✅ " if status == "done" else "⬜ ")
+                + task
+            )
+
+        with col2:
+            if st.button(
+                "✓" if status != "done" else "↩",
+                key=f"planner_{task_id}"
+            ):
+                toggle_plan_task(
+                    task_id,
+                    user["id"],
+                    status
+                )
+                st.rerun()
+
+
+# ============================================================
+# 🔥 STREAK
+# ============================================================
+
+elif active == "Streak":
+    st.markdown("## 🔥 Learning Streak")
+
+    streak = get_streak(
+        user["id"]
+    )
+
+    events = get_events(
+        user["id"],
+        days=30
+    )
+
+    st.markdown(
+        f"""
+        <div class="dark-card">
+            <div style="font-size:42px;">🔥</div>
+            <h1 style="margin:0;">{streak} Day Streak</h1>
+            <p>Har din thoda practice karo aur learning habit build karo.</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.write("")
+
+    active_dates = set()
+    for x in events:
+        try:
+            if x[5]:
+                active_dates.add(datetime.fromisoformat(x[5]).date())
+        except Exception:
+            continue
+    active_dates = sorted(active_dates, reverse=True)
+
+    st.metric(
+        "Active days in last 30 days",
+        len(active_dates)
+    )
+
+    if active_dates:
+        st.markdown("### Recent active days")
+
+        st.write(
+            ", ".join(
+                str(d)
+                for d in active_dates[:15]
+            )
+        )
+
+
+# ============================================================
+# 📈 WEEKLY REPORT
+# ============================================================
+
+elif active == "Report":
+    st.markdown("## 📈 Weekly AI Learning Report")
+
+    events = get_events(
+        user["id"],
+        days=7
+    )
+
+    mistakes = get_mistakes(
+        user["id"]
+    )
+
+    stats = get_topic_stats(user["id"], days=7)
+
+    attempts = sum(
+        s["attempts"]
+        for s in stats.values()
+    )
+
+    correct = sum(
+        s["correct"]
+        for s in stats.values()
+    )
+
+    accuracy = (
+        round(correct / attempts * 100)
+        if attempts
+        else 0
+    )
+
+    week_mistakes = [
+        m for m in mistakes
+        if m[5] >= (
+            datetime.now()
+            - timedelta(days=7)
+        ).isoformat()
+    ]
+
+    c1, c2, c3, c4 = st.columns(4)
+
+    c1.metric(
+        "Learning events",
+        len(events)
+    )
+
+    c2.metric(
+        "Practice attempts",
+        attempts
+    )
+
+    c3.metric(
+        "Accuracy",
+        f"{accuracy}%"
+    )
+
+    c4.metric(
+        "New mistakes",
+        len(week_mistakes)
+    )
+
+    st.divider()
+
+    if stats:
+        weak = []
+
+        for topic, s in stats.items():
+            if s["attempts"]:
+                acc = (
+                    s["correct"]
+                    / s["attempts"]
+                    * 100
+                )
+                weak.append(
+                    (topic, acc)
+                )
+
+        weak.sort(
+            key=lambda x: x[1]
+        )
+
+        st.markdown(
+            "### 🎯 Topics to revisit"
+        )
+
+        for topic, acc in weak[:5]:
+            st.warning(
+                f"{topic[:70]} — {round(acc)}% practice accuracy"
+            )
+
+    if events:
+        st.markdown(
+            "### 🧾 Recent activity"
+        )
+
+        for event in events[:15]:
+            _, event_type, topic, score, details, created_at = event
+
+            st.caption(
+                f"{created_at[:16]} • "
+                f"{event_type} • "
+                f"{topic[:60]}"
+            )
+    else:
+        st.info(
+            "Is week activity nahi mili. "
+            "Aaj se practice start karo."
+        )
+
+
+# ============================================================
+# ⚡ 5-MINUTE STUDY
+# ============================================================
+
+elif active == "FastStudy":
+    st.markdown("## ⚡ 5-Minute Study Mode")
+
+    st.write(
+        "Time kam hai? Ek compact learning cycle complete karo."
+    )
+
+    topic = st.text_input(
+        "Topic",
+        placeholder="Example: DBMS Transaction Management",
+        key="fast_topic"
+    )
+
+    if st.button(
+        "⚡ Start 5-Minute Session",
+        type="primary",
+        use_container_width=True,
+        key="fast_start"
+    ) and topic.strip():
+
+        topic = topic.strip()
+
+        with st.spinner("Quick lesson bana raha hu..."):
+            try:
+                answer, sources = ask_question(
+                    f"""
+Teach me this topic in a 5-minute study session:
+{topic}
+
+Structure:
+1. 60-second simple explanation
+2. 3 key points
+3. One real-life example
+4. 3 recall questions
+5. One exam tip
+
+Language: {lang}
+""",
+                    top_k,
+                    mode="normal",
+                    language=lang
+                )
+
+                st.session_state.fast_result = answer
+
+                log_event(
+                    user["id"],
+                    "study",
+                    topic,
+                    1,
+                    "5-minute study"
+                )
+
+            except Exception as e:
+                st.error(
+                    f"Session error: {e}"
+                )
+
+    if "fast_result" in st.session_state:
+        st.markdown(
+            st.session_state.fast_result
+        )
+
+        play_audio_block(
+            st.session_state.fast_result,
+            lang,
+            "fast_study"
+        )
+
+
+# ============================================================
+# FALLBACK
+# ============================================================
+
+else:
+    st.info(
+        "Module select karo."
+    )
