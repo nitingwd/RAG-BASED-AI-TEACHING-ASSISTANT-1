@@ -1024,56 +1024,16 @@ with st.sidebar:
             f'</div>'
         )
 
-    st.markdown(
-        f"""
-        <div class="profile-card-pro">
-            {photo_html}
-            <h4 style="
-                margin:12px 0 2px 0;
-                font-family:Space Grotesk;
-                font-size:16px;
-                color:#111827;
-            ">
-                {user["name"]}
-            </h4>
-
-            <p style="
-                margin:0;
-                color:#6366F1;
-                font-size:12px;
-                font-weight:600;
-            ">
-                @{user["username"]}
-            </p>
-
-            <div style="
-                margin-top:10px;
-                display:flex;
-                gap:6px;
-                justify-content:center;
-            ">
-                <span style="
-                    background:#EEF2FF;
-                    color:#6366F1;
-                    padding:3px 8px;
-                    border-radius:10px;
-                    font-size:10px;
-                    font-weight:700;
-                ">PRO</span>
-
-                <span style="
-                    background:#F0FDF4;
-                    color:#16A34A;
-                    padding:3px 8px;
-                    border-radius:10px;
-                    font-size:10px;
-                    font-weight:700;
-                ">ACTIVE</span>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
+    profile_html = (
+        f'<div class="profile-card-pro">{photo_html}'
+        f'<h4 style="margin:12px 0 2px 0;font-family:Space Grotesk;font-size:16px;color:#111827;">{user["name"]}</h4>'
+        f'<p style="margin:0;color:#6366F1;font-size:12px;font-weight:600;">@{user["username"]}</p>'
+        f'<div style="margin-top:10px;display:flex;gap:6px;justify-content:center;">'
+        f'<span style="background:#EEF2FF;color:#6366F1;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:700;">PRO</span>'
+        f'<span style="background:#F0FDF4;color:#16A34A;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:700;">ACTIVE</span>'
+        f'</div></div>'
     )
+    st.markdown(profile_html, unsafe_allow_html=True)
 
     st.write("")
 
@@ -1192,42 +1152,14 @@ with st.sidebar:
 # HERO
 # ============================================================
 
-st.markdown(
-    f"""
-    <div class="hero-pro">
-        <div style="position:relative; z-index:2;">
-            <h1 style="
-                margin:0;
-                font-family:Space Grotesk;
-                font-size:26px;
-                font-weight:700;
-            ">
-                Welcome back, {user["name"].split()[0]}! 👋
-            </h1>
-
-            <h2 style="
-                margin:6px 0 0 0;
-                font-family:Space Grotesk;
-                font-size:18px;
-                font-weight:500;
-                opacity:0.93;
-            ">
-                RAG Based AI Teaching Assistant
-            </h2>
-
-            <p style="
-                margin:8px 0 0 0;
-                opacity:0.90;
-                font-size:13px;
-            ">
-                Learn → Practice → Mistake → Fix → Revise → Retest
-            </p>
-        </div>
-    </div>
-    <br>
-    """,
-    unsafe_allow_html=True
+hero_html = (
+    f'<div class="hero-pro"><div style="position:relative;z-index:2;">'
+    f'<h1 style="margin:0;font-family:Space Grotesk;font-size:26px;font-weight:700;">Welcome back, {user["name"].split()[0]}! 👋</h1>'
+    f'<h2 style="margin:6px 0 0 0;font-family:Space Grotesk;font-size:18px;font-weight:500;opacity:0.93;">RAG Based AI Teaching Assistant</h2>'
+    f'<p style="margin:8px 0 0 0;opacity:0.90;font-size:13px;">Learn → Practice → Mistake → Fix → Revise → Retest</p>'
+    f'</div></div><br>'
 )
+st.markdown(hero_html, unsafe_allow_html=True)
 
 
 # ============================================================
