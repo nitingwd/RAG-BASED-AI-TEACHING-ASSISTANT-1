@@ -461,6 +461,52 @@ def check_quiz_answer(question, user_ans, correct_ans, topic="general"):
     return ok, ("✅ Sahi Jawaab!" if ok else f"❌ Galat. Sahi: {correct_ans}")
 
 
+def build_quiz_final_report(quiz_data, answers, language="Hinglish"):
+    """Create a deterministic final quiz report with every wrong answer and its correct answer."""
+    report=[]
+    correct=0
+    for i,q in enumerate(quiz_data or []):
+        user_ans = str((answers or {}).get(i, "")).strip()
+        correct_ans = str(q.get("answer", "")).strip()
+        ok,_ = check_quiz_answer(q.get("question", ""), user_ans, correct_ans, q.get("topic", "general"))
+        if ok: correct += 1
+        report.append({
+            "number": i+1,
+            "question": q.get("question", ""),
+            "user_answer": user_ans or "Not answered",
+            "correct_answer": correct_ans,
+            "is_correct": bool(ok),
+            "explanation": q.get("explanation", ""),
+            "topic": q.get("topic", "General"),
+        })
+    total=len(report)
+    return {"total":total,"correct":correct,"wrong":total-correct,"score":round(correct/total*100) if total else 0,"items":report}
+
+
+def build_viva_final_report(viva_data, evaluations, language="Hinglish"):
+    """Create a final viva report including student answer, score, correct/reference answer and missing points."""
+    items=[]
+    total=len(viva_data or [])
+    earned=0.0
+    for i,q in enumerate(viva_data or []):
+        ev=(evaluations or {}).get(i,{})
+        try: score=float(ev.get("score",0))
+        except Exception: score=0.0
+        earned += max(0,min(10,score))
+        items.append({
+            "number":i+1,
+            "question":q.get("q", ""),
+            "user_answer":ev.get("user_answer", "Not answered"),
+            "correct_answer":q.get("a", ""),
+            "score":round(score,1),
+            "is_correct":bool(ev.get("is_correct",False)),
+            "feedback":ev.get("feedback", ""),
+            "missing_points":ev.get("missing_points",[]) or [],
+        })
+    percent=round((earned/(total*10))*100) if total else 0
+    return {"total":total,"earned":round(earned,1),"score":percent,"items":items}
+
+
 def generate_adaptive_quiz(num_q=5, language="Hinglish", weak_topics=None):
     """Generate practice biased toward the student's weakest tracked topics."""
     weak_topics = weak_topics or get_weak_topics()
@@ -956,3 +1002,148 @@ def images_to_docx(image_files):
     doc.save(doc_buffer)
     doc_buffer.seek(0)
     return doc_buffer
+
+# ============================================================
+# NEXT-LEVEL SOURCE STUDIO FEATURES
+# ============================================================
+
+def _source_context(query, k=8, per_doc=1800):
+    docs = hybrid_search(query, k=k)
+    if not docs:
+        return "No indexed source context is available."
+    blocks = []
+    for i, doc in enumerate(docs, 1):
+        meta = getattr(doc, "metadata", {}) or {}
+        src = meta.get("source", "Unknown source")
+        page = meta.get("page", meta.get("page_number", ""))
+        label = f"Source {i}: {os.path.basename(str(src))}"
+        if page not in ("", None):
+            label += f" | page {page}"
+        blocks.append(f"[{label}]\n{_clean_text(getattr(doc, 'page_content', ''))[:per_doc]}")
+    return "\n\n".join(blocks)
+
+
+def get_source_inventory():
+    """Return a compact inventory of currently indexed documents/chunks."""
+    db = st.session_state.get("vectordb")
+    if db is None:
+        return {"total_chunks": 0, "sources": []}
+    try:
+        docs = list(db.docstore._dict.values())
+    except Exception:
+        docs = []
+    grouped = {}
+    for d in docs:
+        meta = getattr(d, "metadata", {}) or {}
+        src = str(meta.get("source", "Unknown source"))
+        name = os.path.basename(src)
+        grouped.setdefault(name, {"name": name, "chunks": 0, "pages": set()})
+        grouped[name]["chunks"] += 1
+        p = meta.get("page", meta.get("page_number"))
+        if p is not None:
+            grouped[name]["pages"].add(str(p))
+    sources = []
+    for item in grouped.values():
+        item["pages"] = sorted(item["pages"], key=lambda x: int(x) if x.isdigit() else x)
+        sources.append(item)
+    return {"total_chunks": len(docs), "sources": sorted(sources, key=lambda x: x["name"].lower())}
+
+
+def _studio_json(prompt, fallback):
+    try:
+        data = _json_from_text(_invoke(prompt, temperature=0.35), default=None)
+        return data if data is not None else fallback
+    except Exception:
+        return fallback
+
+
+def generate_source_brief(language="Hinglish"):
+    inv = get_source_inventory()
+    context = _source_context("main topics, definitions, concepts, formulas, examples and important facts", k=10)
+    prompt = f"""You are a source-grounded academic assistant. Use ONLY the supplied source context.
+Create a concise but useful source brief in {language}.
+Include: overview, major topics, key concepts, formulas/facts if present, likely exam areas, and source coverage.
+Do not invent facts. If something is not present, say it is not found.
+Return plain text with clear headings.
+Inventory: {json.dumps(inv, ensure_ascii=False)}
+SOURCE CONTEXT:\n{context}"""
+    return _invoke(prompt, temperature=0.25)
+
+
+def generate_flashcards(topic="all material", num_cards=10, language="Hinglish"):
+    context = _source_context(topic, k=10)
+    n = max(3, min(30, int(num_cards)))
+    fallback = [{"front": f"{topic} — Card {i+1}", "back": "Review the uploaded source material for this concept."} for i in range(n)]
+    prompt = f"""Create {n} high-quality study flashcards from ONLY the source context.
+Language: {language}. Topic: {topic}.
+Return ONLY JSON array: [{{"front":"question/term","back":"answer"}}]
+Avoid duplicates. Keep answers concise and source-grounded.
+SOURCE CONTEXT:\n{context}"""
+    data = _studio_json(prompt, fallback)
+    return data[:n] if isinstance(data, list) else fallback
+
+
+def generate_mind_map(topic, language="Hinglish"):
+    context = _source_context(topic, k=10)
+    fallback = {"topic": topic, "branches": [{"name": "Key Concepts", "children": ["Review source material"]}]}
+    prompt = f"""Build a source-grounded mind map for {topic} in {language}.
+Return ONLY JSON: {{"topic":"...","branches":[{{"name":"...","children":["..."]}}]}}
+Use only the supplied material; do not invent unsupported concepts.
+SOURCE CONTEXT:\n{context}"""
+    data = _studio_json(prompt, fallback)
+    return data if isinstance(data, dict) else fallback
+
+
+def generate_exam_paper(topic="all material", num_questions=10, difficulty="Mixed", language="Hinglish"):
+    context = _source_context(topic, k=12)
+    n = max(3, min(30, int(num_questions)))
+    fallback = [{"question": f"Explain an important concept from {topic}.", "answer": "Refer to the uploaded source material.", "difficulty": difficulty} for _ in range(n)]
+    prompt = f"""Generate an exam paper from ONLY the source material.
+Topic: {topic}; Questions: {n}; Difficulty: {difficulty}; Language: {language}.
+Return ONLY JSON array of objects with question, answer, difficulty.
+Cover different concepts, avoid duplicates, and never invent source-specific facts.
+SOURCE CONTEXT:\n{context}"""
+    data = _studio_json(prompt, fallback)
+    return data[:n] if isinstance(data, list) else fallback
+
+
+def compare_source_topics(topic_a, topic_b, language="Hinglish"):
+    context = _source_context(f"{topic_a} and {topic_b}", k=12)
+    fallback = {"topic_a": topic_a, "topic_b": topic_b, "similarities": [], "differences": [], "summary": "Compare the two topics using the uploaded material."}
+    prompt = f"""Compare {topic_a} and {topic_b} using ONLY the source context.
+Language: {language}.
+Return ONLY JSON with keys topic_a, topic_b, similarities (array), differences (array of objects with aspect,a,b), summary.
+If the source does not support a comparison, state that clearly.
+SOURCE CONTEXT:\n{context}"""
+    data = _studio_json(prompt, fallback)
+    return data if isinstance(data, dict) else fallback
+
+
+def generate_study_guide(topic="all material", language="Hinglish"):
+    context = _source_context(topic, k=12)
+    prompt = f"""Create a practical study guide for {topic} in {language}, grounded ONLY in the source context.
+Include: prerequisites, learning objectives, concepts in order, examples/applications found in source, common mistakes, revision checklist, and exam focus.
+Use headings and bullets. Do not invent unsupported information.
+SOURCE CONTEXT:\n{context}"""
+    return _invoke(prompt, temperature=0.25)
+
+
+def build_study_pack(topic="all material", language="Hinglish"):
+    brief = generate_source_brief(language)
+    guide = generate_study_guide(topic, language)
+    cards = generate_flashcards(topic, 12, language)
+    doc = Document()
+    doc.add_heading("RAG AI Teaching Assistant — Study Pack", 0)
+    doc.add_paragraph(f"Topic: {topic}")
+    doc.add_heading("Source Brief", level=1)
+    doc.add_paragraph(str(brief))
+    doc.add_heading("Study Guide", level=1)
+    doc.add_paragraph(str(guide))
+    doc.add_heading("Flashcards", level=1)
+    for i, card in enumerate(cards, 1):
+        doc.add_paragraph(f"{i}. {card.get('front','')}", style="List Number")
+        doc.add_paragraph(str(card.get('back','')))
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+    return buf
