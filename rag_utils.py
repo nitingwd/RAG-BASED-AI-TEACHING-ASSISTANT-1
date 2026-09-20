@@ -125,11 +125,11 @@ def text_to_audio_file(text, language_name="Hinglish"):
 
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
         tmp.close()
-        gTTS(
-            text=clean,
-            lang=get_lang_code(language_name),
-            slow=False,
-        ).save(tmp.name)
+        try:
+            gTTS(text=clean, lang=get_lang_code(language_name), slow=False).save(tmp.name)
+        except Exception:
+            # gTTS can reject some language combinations; English is a safe fallback.
+            gTTS(text=clean, lang="en", slow=False).save(tmp.name)
 
         if os.path.exists(tmp.name) and os.path.getsize(tmp.name) > 1000:
             return tmp.name
@@ -239,20 +239,39 @@ def process_files(files, chunk_size=1000, chunk_overlap=100):
 
 
 def hybrid_search(query, k=8):
-    """Vector retrieval used by the current app.
+    """Robust lightweight hybrid retrieval without an extra BM25 dependency.
 
-    The function name is kept for backward compatibility with the original app.
-    It currently performs FAISS similarity search rather than a BM25+vector hybrid.
+    FAISS provides semantic retrieval. A small lexical bonus is then applied so
+    exact terms from the student's query are less likely to disappear from the
+    final context. This keeps deployment simple while improving RAG quality.
     """
     vb = st.session_state.get("vectordb")
     if vb is None:
         return []
 
     try:
-        return vb.similarity_search(query, k=max(1, int(k)))
-    except Exception as e:
-        print(f"Search Error: {e}")
-        return []
+        k = max(1, int(k))
+        candidate_n = min(max(k * 3, 12), 40)
+        candidates = vb.similarity_search_with_score(query, k=candidate_n)
+    except Exception:
+        try:
+            return vb.similarity_search(query, k=k)
+        except Exception as e:
+            print(f"Search Error: {e}")
+            return []
+
+    terms = set(re.findall(r"[a-zA-Z0-9_]{3,}", str(query).lower()))
+    scored = []
+    for doc, distance in candidates:
+        text = str(doc.page_content or "").lower()
+        lexical = sum(text.count(term) for term in terms)
+        # FAISS distance is lower-is-better for the common indexes used here.
+        semantic = 1.0 / (1.0 + max(float(distance), 0.0))
+        score = semantic + min(lexical, 8) * 0.035
+        scored.append((score, doc))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [doc for _, doc in scored[:k]]
 
 
 def _context_for(query, k=8, per_doc=1600):
@@ -384,15 +403,22 @@ Make distractors plausible and do not repeat the same question.
             cleaned = []
             for item in data[: int(num_q)]:
                 if isinstance(item, dict):
-                    cleaned.append(
-                        {
-                            "question": str(item.get("question", "")),
-                            "options": list(item.get("options", []))[:4],
-                            "answer": str(item.get("answer", "")),
-                            "explanation": str(item.get("explanation", "")),
-                            "topic": str(item.get("topic", topic_text)),
-                        }
-                    )
+                    options = item.get("options", [])
+                    if not isinstance(options, list):
+                        options = []
+                    options = [str(x).strip() for x in options[:4] if str(x).strip()]
+                    answer = str(item.get("answer", "")).strip()
+                    question = str(item.get("question", "")).strip()
+                    if question and len(options) == 4 and answer:
+                        cleaned.append(
+                            {
+                                "question": question,
+                                "options": options,
+                                "answer": answer,
+                                "explanation": str(item.get("explanation", "Review the study context.")).strip(),
+                                "topic": str(item.get("topic", topic_text)).strip() or topic_text,
+                            }
+                        )
             if cleaned:
                 return cleaned
     except Exception as e:
@@ -420,8 +446,12 @@ def check_quiz_answer(question, user_ans, correct_ans, topic="general"):
     a = normalize(user_ans)
     b = normalize(correct_ans)
 
-    # Accept exact option text or matching option letter.
-    ok = a == b or (len(a) >= 2 and len(b) >= 2 and a[:2] == b[:2])
+    # Exact text first; then compare option letters such as a), b), etc.
+    ok = a == b
+    if not ok:
+        ma = re.match(r"^([a-d])(?:[\).:\-\s]|$)", a)
+        mb = re.match(r"^([a-d])(?:[\).:\-\s]|$)", b)
+        ok = bool(ma and mb and ma.group(1) == mb.group(1))
 
     if not ok:
         wt = st.session_state.get("weak_topics", {})
@@ -429,6 +459,18 @@ def check_quiz_answer(question, user_ans, correct_ans, topic="general"):
         st.session_state.weak_topics = wt
 
     return ok, ("✅ Sahi Jawaab!" if ok else f"❌ Galat. Sahi: {correct_ans}")
+
+
+def generate_adaptive_quiz(num_q=5, language="Hinglish", weak_topics=None):
+    """Generate practice biased toward the student's weakest tracked topics."""
+    weak_topics = weak_topics or get_weak_topics()
+    if weak_topics:
+        focus = ", ".join(
+            t for t, _ in sorted(weak_topics.items(), key=lambda x: x[1], reverse=True)[:5]
+        )
+    else:
+        focus = "core concepts from the uploaded material"
+    return generate_quiz(num_q=num_q, language=language, topic=focus)
 
 
 def get_weak_topics():
