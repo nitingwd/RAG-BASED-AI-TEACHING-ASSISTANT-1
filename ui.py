@@ -764,8 +764,12 @@ from rag_utils import (
     transcribe_audio, story_mode_learning, build_project_guide,
     generate_podcast_script, generate_viva_questions, verify_viva_answer,
     generate_adaptive_quiz, generate_teach_back_feedback, generate_revision,
+    build_quiz_final_report, build_viva_final_report,
     generate_exam_attack, generate_confusion_battle, create_ppt_file,
-    text_to_audio_file, images_to_pdf, images_to_docx
+    text_to_audio_file, images_to_pdf, images_to_docx,
+    get_source_inventory, generate_source_brief, generate_flashcards,
+    generate_mind_map, generate_exam_paper, compare_source_topics,
+    generate_study_guide, build_study_pack
 )
 
 
@@ -908,7 +912,7 @@ section.main div[data-testid="stButton"] > button:hover {
 }
 </style>
 
-<div class="dev-badge">V24 • Student AI Brain</div>
+<div class="dev-badge">V25 • Source Intelligence + Student AI Brain</div>
 """, unsafe_allow_html=True)
 
 
@@ -1173,10 +1177,20 @@ if "viva_qs" not in st.session_state:
     st.session_state.viva_qs = []
     st.session_state.viva_idx = 0
     st.session_state.viva_score = []
+if "viva_evaluations" not in st.session_state:
+    st.session_state.viva_evaluations = {}
+if "viva_final_report" not in st.session_state:
+    st.session_state.viva_final_report = None
 
 if "quiz_data" not in st.session_state:
     st.session_state.quiz_data = None
-    st.session_state.quiz_results = []
+    st.session_state.quiz_results = {}
+if "quiz_answers" not in st.session_state:
+    st.session_state.quiz_answers = {}
+if "quiz_final_report" not in st.session_state:
+    st.session_state.quiz_final_report = None
+if "quiz_submitted" not in st.session_state:
+    st.session_state.quiz_submitted = False
 
 if "adaptive_quiz" not in st.session_state:
     st.session_state.adaptive_quiz = None
@@ -1434,6 +1448,23 @@ with n2[5]:
         st.rerun()
 
 
+
+
+st.markdown("##### 🚀 Source Studio — Notebook-Style Features")
+ns = st.columns(6)
+source_features = [
+    ("📚 Source Studio", "SourceStudio"),
+    ("🗂️ Flashcards", "Flashcards"),
+    ("🧠 Mind Map", "MindMap"),
+    ("📝 Exam Builder", "ExamBuilder"),
+    ("⚖️ Compare", "Compare"),
+    ("📦 Study Pack", "StudyPack"),
+]
+for col, (label, target) in zip(ns, source_features):
+    with col:
+        if st.button(label, use_container_width=True, key=f"dash_{target.lower()}"):
+            st.session_state.active = target
+            st.rerun()
 st.divider()
 
 active = st.session_state.active
@@ -1912,268 +1943,205 @@ elif active == "Image2PDF":
 # ============================================================
 
 elif active == "Quiz":
-    st.markdown(
-        "### 📝 Knowledge Base Quiz"
-    )
+    st.markdown("## 📝 Advanced Knowledge Base Quiz")
+    st.caption("Quiz complete hote hi detailed result milega: correct/wrong, aapka answer, sahi answer aur explanation.")
 
-    n = st.number_input(
-        "Kitne Q?",
-        3,
-        15,
-        5,
-        key="quiz_n"
-    )
+    n = st.number_input("Kitne Q?", 3, 20, 5, key="quiz_n")
+    quiz_topic = st.text_input("Topic optional", placeholder="Example: DBMS Transaction Management", key="quiz_topic")
 
-    quiz_topic = st.text_input(
-        "Topic optional",
-        placeholder="Example: DBMS Transaction Management",
-        key="quiz_topic"
-    )
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("🚀 Generate Advanced Quiz", type="primary", use_container_width=True, key="quiz_gen"):
+            with st.spinner("Source-grounded quiz bana raha hu..."):
+                quiz_list = generate_quiz(n, language=lang, topic=quiz_topic or None)
+            st.session_state.quiz_data = quiz_list
+            st.session_state.quiz_answers = {}
+            st.session_state.quiz_results = {}
+            st.session_state.quiz_final_report = None
+            st.session_state.quiz_submitted = False
+            st.rerun()
+    with c2:
+        if st.button("🔄 Reset Quiz", use_container_width=True, key="quiz_reset"):
+            st.session_state.quiz_data = None
+            st.session_state.quiz_answers = {}
+            st.session_state.quiz_results = {}
+            st.session_state.quiz_final_report = None
+            st.session_state.quiz_submitted = False
+            st.rerun()
 
-    if st.button(
-        "Generate Quiz",
-        type="primary",
-        use_container_width=True,
-        key="quiz_gen"
-    ):
-        with st.spinner("Quiz bana raha hu..."):
-            quiz_list = generate_quiz(
-                n,
-                language=lang
-            )
-
-        st.session_state.quiz_data = quiz_list
-        st.session_state.quiz_results = []
-        st.rerun()
-
-    if st.session_state.quiz_data:
+    if st.session_state.quiz_data and not st.session_state.quiz_submitted:
         for i, qd in enumerate(st.session_state.quiz_data):
             with st.container(border=True):
-                question = qd.get(
-                    "question",
-                    f"Question {i+1}"
-                )
-
-                options = qd.get(
-                    "options",
-                    []
-                )
-
-                answer = qd.get(
-                    "answer",
-                    ""
-                )
-
-                topic = qd.get(
-                    "topic",
-                    quiz_topic or "General"
-                )
-
-                st.markdown(
-                    f"**Q{i+1}. {question}**"
-                )
-
+                st.markdown(f"### Q{i+1}. {qd.get('question','')}")
+                options = qd.get("options", [])
                 if options:
                     choice = st.radio(
-                        f"q_{i}",
-                        options,
-                        key=f"quiz_{i}",
+                        "Select answer", options,
+                        key=f"quiz_answer_{i}",
+                        index=None,
                         label_visibility="collapsed"
                     )
+                    if choice is not None:
+                        st.session_state.quiz_answers[i] = choice
+                with st.expander("💡 Hint", expanded=False):
+                    st.write("Recall the exact concept from your uploaded study material before selecting.")
 
-                    checked = bool(st.session_state.quiz_results.get(i)) if isinstance(st.session_state.quiz_results, dict) else False
-                    if st.button(
-                        f"Check Q{i+1}",
-                        key=f"chk_{i}",
-                        disabled=checked
-                    ):
-                        ok, fb = check_quiz_answer(
-                            question,
-                            choice,
-                            answer,
-                            topic
-                        )
+        answered = len(st.session_state.quiz_answers)
+        total = len(st.session_state.quiz_data)
+        st.progress(answered / total if total else 0)
+        st.caption(f"Answered: {answered}/{total}")
 
-                        if not isinstance(st.session_state.quiz_results, dict):
-                            st.session_state.quiz_results = {}
-                        st.session_state.quiz_results[i] = {"is_correct": bool(ok)}
+        if st.button("✅ Submit Complete Quiz & Get Report", type="primary", use_container_width=True, key="quiz_submit_all"):
+            if answered < total:
+                st.warning(f"Pehle saare questions answer karo. {total-answered} unanswered hain.")
+            else:
+                report = build_quiz_final_report(st.session_state.quiz_data, st.session_state.quiz_answers, lang)
+                st.session_state.quiz_final_report = report
+                st.session_state.quiz_submitted = True
+                for item in report["items"]:
+                    if item["is_correct"]:
+                        log_event(user["id"], "quiz_correct", item["topic"], 1, item["question"])
+                    else:
+                        log_event(user["id"], "quiz_wrong", item["topic"], 0, item["question"])
+                        add_mistake(user["id"], item["topic"], item["question"], item["user_answer"], item["correct_answer"])
+                log_event(user["id"], "quiz_complete", quiz_topic or "General", report["score"], f"{report['correct']}/{report['total']}")
+                st.rerun()
 
-                        if ok:
-                            log_event(
-                                user["id"],
-                                "quiz_correct",
-                                topic,
-                                1,
-                                question
-                            )
-                            st.success(fb)
-                        else:
-                            log_event(
-                                user["id"],
-                                "quiz_wrong",
-                                topic,
-                                0,
-                                question
-                            )
+    report = st.session_state.get("quiz_final_report")
+    if report:
+        st.markdown("## 📊 Quiz Final Report")
+        m1,m2,m3,m4 = st.columns(4)
+        m1.metric("Score", f"{report['score']}%")
+        m2.metric("Correct", report["correct"])
+        m3.metric("Wrong", report["wrong"])
+        m4.metric("Total", report["total"])
 
-                            add_mistake(
-                                user["id"],
-                                topic,
-                                question,
-                                choice,
-                                answer
-                            )
+        if report["score"] == 100:
+            st.success("🎉 Perfect! Saare answers correct hain.")
+        elif report["score"] >= 70:
+            st.success("👍 Good performance. Wrong answers ko ek baar revise karo.")
+        else:
+            st.warning("📚 Kuch concepts ko dobara revise karna useful rahega.")
 
-                            st.error(fb)
-                            st.info(
-                                "❌ Ye question Mistake DNA me save ho gaya."
-                            )
+        for item in report["items"]:
+            if item["is_correct"]:
+                with st.container(border=True):
+                    st.markdown(f"### Q{item['number']} — ✅ Correct")
+                    st.write(item["question"])
+                    st.write(f"**Your answer:** {item['user_answer']}")
+                    st.write(f"**Why:** {item['explanation']}")
+            else:
+                with st.container(border=True):
+                    st.markdown(f"### Q{item['number']} — ❌ Wrong")
+                    st.write(item["question"])
+                    st.error(f"**Your answer:** {item['user_answer']}")
+                    st.success(f"**Correct answer:** {item['correct_answer']}")
+                    st.info(f"**Explanation:** {item['explanation']}")
+                    st.caption(f"Topic: {item['topic']}")
+
+        st.download_button(
+            "⬇️ Download Quiz Report (TXT)",
+            "QUIZ FINAL REPORT\n\n" + "\n\n".join(
+                f"Q{i['number']}. {i['question']}\nYour answer: {i['user_answer']}\nCorrect answer: {i['correct_answer']}\nStatus: {'Correct' if i['is_correct'] else 'Wrong'}\nExplanation: {i['explanation']}"
+                for i in report["items"]
+            ),
+            file_name="quiz_final_report.txt",
+            mime="text/plain",
+            use_container_width=True,
+            key="quiz_report_download"
+        )
 
 
 # ============================================================
-# VIVA - EXISTING + TRACKING
+# VIVA - ADVANCED FINAL REPORT
 # ============================================================
 
 elif active == "Viva":
-    topic = universal_input(
-        "viva_topic",
-        f"Viva topic {lang}"
-    )
+    topic = universal_input("viva_topic", f"Viva topic {lang}")
+    num = st.slider("Questions?", 3, 20, 5, key="viva_num")
 
-    num = st.slider(
-        "Questions?",
-        3,
-        20,
-        5,
-        key="viva_num"
-    )
-
-    if st.button(
-        "Start Viva",
-        type="primary",
-        use_container_width=True,
-        key="viva_start"
-    ) and topic:
-
-        with st.spinner("Viva questions bana raha hu..."):
-            qs = generate_viva_questions(
-                topic,
-                num,
-                language=lang
-            )
-
+    if st.button("🚀 Start Advanced Viva", type="primary", use_container_width=True, key="viva_start") and topic:
+        with st.spinner("Source-grounded viva questions bana raha hu..."):
+            qs = generate_viva_questions(topic, num, language=lang)
         st.session_state.viva_qs = qs
         st.session_state.viva_idx = 0
         st.session_state.viva_score = []
-
+        st.session_state.viva_evaluations = {}
+        st.session_state.viva_final_report = None
         st.rerun()
 
-    if st.session_state.viva_qs:
+    if st.session_state.viva_qs and st.session_state.viva_idx < len(st.session_state.viva_qs):
         idx = st.session_state.viva_idx
+        curr = st.session_state.viva_qs[idx]
+        st.markdown(f"### 🎤 Q{idx+1}/{len(st.session_state.viva_qs)}")
+        st.info(curr.get("q", ""))
+        user_ans = universal_input(f"v_ans_{idx}", f"Apna answer {lang}")
 
-        if idx < len(st.session_state.viva_qs):
-            curr = st.session_state.viva_qs[idx]
+        if st.button("Submit Answer", key=f"v_sub_{idx}", use_container_width=True) and user_ans:
+            with st.spinner("AI viva evaluator answer check kar raha hai..."):
+                res = verify_viva_answer(curr["q"], curr["a"], user_ans, language=lang)
+            if not isinstance(res, dict):
+                res={"verdict":"False","score":0,"feedback":str(res),"missing_points":[]}
+            verdict=str(res.get("verdict","False")).lower()
+            try: score=float(res.get("score",0))
+            except Exception: score=0.0
+            is_correct=verdict in {"true","correct","yes","pass","strong"} or verdict.startswith("true") or score>=7
+            st.session_state.viva_evaluations[idx]={
+                "user_answer":user_ans,
+                "score":score,
+                "is_correct":is_correct,
+                "feedback":res.get("feedback", ""),
+                "missing_points":res.get("missing_points",[]) or []
+            }
+            st.session_state.viva_score.append({"is_correct":is_correct})
+            if is_correct:
+                log_event(user["id"],"viva_correct",topic,1,curr["q"])
+            else:
+                log_event(user["id"],"viva_wrong",topic,0,curr["q"])
+                add_mistake(user["id"],topic,curr["q"],user_ans,curr["a"])
+            st.session_state.viva_idx += 1
+            if st.session_state.viva_idx >= len(st.session_state.viva_qs):
+                report=build_viva_final_report(st.session_state.viva_qs,st.session_state.viva_evaluations,lang)
+                st.session_state.viva_final_report=report
+                log_event(user["id"],"viva_complete",topic,report["score"],f"{report['total']} questions")
+            st.rerun()
 
-            st.subheader(
-                f"Q{idx+1}: {curr['q']}"
-            )
+    report=st.session_state.get("viva_final_report")
+    if report:
+        st.markdown("## 📊 Viva Final Report")
+        a,b,c=st.columns(3)
+        a.metric("Overall Score",f"{report['score']}%")
+        b.metric("Marks",f"{report['earned']}/{report['total']*10}")
+        c.metric("Questions",report['total'])
+        st.success("🎤 Viva complete! Neeche har question ka detailed review diya gaya hai.")
 
-            user_ans = universal_input(
-                f"v_ans_{idx}",
-                f"Answer {lang}"
-            )
-
-            if st.button(
-                "Submit",
-                key=f"v_sub_{idx}",
-                use_container_width=True
-            ) and user_ans:
-
-                with st.spinner("Answer evaluate ho raha hai..."):
-                    res = verify_viva_answer(
-                        curr["q"],
-                        curr["a"],
-                        user_ans,
-                        language=lang
-                    )
-
-                if not isinstance(res, dict):
-                    res = {"verdict": "False", "score": 0, "feedback": str(res), "missing_points": []}
-
-                verdict = str(res.get("verdict", "")).strip().lower()
-                is_correct = verdict in {"true", "correct", "yes", "pass", "strong"} or verdict.startswith("true")
-                try:
-                    viva_score_value = float(res.get("score", 0))
-                except Exception:
-                    viva_score_value = 0.0
-
-                st.session_state.viva_score.append(
-                    {"is_correct": is_correct}
-                )
-
-                if is_correct:
-                    log_event(
-                        user["id"],
-                        "viva_correct",
-                        topic,
-                        1,
-                        curr["q"]
-                    )
-                    st.success(
-                        res.get("feedback", "")
-                    )
+        for item in report["items"]:
+            with st.container(border=True):
+                status="✅ Strong/Correct" if item["is_correct"] else "❌ Needs Improvement"
+                st.markdown(f"### Q{item['number']} — {status}")
+                st.write(item["question"])
+                st.write(f"**Your answer:** {item['user_answer']}")
+                if item["is_correct"]:
+                    st.success(f"Score: {item['score']}/10")
                 else:
-                    log_event(
-                        user["id"],
-                        "viva_wrong",
-                        topic,
-                        0,
-                        curr["q"]
-                    )
+                    st.error(f"Score: {item['score']}/10")
+                    st.success(f"**Correct/reference answer:** {item['correct_answer']}")
+                st.info(f"**AI feedback:** {item['feedback']}")
+                missing=item.get("missing_points",[])
+                if missing:
+                    st.warning("**Missing / incorrect points:** " + "; ".join(map(str,missing)))
 
-                    add_mistake(
-                        user["id"],
-                        topic,
-                        curr["q"],
-                        user_ans,
-                        curr["a"]
-                    )
-
-                    st.error(
-                        res.get("feedback", "")
-                    )
-
-                st.session_state.viva_idx += 1
-                st.rerun()
-
-        else:
-            total = len(
-                st.session_state.viva_score
-            )
-
-            correct = sum(
-                1
-                for x in st.session_state.viva_score
-                if x["is_correct"]
-            )
-
-            score = (
-                round(correct / total * 100)
-                if total
-                else 0
-            )
-
-            st.success(
-                f"🎤 Viva complete! Score: {score}%"
-            )
-
-            log_event(
-                user["id"],
-                "viva_complete",
-                topic,
-                score,
-                f"{correct}/{total}"
-            )
+        st.download_button(
+            "⬇️ Download Viva Report (TXT)",
+            "VIVA FINAL REPORT\n\n" + "\n\n".join(
+                f"Q{i['number']}. {i['question']}\nYour answer: {i['user_answer']}\nReference answer: {i['correct_answer']}\nScore: {i['score']}/10\nFeedback: {i['feedback']}\nMissing/incorrect points: {', '.join(map(str,i['missing_points']))}"
+                for i in report["items"]
+            ),
+            file_name="viva_final_report.txt",
+            mime="text/plain",
+            use_container_width=True,
+            key="viva_report_download"
+        )
 
 
 # ============================================================
@@ -3342,6 +3310,139 @@ Language: {lang}
             st.session_state.fast_result,
             lang,
             "fast_study"
+        )
+
+
+
+# ============================================================
+# SOURCE STUDIO
+# ============================================================
+elif active == "SourceStudio":
+    st.markdown("## 📚 Source Studio")
+    st.caption("Notebook-style source intelligence: indexed files, source brief, grounded answers and study guide.")
+    inventory = get_source_inventory()
+    if inventory:
+        cols = st.columns(min(4, max(1, len(inventory))))
+        for i, item in enumerate(inventory):
+            with cols[i % len(cols)]:
+                st.metric(item["name"][:22], f"{item['chunks']} chunks")
+    else:
+        st.info("Pehle Knowledge Base me PDF/TXT/CSV upload karo.")
+    topic = st.text_input("Focus topic (optional)", key="studio_topic", placeholder="Example: ACID properties")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        if st.button("✨ Source Brief", type="primary", use_container_width=True, key="studio_brief"):
+            with st.spinner("Sources ko synthesize kar raha hu..."):
+                st.session_state.studio_brief = generate_source_brief(lang)
+    with c2:
+        if st.button("📘 Study Guide", use_container_width=True, key="studio_guide"):
+            with st.spinner("Deep study guide bana raha hu..."):
+                st.session_state.studio_guide = generate_study_guide(topic or "all material", lang)
+    with c3:
+        if st.button("🔊 Audio Overview", use_container_width=True, key="studio_audio"):
+            with st.spinner("Audio script bana raha hu..."):
+                st.session_state.studio_audio = generate_podcast_script(topic or "all material", lang)
+    if st.session_state.get("studio_brief"):
+        st.markdown(st.session_state.studio_brief)
+    if st.session_state.get("studio_guide"):
+        st.markdown(st.session_state.studio_guide)
+    if st.session_state.get("studio_audio"):
+        st.markdown(st.session_state.studio_audio)
+        play_audio_block(st.session_state.studio_audio, lang, "studio_audio")
+
+# ============================================================
+# FLASHCARDS
+# ============================================================
+elif active == "Flashcards":
+    st.markdown("## 🗂️ AI Flashcards")
+    topic = st.text_input("Topic", key="fc_topic", placeholder="Leave blank for all material")
+    n = st.slider("Number of cards", 5, 30, 12, key="fc_n")
+    if st.button("🧠 Generate Flashcards", type="primary", use_container_width=True, key="fc_gen"):
+        with st.spinner("Flashcards bana raha hu..."):
+            st.session_state.flashcards = generate_flashcards(topic or "all material", n, lang)
+    cards = st.session_state.get("flashcards", [])
+    if cards:
+        for i, card in enumerate(cards):
+            with st.expander(f"Card {i+1} • {card['difficulty']}"):
+                st.markdown(f"**Q:** {card['front']}")
+                st.divider()
+                st.markdown(f"**A:** {card['back']}")
+                st.caption(f"Source: {card['source']}")
+
+# ============================================================
+# MIND MAP
+# ============================================================
+elif active == "MindMap":
+    st.markdown("## 🧠 Source-Grounded Mind Map")
+    topic = st.text_input("Central topic", key="mm_topic", placeholder="Example: DBMS Transactions")
+    if st.button("🌳 Build Mind Map", type="primary", use_container_width=True, key="mm_gen") and topic.strip():
+        with st.spinner("Concept relationships nikal raha hu..."):
+            st.session_state.mind_map = generate_mind_map(topic.strip(), lang)
+    if st.session_state.get("mind_map"):
+        st.markdown(st.session_state.mind_map)
+
+# ============================================================
+# EXAM BUILDER
+# ============================================================
+elif active == "ExamBuilder":
+    st.markdown("## 📝 AI Exam Builder")
+    topic = st.text_input("Exam topic", key="exam_topic", placeholder="Example: Query Processing & Optimization")
+    c1, c2 = st.columns(2)
+    with c1:
+        n = st.slider("Questions", 5, 25, 10, key="exam_n")
+    with c2:
+        difficulty = st.selectbox("Difficulty", ["Mixed", "Easy", "Medium", "Hard"], key="exam_diff")
+    if st.button("🚀 Generate Practice Paper", type="primary", use_container_width=True, key="exam_gen"):
+        with st.spinner("Source-grounded exam paper bana raha hu..."):
+            st.session_state.exam_paper = generate_exam_paper(topic or "all material", n, difficulty, lang)
+    paper = st.session_state.get("exam_paper", [])
+    if paper:
+        total = sum(int(x.get("marks", 0)) for x in paper)
+        st.metric("Total Marks", total)
+        for i, q in enumerate(paper, 1):
+            with st.expander(f"Q{i} • {q['type']} • {q['marks']} marks"):
+                st.markdown(q["question"])
+                st.caption(f"Topic: {q['topic']}")
+                with st.expander("Show answer"):
+                    st.write(q["answer"])
+
+# ============================================================
+# COMPARE
+# ============================================================
+elif active == "Compare":
+    st.markdown("## ⚖️ Compare Two Concepts")
+    a, b = st.columns(2)
+    with a:
+        topic_a = st.text_input("Concept A", key="cmp_a", placeholder="Example: Primary Key")
+    with b:
+        topic_b = st.text_input("Concept B", key="cmp_b", placeholder="Example: Foreign Key")
+    if st.button("⚖️ Compare from Sources", type="primary", use_container_width=True, key="cmp_go") and topic_a.strip() and topic_b.strip():
+        with st.spinner("Sources se comparison bana raha hu..."):
+            st.session_state.compare_result = compare_source_topics(topic_a.strip(), topic_b.strip(), lang)
+    if st.session_state.get("compare_result"):
+        st.markdown(st.session_state.compare_result)
+
+# ============================================================
+# STUDY PACK
+# ============================================================
+elif active == "StudyPack":
+    st.markdown("## 📦 One-Click Study Pack")
+    topic = st.text_input("Pack topic", key="pack_topic", placeholder="Example: Complete DBMS Unit 4")
+    if st.button("📦 Build DOCX Study Pack", type="primary", use_container_width=True, key="pack_build"):
+        with st.spinner("Brief + guide + flashcards ko DOCX me pack kar raha hu..."):
+            try:
+                pack = build_study_pack(topic or "all material", lang)
+                st.session_state.study_pack = pack.getvalue()
+            except Exception as e:
+                st.error(f"Study pack error: {e}")
+    if st.session_state.get("study_pack"):
+        st.download_button(
+            "⬇️ Download Study Pack (.docx)",
+            st.session_state.study_pack,
+            file_name="RAG_AI_Study_Pack.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True,
+            key="pack_download",
         )
 
 
