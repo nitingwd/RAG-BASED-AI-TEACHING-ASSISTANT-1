@@ -584,7 +584,7 @@ def auth_ui():
             #FFFFFF 100%
         );
     }
-
+    
     .login-card {
         background: rgba(255,255,255,0.95);
         backdrop-filter: blur(24px);
