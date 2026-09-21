@@ -769,7 +769,7 @@ from rag_utils import (
     text_to_audio_file, images_to_pdf, images_to_docx,
     get_source_inventory, generate_source_brief, generate_flashcards,
     generate_mind_map, generate_exam_paper, compare_source_topics,
-    generate_study_guide, build_study_pack
+    generate_study_guide, build_study_pack, create_ai_video_lesson
 )
 
 
@@ -1460,6 +1460,10 @@ with ai_cols[1]:
     if st.button("🤖 AI Mode", use_container_width=True, key="dash_ai_secondary"):
         st.session_state.active = "AIMode"
         st.rerun()
+with ai_cols[2]:
+    if st.button("🎬 AI Video Lesson", use_container_width=True, key="dash_video_lesson"):
+        st.session_state.active = "VideoLesson"
+        st.rerun()
 
 ns = st.columns(6)
 source_features = [
@@ -1640,6 +1644,61 @@ elif active == "AIMode":
             play_audio_block(st.session_state.ai_mode_answer, lang, "ai_mode_answer")
         except Exception:
             pass
+
+# ============================================================
+# 🎬 AI VIDEO LESSON — NO SOURCE REQUIRED
+# ============================================================
+elif active == "VideoLesson":
+    st.markdown("## 🎬 EduSolve AI Video Lesson")
+    st.caption("Kisi bhi topic ka complete AI teaching video — source/PDF upload ki zarurat nahi.")
+
+    topic = st.text_input(
+        "📚 Topic",
+        key="video_topic",
+        placeholder="Example: Binary Search, ACID Properties, ESP32 IoT Smart Car, Photosynthesis"
+    )
+    style = st.selectbox(
+        "🎨 Teaching style",
+        ["Animated Classroom", "Exam Teacher", "Story Explanation", "Tech Lab"],
+        key="video_style"
+    )
+
+    st.info(
+        f"🎙️ Video language: **{lang}** • AI script + narration + educational slides. "
+        "Topic ko beginning se revision tak explain kiya jayega."
+    )
+
+    if st.button("🎬 Generate Complete AI Video", type="primary", use_container_width=True, key="video_generate") and topic.strip():
+        st.session_state.pop("ai_video", None)
+        with st.spinner("AI lesson script, voice narration aur video scenes bana raha hu... इसमें थोड़ा समय लग सकता है ⏳"):
+            try:
+                result = create_ai_video_lesson(topic.strip(), lang, style)
+                st.session_state.ai_video = result
+                log_event(user["id"], "ai_video", topic.strip()[:200], 1, f"Video lesson • {lang}")
+            except Exception as e:
+                st.session_state.pop("ai_video", None)
+                st.error(f"AI Video generation failed: {e}")
+                st.caption("Tip: GROQ_API_KEY, internet access for voice generation, and FFmpeg installation check karo.")
+
+    video_result = st.session_state.get("ai_video")
+    if video_result and os.path.exists(video_result.get("path", "")):
+        st.success(
+            f"✅ Video ready • {video_result.get('scenes', 0)} scenes • {video_result.get('title', topic)}"
+        )
+        try:
+            with open(video_result["path"], "rb") as vf:
+                video_bytes = vf.read()
+            st.video(video_bytes)
+            st.download_button(
+                "⬇️ Download AI Video (.mp4)",
+                data=video_bytes,
+                file_name="EduSolve_AI_Video_Lesson.mp4",
+                mime="video/mp4",
+                use_container_width=True,
+                key="video_download"
+            )
+        except Exception as e:
+            st.error(f"Video preview/download error: {e}")
 
 # ============================================================
 # ASK Q&A - EXISTING
