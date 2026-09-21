@@ -5,6 +5,8 @@ import io
 import tempfile
 import subprocess
 import shutil
+import time
+from urllib.parse import urlparse
 from typing import Optional, List
 
 import streamlit as st
@@ -363,6 +365,182 @@ def create_ai_video_lesson(topic, language="Hinglish", style="Animated Classroom
         shutil.rmtree(workdir, ignore_errors=True)
         raise
 
+
+
+def _heygen_key():
+    try:
+        key = st.secrets.get("HEYGEN_API_KEY")
+        if key:
+            return str(key).strip()
+    except Exception:
+        pass
+    return os.getenv("HEYGEN_API_KEY", "").strip()
+
+
+def _heygen_headers():
+    key = _heygen_key()
+    if not key:
+        raise RuntimeError("HEYGEN_API_KEY missing. Streamlit Secrets me HEYGEN_API_KEY add karo for real human-presenter AI videos.")
+    return {"X-Api-Key": key, "Accept": "application/json", "Content-Type": "application/json"}
+
+
+def _heygen_get_json(url, timeout=30):
+    import requests
+    r = requests.get(url, headers=_heygen_headers(), timeout=timeout)
+    if r.status_code >= 400:
+        try:
+            detail = r.json()
+        except Exception:
+            detail = r.text[:800]
+        raise RuntimeError(f"HeyGen API {r.status_code}: {detail}")
+    return r.json()
+
+
+def create_real_ai_video(topic, language="Hinglish", style="Cinematic Classroom", duration="Deep (6-10 min)", avatar_id="", voice_id="", style_id=""):
+    """Generate a real presenter-led educational video through HeyGen Video Agent v3.
+
+    The provider handles the human presenter, lip-sync, scene composition and visual
+    rendering. The prompt explicitly asks for deep teaching, animated diagrams,
+    examples, code/equations where useful, and frequent visual changes rather than
+    a static slide deck. This is optional: the rest of EduSolve AI remains usable
+    without a HeyGen key.
+    """
+    import requests
+    topic = _clean_text(topic)
+    if not topic:
+        raise ValueError("Topic required")
+    key = _heygen_key()
+    if not key:
+        raise RuntimeError("Real AI video ke liye HEYGEN_API_KEY required hai. Streamlit Secrets me key add karo.")
+
+    duration_map = {
+        "Quick (2-4 min)": "2 to 4 minutes",
+        "Deep (6-10 min)": "6 to 10 minutes",
+        "Masterclass (10-15 min)": "10 to 15 minutes",
+    }
+    dur = duration_map.get(duration, duration)
+    lang_instruction = {
+        "Hinglish": "natural Indian Hinglish, keeping technical terms in English",
+        "Hindi": "natural Hindi, retaining standard technical terms in English where appropriate",
+        "Gujarati": "natural Gujarati, retaining standard technical terms in English where appropriate",
+        "Marathi": "natural Marathi, retaining standard technical terms in English where appropriate",
+        "English": "clear natural English",
+    }.get(language, language)
+
+    prompt = f"""
+Create a premium educational explainer video about: {topic}
+
+Audience: college/university students.
+Language: {lang_instruction}.
+Target duration: {dur}.
+Visual style: {style}.
+
+IMPORTANT: This must NOT look like a slideshow with a voiceover. Make it feel like a
+modern AI educational YouTube masterclass with a realistic human presenter/teacher
+who is visibly speaking and explaining. The presenter should appear throughout the
+lesson, use natural gestures and camera changes, and interact with the visuals.
+
+TEACHING DEPTH:
+- Start with a strong intuitive hook: why the topic matters.
+- Teach the definition and intuition in simple language.
+- Build the concept step by step from basics to advanced points.
+- Use at least 2 concrete examples and explain every step.
+- For algorithms, show animated step-by-step state changes, inputs/outputs and complexity.
+- For DBMS/computer science, show architecture, flow, tables, relationships and examples.
+- For electronics/IoT, show component-level diagrams, signal/data flow, wiring concepts,
+  controller/sensor interaction and practical operation.
+- For programming, show readable complete code sections and explain what each important
+  block does; never say 'rest of code' or use ellipses as a substitute for code.
+- For mathematics, show equations and transformations visually.
+- Include common misconceptions, exam traps, practical applications and a final recap.
+
+VISUALIZATION RULES:
+- Use dynamic diagrams, arrows, labels, callouts, highlighted objects, simple animations,
+  charts/tables, code overlays, and contextual visual examples whenever useful.
+- Change visual composition regularly; do not keep one background slide on screen.
+- Keep the human presenter visible while the visual explanation is happening.
+- Use on-screen text as reinforcement, not as the entire lesson.
+- Never invent technical specifications or facts.
+- End with a concise recap and 5 self-check questions.
+
+Produce a polished, coherent, fact-focused educational video. The presenter should teach,
+not merely read bullet points.
+""".strip()
+
+    payload = {
+        "prompt": prompt,
+        "mode": "generate",
+        "orientation": "landscape",
+        "incognito_mode": False,
+    }
+    if avatar_id.strip():
+        payload["avatar_id"] = avatar_id.strip()
+    if voice_id.strip():
+        payload["voice_id"] = voice_id.strip()
+    if style_id.strip():
+        payload["style_id"] = style_id.strip()
+
+    r = requests.post("https://api.heygen.com/v3/video-agents", headers=_heygen_headers(), json=payload, timeout=45)
+    if r.status_code >= 400:
+        try:
+            detail = r.json()
+        except Exception:
+            detail = r.text[:1000]
+        raise RuntimeError(f"HeyGen create failed ({r.status_code}): {detail}")
+    data = r.json().get("data", r.json())
+    session_id = data.get("session_id")
+    video_id = data.get("video_id")
+    if not session_id and not video_id:
+        raise RuntimeError(f"HeyGen ne session/video id nahi diya: {r.json()}")
+
+    deadline = time.time() + 15 * 60
+    last_status = "generating"
+    while time.time() < deadline:
+        if video_id:
+            vd = _heygen_get_json(f"https://api.heygen.com/v3/videos/{video_id}")
+            vdata = vd.get("data", vd)
+            status = str(vdata.get("status", "")).lower()
+            last_status = status or last_status
+            if status == "completed" and vdata.get("video_url"):
+                video_url = vdata["video_url"]
+                break
+            if status == "failed":
+                raise RuntimeError(f"HeyGen video failed: {vdata.get('failure_message') or vdata}")
+        else:
+            sd = _heygen_get_json(f"https://api.heygen.com/v3/video-agents/{session_id}")
+            sdata = sd.get("data", sd)
+            status = str(sdata.get("status", "")).lower()
+            last_status = status or last_status
+            video_id = sdata.get("video_id") or video_id
+            if status == "failed":
+                raise RuntimeError(f"HeyGen agent failed: {sdata.get('failure_message') or sdata}")
+            if not video_id and status == "completed":
+                # Some responses expose the rendered video directly.
+                direct = sdata.get("video_url")
+                if direct:
+                    video_url = direct
+                    break
+        time.sleep(8)
+    else:
+        raise RuntimeError(f"HeyGen video timeout. Last status: {last_status}. Session: {session_id}")
+
+    out_dir = tempfile.mkdtemp(prefix="edusolve_real_video_")
+    out_path = os.path.join(out_dir, "EduSolve_AI_Real_AI_Teacher.mp4")
+    rr = requests.get(video_url, timeout=120)
+    if rr.status_code >= 400:
+        raise RuntimeError(f"Video download failed: HTTP {rr.status_code}")
+    with open(out_path, "wb") as f:
+        f.write(rr.content)
+    if os.path.getsize(out_path) < 10000:
+        raise RuntimeError("Downloaded video file is unexpectedly small.")
+    return {
+        "path": out_path,
+        "title": topic,
+        "provider": "HeyGen Video Agent",
+        "video_id": video_id or "",
+        "session_id": session_id or "",
+        "mode": "real_human_visual",
+    }
 
 def transcribe_audio(api_key, audio_path):
     try:
@@ -1203,110 +1381,255 @@ B CONTEXT:
 # PPT
 # ============================================================
 
+
 def create_ppt_file(topic, num_slides=10, language="Hinglish"):
-    ctx, _ = _context_for(topic, k=10, per_doc=1100)
+    """Create a visual, teaching-first PPT with diagrams, flows, examples and recap.
 
-    prompt = f"""
-Topic: {topic}
-Language: {language}
-Create {int(num_slides)} educational presentation slides.
-Use ONLY this context:
-{ctx or 'No context available.'}
-Return ONLY JSON array:
-[{{"title":"...","points":["p1","p2","p3"]}}]
-Keep points short enough for slides.
-"""
-
-    try:
-        slides = _json_from_text(_invoke(prompt, temperature=0.4), default=None)
-        if not isinstance(slides, list) or not slides:
-            raise ValueError("Invalid slide JSON")
-    except Exception as e:
-        print(f"PPT generation error: {e}")
-        slides = [
-            {
-                "title": f"{topic} - Slide {i + 1}",
-                "points": [
-                    "Important point",
-                    "Key concept",
-                    "Example / application",
-                ],
-            }
-            for i in range(int(num_slides))
-        ]
-
+    The generator asks the LLM for a structured storyboard, then renders the visuals
+    locally with python-pptx so the resulting .pptx contains real editable shapes,
+    connectors and text rather than a wall of bullets.
+    """
     from pptx import Presentation
     from pptx.util import Inches as PptInches, Pt
     from pptx.dml.color import RGBColor
+    from pptx.enum.shapes import MSO_SHAPE, MSO_CONNECTOR
+    from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+
+    topic = _clean_text(topic) or "General Topic"
+    n = max(5, min(25, int(num_slides)))
+    ctx, _ = _context_for(topic, k=14, per_doc=1400)
+    source_mode = bool(ctx and "No indexed source context" not in ctx)
+
+    prompt = f"""
+You are an expert instructional designer creating a beautiful university-level PPT.
+Topic: {topic}
+Language: {language}
+Number of content slides: {n}
+Source material: {ctx[:MAX_CONTEXT_CHARS] if source_mode else 'No uploaded source. Use accurate general academic knowledge.'}
+
+Return ONLY valid JSON array. Each slide object MUST have:
+{{
+  "title": "short title",
+  "type": "concept|flow|comparison|example|architecture|code|process|formula|recap",
+  "explanation": "2-4 sentence teacher explanation",
+  "points": ["short point", "short point", "short point"],
+  "diagram": {{"center":"...","nodes":["..."],"steps":["..."]}},
+  "example": "optional concrete example",
+  "code": "optional complete short code example, empty string if not needed"
+}}
+
+Design rules:
+- Do NOT make every slide a bullet list.
+- Every slide must teach one clear idea.
+- Use flow/process/architecture diagrams whenever relationships or steps exist.
+- Use comparison slides for contrasting concepts.
+- Use example slides with an input -> process -> output explanation.
+- Use code slides only when code materially helps; code must be complete for the shown example.
+- Include definitions, intuition, working, a practical example, common mistakes, applications,
+  and a final revision/recap slide.
+- Keep text concise enough to fit; the visual diagram should carry part of the explanation.
+- Never invent source-specific facts when source material is supplied.
+""".strip()
+
+    fallback = []
+    for i in range(n):
+        fallback.append({
+            "title": f"{topic} — Concept {i+1}",
+            "type": "concept",
+            "explanation": f"Understand the key idea of {topic} and how it connects to the rest of the topic.",
+            "points": ["Core definition", "Important idea", "Practical relevance"],
+            "diagram": {"center": topic, "nodes": ["Definition", "Working", "Example"]},
+            "example": "Use a simple classroom example to connect theory with practice.",
+            "code": "",
+        })
+    try:
+        raw = _invoke_long(prompt, temperature=0.35, max_tokens=9000)
+        slides = _json_from_text(raw, default=None)
+        if not isinstance(slides, list) or not slides:
+            slides = fallback
+    except Exception as e:
+        print(f"PPT generation error: {e}")
+        slides = fallback
+
+    # Normalize malformed model output.
+    norm = []
+    for i, sl in enumerate(slides[:n]):
+        if not isinstance(sl, dict):
+            continue
+        points = sl.get("points", [])
+        if isinstance(points, str): points = [points]
+        if not isinstance(points, list): points = []
+        diagram = sl.get("diagram", {})
+        if not isinstance(diagram, dict): diagram = {}
+        nodes = diagram.get("nodes", [])
+        steps = diagram.get("steps", [])
+        if isinstance(nodes, str): nodes = [nodes]
+        if isinstance(steps, str): steps = [steps]
+        norm.append({
+            "title": _clean_text(sl.get("title") or f"{topic} — Slide {i+1}"),
+            "type": str(sl.get("type") or "concept").lower(),
+            "explanation": _clean_text(sl.get("explanation") or ""),
+            "points": [_clean_text(x) for x in points if _clean_text(x)][:5],
+            "diagram": {
+                "center": _clean_text(diagram.get("center") or topic),
+                "nodes": [_clean_text(x) for x in nodes if _clean_text(x)][:6],
+                "steps": [_clean_text(x) for x in steps if _clean_text(x)][:6],
+            },
+            "example": _clean_text(sl.get("example") or ""),
+            "code": str(sl.get("code") or ""),
+        })
+    slides = norm or fallback
 
     prs = Presentation()
-    prs.slide_width = PptInches(13.33)
+    prs.slide_width = PptInches(13.333)
     prs.slide_height = PptInches(7.5)
 
-    # Title slide
+    NAVY = RGBColor(15, 23, 42)
+    BLUE = RGBColor(37, 99, 235)
+    CYAN = RGBColor(6, 182, 212)
+    PURPLE = RGBColor(124, 58, 237)
+    GREEN = RGBColor(16, 185, 129)
+    ORANGE = RGBColor(245, 158, 11)
+    RED = RGBColor(239, 68, 68)
+    INK = RGBColor(30, 41, 59)
+    MUTED = RGBColor(71, 85, 105)
+    BG = RGBColor(248, 250, 252)
+    WHITE = RGBColor(255, 255, 255)
+    LIGHT = RGBColor(226, 232, 240)
+
+    def add_text(slide, text, x, y, w, h, size=18, bold=False, color=INK, align=PP_ALIGN.LEFT):
+        box = slide.shapes.add_textbox(PptInches(x), PptInches(y), PptInches(w), PptInches(h))
+        tf = box.text_frame
+        tf.clear(); tf.word_wrap = True; tf.vertical_anchor = MSO_ANCHOR.TOP
+        p = tf.paragraphs[0]; p.text = str(text); p.alignment = align
+        p.font.size = Pt(size); p.font.bold = bold; p.font.color.rgb = color
+        return box
+
+    def add_card(slide, x, y, w, h, fill=WHITE, line=LIGHT, radius=True):
+        shp = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE if radius else MSO_SHAPE.RECTANGLE,
+                                     PptInches(x), PptInches(y), PptInches(w), PptInches(h))
+        shp.fill.solid(); shp.fill.fore_color.rgb = fill
+        shp.line.color.rgb = line
+        return shp
+
+    def add_arrow(slide, x1, y1, x2, y2, color=BLUE):
+        line = slide.shapes.add_connector(MSO_CONNECTOR.STRAIGHT, PptInches(x1), PptInches(y1), PptInches(x2), PptInches(y2))
+        line.line.color.rgb = color; line.line.width = Pt(2.5)
+        try: line.line.end_arrowhead = True
+        except Exception: pass
+        return line
+
+    def add_footer(slide, idx):
+        add_text(slide, f"EduSolve AI  •  {topic}  •  {idx}", 0.55, 7.12, 12.1, 0.22, 9, False, MUTED)
+
+    # Title / cover
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-    slide.background.fill.solid()
-    slide.background.fill.fore_color.rgb = RGBColor(13, 17, 38)
+    slide.background.fill.solid(); slide.background.fill.fore_color.rgb = NAVY
+    add_text(slide, "EDUSOLVE AI", 0.75, 0.75, 4, 0.35, 14, True, CYAN)
+    add_text(slide, topic, 0.75, 1.55, 11.7, 1.6, 40, True, WHITE)
+    add_text(slide, "Visual Learning Presentation", 0.78, 3.25, 8.5, 0.55, 22, False, RGBColor(203,213,225))
+    add_card(slide, 0.8, 4.25, 3.15, 1.25, fill=RGBColor(30,41,59), line=RGBColor(51,65,85))
+    add_text(slide, "CONCEPT", 1.05, 4.55, 1.2, 0.3, 12, True, CYAN)
+    add_text(slide, "Understand the why", 1.05, 4.88, 2.4, 0.35, 16, True, WHITE)
+    add_card(slide, 4.25, 4.25, 3.15, 1.25, fill=RGBColor(30,41,59), line=RGBColor(51,65,85))
+    add_text(slide, "VISUAL", 4.5, 4.55, 1.2, 0.3, 12, True, PURPLE)
+    add_text(slide, "See how it works", 4.5, 4.88, 2.4, 0.35, 16, True, WHITE)
+    add_card(slide, 7.7, 4.25, 3.15, 1.25, fill=RGBColor(30,41,59), line=RGBColor(51,65,85))
+    add_text(slide, "PRACTICE", 7.95, 4.55, 1.2, 0.3, 12, True, GREEN)
+    add_text(slide, "Apply + revise", 7.95, 4.88, 2.4, 0.35, 16, True, WHITE)
+    add_text(slide, f"Language: {language}", 0.8, 6.45, 4, 0.3, 12, False, RGBColor(148,163,184))
 
-    title_box = slide.shapes.add_textbox(
-        PptInches(0.6), PptInches(2.0), PptInches(12), PptInches(1.5)
-    )
-    title_box.text_frame.text = topic
-    p = title_box.text_frame.paragraphs[0]
-    p.font.size = Pt(36)
-    p.font.bold = True
-    p.font.color.rgb = RGBColor(255, 255, 255)
-
-    sub_box = slide.shapes.add_textbox(
-        PptInches(0.6), PptInches(3.6), PptInches(12), PptInches(1)
-    )
-    sub_box.text_frame.text = f"AI Teaching Assistant • {language}"
-    p = sub_box.text_frame.paragraphs[0]
-    p.font.size = Pt(18)
-    p.font.color.rgb = RGBColor(210, 210, 255)
-
-    for i, sl in enumerate(slides[: int(num_slides)]):
+    for i, sl in enumerate(slides, 1):
         slide = prs.slides.add_slide(prs.slide_layouts[6])
-        slide.background.fill.solid()
-        slide.background.fill.fore_color.rgb = RGBColor(249, 250, 255)
+        slide.background.fill.solid(); slide.background.fill.fore_color.rgb = BG
+        # top accent
+        bar = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, PptInches(0), PptInches(0), PptInches(13.333), PptInches(0.16))
+        bar.fill.solid(); bar.fill.fore_color.rgb = [BLUE, PURPLE, CYAN, GREEN, ORANGE][(i-1) % 5]; bar.line.fill.background()
+        add_text(slide, f"{i:02d}", 0.55, 0.45, 0.55, 0.45, 15, True, BLUE)
+        add_text(slide, sl["title"], 1.15, 0.37, 11.45, 0.7, 25, True, INK)
 
-        header = slide.shapes.add_shape(
-            1, PptInches(0), PptInches(0), PptInches(13.33), PptInches(1)
-        )
-        header.fill.solid()
-        header.fill.fore_color.rgb = RGBColor(13, 17, 38)
-        header.line.fill.background()
+        # Left: explanation + points
+        add_card(slide, 0.55, 1.35, 4.05, 5.35, fill=WHITE, line=LIGHT)
+        add_text(slide, "TEACHER EXPLANATION", 0.82, 1.65, 3.45, 0.3, 11, True, PURPLE)
+        explanation = sl["explanation"] or "Understand the concept step by step using the visual on the right."
+        add_text(slide, explanation, 0.82, 2.05, 3.45, 1.55, 16, False, INK)
+        y = 3.78
+        for ptxt in sl["points"][:4]:
+            add_text(slide, "•", 0.85, y, 0.22, 0.3, 15, True, BLUE)
+            add_text(slide, ptxt, 1.08, y, 3.05, 0.55, 13, False, MUTED)
+            y += 0.68
+        if sl["example"]:
+            add_card(slide, 0.82, 6.0, 3.5, 0.55, fill=RGBColor(239,246,255), line=RGBColor(191,219,254))
+            add_text(slide, "Example: " + sl["example"][:210], 1.0, 6.12, 3.15, 0.35, 10, False, INK)
 
-        ht = slide.shapes.add_textbox(
-            PptInches(0.6), PptInches(0.15), PptInches(11.8), PptInches(0.75)
-        )
-        ht.text_frame.text = f"{i + 1}. {sl.get('title', '')}"
-        p = ht.text_frame.paragraphs[0]
-        p.font.size = Pt(20)
-        p.font.bold = True
-        p.font.color.rgb = RGBColor(255, 255, 255)
+        # Right visual canvas
+        add_card(slide, 4.85, 1.35, 7.95, 5.35, fill=WHITE, line=LIGHT)
+        typ = sl["type"]
+        d = sl["diagram"]
+        nodes = d.get("nodes", [])
+        steps = d.get("steps", [])
 
-        ct = slide.shapes.add_textbox(
-            PptInches(0.7), PptInches(1.35), PptInches(11.7), PptInches(5.7)
-        )
-        tf = ct.text_frame
-        tf.word_wrap = True
-        points = sl.get("points", [])
-        if not points:
-            points = ["No points generated."]
+        if typ in ("flow", "process", "architecture") or steps:
+            items = steps or nodes or sl["points"][:5]
+            items = items[:6]
+            count = len(items)
+            if count == 0: items = [topic]; count = 1
+            box_w = 1.65
+            gap = 0.25
+            total_w = count * box_w + (count-1) * gap
+            start_x = 5.15 + max(0, (7.35-total_w)/2)
+            y1 = 3.05
+            for j, item in enumerate(items):
+                x = start_x + j*(box_w+gap)
+                fill = [RGBColor(239,246,255), RGBColor(245,243,255), RGBColor(236,253,245), RGBColor(255,247,237), RGBColor(254,242,242), RGBColor(240,249,255)][j%6]
+                linec = [RGBColor(147,197,253), RGBColor(196,181,253), RGBColor(110,231,183), RGBColor(253,186,116), RGBColor(252,165,165), RGBColor(125,211,252)][j%6]
+                add_card(slide, x, y1, box_w, 1.35, fill=fill, line=linec)
+                add_text(slide, item[:75], x+0.12, y1+0.28, box_w-0.24, 0.75, 13, True, INK, PP_ALIGN.CENTER)
+                if j < count-1: add_arrow(slide, x+box_w, y1+0.68, x+box_w+gap, y1+0.68, color=BLUE)
+            add_text(slide, "PROCESS / RELATIONSHIP", 5.2, 1.75, 3.2, 0.3, 11, True, BLUE)
+        elif typ == "comparison":
+            left = nodes[0] if nodes else "Concept A"
+            right = nodes[1] if len(nodes)>1 else "Concept B"
+            add_card(slide, 5.25, 2.05, 3.15, 3.75, fill=RGBColor(239,246,255), line=RGBColor(147,197,253))
+            add_card(slide, 9.0, 2.05, 3.15, 3.75, fill=RGBColor(245,243,255), line=RGBColor(196,181,253))
+            add_text(slide, left[:45], 5.55, 2.35, 2.55, 0.55, 18, True, BLUE, PP_ALIGN.CENTER)
+            add_text(slide, right[:45], 9.3, 2.35, 2.55, 0.55, 18, True, PURPLE, PP_ALIGN.CENTER)
+            lp = sl["points"][:3]; rp = sl["points"][3:6] or sl["points"][:3]
+            for j, t in enumerate(lp): add_text(slide, "• "+t, 5.55, 3.2+j*0.65, 2.55, 0.5, 12, False, INK)
+            for j, t in enumerate(rp): add_text(slide, "• "+t, 9.3, 3.2+j*0.65, 2.55, 0.5, 12, False, INK)
+            add_text(slide, "VS", 8.35, 3.65, 0.55, 0.45, 16, True, ORANGE, PP_ALIGN.CENTER)
+        elif typ == "code" and sl["code"]:
+            add_text(slide, "COMPLETE WORKING EXAMPLE", 5.25, 1.75, 3.6, 0.3, 11, True, GREEN)
+            add_card(slide, 5.2, 2.15, 7.25, 3.85, fill=RGBColor(15,23,42), line=RGBColor(51,65,85))
+            code = sl["code"][:3200]
+            add_text(slide, code, 5.48, 2.42, 6.7, 3.25, 11, False, RGBColor(226,232,240))
+            add_text(slide, "What the code is doing", 5.25, 6.18, 2.5, 0.3, 11, True, PURPLE)
+            add_text(slide, sl["explanation"][:260], 7.35, 6.05, 4.8, 0.55, 10, False, MUTED)
+        elif typ == "formula":
+            add_text(slide, d.get("center") or topic, 5.35, 2.0, 7.0, 0.65, 25, True, BLUE, PP_ALIGN.CENTER)
+            add_text(slide, "↓", 8.2, 2.75, 0.5, 0.5, 24, True, PURPLE, PP_ALIGN.CENTER)
+            for j, item in enumerate((nodes or sl["points"])[:4]):
+                x = 5.35 + (j%2)*3.65; y = 3.45 + (j//2)*1.25
+                add_card(slide, x, y, 3.15, 0.95, fill=RGBColor(239,246,255), line=RGBColor(147,197,253))
+                add_text(slide, item, x+0.15, y+0.22, 2.85, 0.45, 13, True, INK, PP_ALIGN.CENTER)
+        else:
+            center = d.get("center") or topic
+            add_card(slide, 7.2, 2.85, 3.25, 1.1, fill=RGBColor(239,246,255), line=RGBColor(96,165,250))
+            add_text(slide, center[:55], 7.4, 3.14, 2.85, 0.45, 17, True, BLUE, PP_ALIGN.CENTER)
+            around = nodes or sl["points"][:6]
+            positions = [(5.2,2.0),(9.9,2.0),(5.15,4.75),(9.95,4.75),(6.25,5.65),(8.9,5.65)]
+            for j,item in enumerate(around[:6]):
+                x,y = positions[j]
+                add_card(slide,x,y,2.15,0.72,fill=WHITE,line=LIGHT)
+                add_text(slide,item[:38],x+0.08,y+0.15,1.99,0.38,10,True,INK,PP_ALIGN.CENTER)
+                add_arrow(slide,8.82,3.4,x+1.07,y+0.02 if y<3 else y+0.02,color=RGBColor(148,163,184))
 
-        for idx, point in enumerate(points[:7]):
-            para = tf.paragraphs[0] if idx == 0 else tf.add_paragraph()
-            para.text = f"• {point}"
-            para.space_after = Pt(12)
-            para.font.size = Pt(16)
-            para.font.color.rgb = RGBColor(30, 30, 30)
+        add_footer(slide, i)
 
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pptx")
     tmp.close()
     prs.save(tmp.name)
     return tmp.name
-
 
 # ============================================================
 # IMAGE EXPORTS
