@@ -12,7 +12,7 @@ from docx import Document
 from docx.shared import Inches
 
 # ============================================================
-# RAG AI TEACHING ASSISTANT - V24
+# EDUSOLVE AI - V26
 # IMPORTANT:
 # - Existing features are preserved.
 # - New student-retention features are added in this UI file.
@@ -20,7 +20,7 @@ from docx.shared import Inches
 # ============================================================
 
 st.set_page_config(
-    page_title="RAG Based AI Teaching Assistant",
+    page_title="EduSolve AI",
     layout="wide",
     page_icon="🎓"
 )
@@ -584,7 +584,7 @@ def auth_ui():
             #FFFFFF 100%
         );
     }
-    
+
     .login-card {
         background: rgba(255,255,255,0.95);
         backdrop-filter: blur(24px);
@@ -765,7 +765,7 @@ from rag_utils import (
     generate_podcast_script, generate_viva_questions, verify_viva_answer,
     generate_adaptive_quiz, generate_teach_back_feedback, generate_revision,
     build_quiz_final_report, build_viva_final_report,
-    generate_exam_attack, generate_confusion_battle, create_ppt_file,
+    generate_general_ai_answer, generate_exam_attack, generate_confusion_battle, create_ppt_file,
     text_to_audio_file, images_to_pdf, images_to_docx,
     get_source_inventory, generate_source_brief, generate_flashcards,
     generate_mind_map, generate_exam_paper, compare_source_topics,
@@ -912,7 +912,7 @@ section.main div[data-testid="stButton"] > button:hover {
 }
 </style>
 
-<div class="dev-badge">V25 • Source Intelligence + Student AI Brain</div>
+<div class="dev-badge">V26 • EduSolve AI • Source Intelligence + General AI</div>
 """, unsafe_allow_html=True)
 
 
@@ -1158,8 +1158,8 @@ with st.sidebar:
 
 hero_html = (
     f'<div class="hero-pro"><div style="position:relative;z-index:2;">'
-    f'<h1 style="margin:0;font-family:Space Grotesk;font-size:26px;font-weight:700;">Welcome back, {user["name"].split()[0]}! 👋</h1>'
-    f'<h2 style="margin:6px 0 0 0;font-family:Space Grotesk;font-size:18px;font-weight:500;opacity:0.93;">RAG Based AI Teaching Assistant</h2>'
+    f'<h1 style="margin:0;font-family:Space Grotesk;font-size:26px;font-weight:700;">Welcome, {user["name"].split()[0]}! 👋</h1>'
+    f'<h2 style="margin:6px 0 0 0;font-family:Space Grotesk;font-size:18px;font-weight:500;opacity:0.93;">EduSolve AI</h2>'
     f'<p style="margin:8px 0 0 0;opacity:0.90;font-size:13px;">Learn → Practice → Mistake → Fix → Revise → Retest</p>'
     f'</div></div><br>'
 )
@@ -1219,11 +1219,11 @@ c = st.columns(6)
 
 with c[0]:
     if st.button(
-        "💬 Ask Q&A",
+        "🤖 AI Mode",
         use_container_width=True,
-        key="dash_ask"
+        key="dash_ai_mode"
     ):
-        st.session_state.active = "Ask"
+        st.session_state.active = "AIMode"
         st.rerun()
 
 with c[1]:
@@ -1450,7 +1450,17 @@ with n2[5]:
 
 
 
-st.markdown("##### 🚀 Source Studio — Notebook-Style Features")
+st.markdown("##### 🤖 EduSolve AI + 🚀 Source Studio")
+ai_cols = st.columns(7)
+with ai_cols[0]:
+    if st.button("💬 Ask Q&A", use_container_width=True, key="dash_ask_secondary"):
+        st.session_state.active = "Ask"
+        st.rerun()
+with ai_cols[1]:
+    if st.button("🤖 AI Mode", use_container_width=True, key="dash_ai_secondary"):
+        st.session_state.active = "AIMode"
+        st.rerun()
+
 ns = st.columns(6)
 source_features = [
     ("📚 Source Studio", "SourceStudio"),
@@ -1576,27 +1586,73 @@ elif active == "History":
 
 
 # ============================================================
+# 🤖 EDUSOLVE AI MODE — NO SOURCE REQUIRED
+# ============================================================
+
+elif active == "AIMode":
+    st.markdown("## 🤖 EduSolve AI Mode")
+    st.caption("Kisi PDF, notes ya source ko upload kiye bina bhi question poochho.")
+
+    ai_topic = st.text_input(
+        "Optional context / subject",
+        key="ai_subject",
+        placeholder="Example: DBMS, Python, ESP32, Digital Electronics"
+    )
+    ai_q = universal_input(
+        "ai_mode",
+        f"Koi bhi question poochho — {lang} me..."
+    )
+
+    ai_cols = st.columns([1, 1, 1])
+    with ai_cols[0]:
+        detail = st.select_slider(
+            "Answer depth",
+            options=["Standard", "Detailed", "Deep + Exam Ready"],
+            value="Deep + Exam Ready",
+            key="ai_depth"
+        )
+    with ai_cols[1]:
+        if st.button("🧹 Clear Answer", use_container_width=True, key="ai_clear"):
+            st.session_state.pop("ai_mode_answer", None)
+            st.rerun()
+    with ai_cols[2]:
+        st.caption("🌐 General AI • Source-free")
+
+    if st.button("🚀 Get Complete Answer", type="primary", use_container_width=True, key="ai_ask") and ai_q.strip():
+        with st.spinner("EduSolve AI detailed answer prepare kar raha hai..."):
+            try:
+                answer = generate_general_ai_answer(
+                    ai_q.strip(),
+                    language=lang,
+                    subject=ai_topic.strip(),
+                    depth=detail,
+                )
+                st.session_state.ai_mode_answer = str(answer or "Answer generate nahi ho saka.")
+                save_conversation(user["id"], ai_q.strip(), st.session_state.ai_mode_answer, "AI Mode")
+                log_event(user["id"], "ai_mode", ai_topic.strip() or "General", 1, ai_q.strip())
+            except Exception as e:
+                st.session_state.ai_mode_answer = f"## ⚠️ Temporary AI Error\n\n`{e}`\n\nGROQ_API_KEY aur model settings check karke dobara try karo."
+
+    if st.session_state.get("ai_mode_answer"):
+        st.markdown("---")
+        st.markdown(st.session_state.ai_mode_answer)
+        try:
+            play_audio_block(st.session_state.ai_mode_answer, lang, "ai_mode_answer")
+        except Exception:
+            pass
+
+# ============================================================
 # ASK Q&A - EXISTING
 # ============================================================
 
 elif active == "Ask":
-    mode = st.radio(
-        "Style:",
-        ["Normal", "Socratic"],
-        horizontal=True,
-        key="ask_mode"
-    )
-
-    sel = (
-        "socratic"
-        if "Socratic" in mode
-        else "normal"
-    )
-
+    st.markdown("## 💬 Ask Q&A")
+    st.caption("Uploaded study material ke basis par source-grounded answer.")
     q = universal_input(
         "ask",
         f"Sawal bolo ({lang} me)..."
     )
+    sel = "normal"
 
     if st.button(
         "🚀 Ask Question",
@@ -1816,8 +1872,24 @@ elif active == "Projects":
         )
 
         st.markdown(guide)
+        st.download_button(
+            "⬇️ Download Complete IoT Project Guide",
+            str(guide),
+            file_name="edusolve_iot_project_guide.md",
+            mime="text/markdown",
+            use_container_width=True,
+            key="download_full_project_guide"
+        )
 
     if "last_proj" in st.session_state:
+        st.download_button(
+            "⬇️ Download Full Project Guide",
+            str(st.session_state.last_proj),
+            file_name="edusolve_iot_project_guide.md",
+            mime="text/markdown",
+            use_container_width=True,
+            key="download_saved_project_guide"
+        )
         play_audio_block(
             st.session_state.last_proj,
             lang,
@@ -3417,25 +3489,36 @@ elif active == "Flashcards":
 # MIND MAP
 # ============================================================
 elif active == "MindMap":
-    st.markdown("## 🧠 Source-Grounded Mind Map")
-    topic = st.text_input("Central topic", key="mm_topic", placeholder="Example: DBMS Transactions")
+    st.markdown("## 🧠 EduSolve AI Mind Map")
+    st.caption("Uploaded source ho to source-grounded map; source na ho to general AI concept map.")
+    topic = st.text_input("Central topic", key="mm_topic", placeholder="Example: DBMS Transactions / ESP32 / Python OOP")
     if st.button("🌳 Build Mind Map", type="primary", use_container_width=True, key="mm_gen") and topic.strip():
         st.session_state.pop("mind_map", None)
-        with st.spinner("Concept relationships nikal raha hu..."):
+        with st.spinner("Concept relationships build kar raha hu..."):
             try:
                 st.session_state.mind_map = generate_mind_map(topic.strip(), lang) or {}
             except Exception as e:
                 st.session_state.mind_map = {}
                 st.error(f"Mind Map error: {e}")
-    mm = st.session_state.get("mind_map")
+    mm = st.session_state.get("mind_map") or {}
     if mm:
         st.markdown(f"### 🎯 {mm.get('topic', topic)}")
         if mm.get("message"):
-            st.warning(mm["message"])
-        for branch in mm.get("branches", []):
-            st.markdown(f"#### 🔹 {branch.get('name', 'Key Concept')}")
-            for child in branch.get("children", []):
-                st.markdown(f"- {child}")
+            st.info(mm["message"])
+        branches = mm.get("branches", [])
+        if branches:
+            for idx, branch in enumerate(branches):
+                name = str(branch.get("name", "Key Concept"))
+                children = branch.get("children", [])
+                with st.container(border=True):
+                    st.markdown(f"#### 🔹 {idx + 1}. {name}")
+                    if children:
+                        for child in children:
+                            st.markdown(f"- {child}")
+                    else:
+                        st.caption("No child concepts returned.")
+        else:
+            st.warning("Mind map me branches nahi mile. Topic ko thoda specific karke dobara try karo.")
 
 # ============================================================
 # EXAM BUILDER
