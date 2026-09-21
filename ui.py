@@ -769,7 +769,7 @@ from rag_utils import (
     text_to_audio_file, images_to_pdf, images_to_docx,
     get_source_inventory, generate_source_brief, generate_flashcards,
     generate_mind_map, generate_exam_paper, compare_source_topics,
-    generate_study_guide, build_study_pack, create_ai_video_lesson
+    generate_study_guide, build_study_pack, create_ai_video_lesson, create_real_ai_video
 )
 
 
@@ -1646,53 +1646,91 @@ elif active == "AIMode":
             pass
 
 # ============================================================
-# 🎬 AI VIDEO LESSON — NO SOURCE REQUIRED
-# ============================================================
+# 🎬 AI VIDEO LESSON — REAL HUMAN + VISUAL TEACHER
 elif active == "VideoLesson":
-    st.markdown("## 🎬 EduSolve AI Video Lesson")
-    st.caption("Kisi bhi topic ka complete AI teaching video — source/PDF upload ki zarurat nahi.")
+    st.markdown("## 🎬 EduSolve AI — Real AI Video Teacher")
+    st.caption("Modern presenter-led educational video: human avatar + deep explanation + dynamic visuals + diagrams. PDF/source upload is optional.")
 
     topic = st.text_input(
         "📚 Topic",
         key="video_topic",
         placeholder="Example: Binary Search, ACID Properties, ESP32 IoT Smart Car, Photosynthesis"
     )
-    style = st.selectbox(
-        "🎨 Teaching style",
-        ["Animated Classroom", "Exam Teacher", "Story Explanation", "Tech Lab"],
-        key="video_style"
-    )
+    v1, v2 = st.columns(2)
+    with v1:
+        style = st.selectbox(
+            "🎨 Visual teaching style",
+            ["Cinematic Classroom", "Modern Tech Lab", "Whiteboard Teacher", "Documentary Explainer", "Exam Masterclass"],
+            key="video_style"
+        )
+        duration = st.selectbox(
+            "⏱️ Lesson depth",
+            ["Quick (2-4 min)", "Deep (6-10 min)", "Masterclass (10-15 min)"],
+            index=1,
+            key="video_duration"
+        )
+    with v2:
+        avatar_id = st.text_input(
+            "👤 HeyGen Avatar ID (optional)",
+            value=os.getenv("HEYGEN_AVATAR_ID", ""),
+            key="video_avatar_id",
+            help="Blank chhodo to HeyGen Video Agent suitable presenter choose karega."
+        )
+        voice_id = st.text_input(
+            "🎙️ HeyGen Voice ID (optional)",
+            value=os.getenv("HEYGEN_VOICE_ID", ""),
+            key="video_voice_id"
+        )
+        style_id = st.text_input(
+            "🎬 HeyGen Visual Style ID (optional)",
+            value=os.getenv("HEYGEN_STYLE_ID", ""),
+            key="video_style_id"
+        )
 
     st.info(
-        f"🎙️ Video language: **{lang}** • AI script + narration + educational slides. "
-        "Topic ko beginning se revision tak explain kiya jayega."
+        f"🗣️ Language: **{lang}** • The presenter should teach the topic deeply, with animated diagrams, examples, code/equations where useful, and frequent visual changes — not a static slide deck."
     )
+    if not os.getenv("HEYGEN_API_KEY"):
+        st.warning("Real human-presenter mode ke liye Streamlit Secrets me `HEYGEN_API_KEY` add karo. API key ke bina ye premium video generation run nahi karega.")
 
-    if st.button("🎬 Generate Complete AI Video", type="primary", use_container_width=True, key="video_generate") and topic.strip():
-        st.session_state.pop("ai_video", None)
-        with st.spinner("AI lesson script, voice narration aur video scenes bana raha hu... इसमें थोड़ा समय लग सकता है ⏳"):
-            try:
-                result = create_ai_video_lesson(topic.strip(), lang, style)
-                st.session_state.ai_video = result
-                log_event(user["id"], "ai_video", topic.strip()[:200], 1, f"Video lesson • {lang}")
-            except Exception as e:
-                st.session_state.pop("ai_video", None)
-                st.error(f"AI Video generation failed: {e}")
-                st.caption("Tip: GROQ_API_KEY, internet access for voice generation, and FFmpeg installation check karo.")
+    b1, b2 = st.columns(2)
+    with b1:
+        if st.button("🎬 Generate Real AI Teacher Video", type="primary", use_container_width=True, key="video_generate_real") and topic.strip():
+            st.session_state.pop("ai_video", None)
+            with st.spinner("AI teacher, script, visual scenes aur human-presenter video render ho raha hai... ⏳"):
+                try:
+                    result = create_real_ai_video(
+                        topic.strip(), lang, style, duration,
+                        avatar_id=avatar_id.strip(),
+                        voice_id=voice_id.strip(),
+                        style_id=style_id.strip(),
+                    )
+                    st.session_state.ai_video = result
+                    log_event(user["id"], "ai_video", topic.strip()[:200], 1, f"Real human AI video • {lang}")
+                except Exception as e:
+                    st.error(f"Real AI Video generation failed: {e}")
+                    st.caption("Check HEYGEN_API_KEY, avatar/voice IDs (if supplied), and HeyGen account access/credits.")
+    with b2:
+        if st.button("🧪 Local Preview Video", use_container_width=True, key="video_generate_local") and topic.strip():
+            st.session_state.pop("ai_video", None)
+            with st.spinner("Local educational preview bana raha hu... ⏳"):
+                try:
+                    result = create_ai_video_lesson(topic.strip(), lang, style)
+                    st.session_state.ai_video = result
+                except Exception as e:
+                    st.error(f"Local preview failed: {e}")
 
     video_result = st.session_state.get("ai_video")
     if video_result and os.path.exists(video_result.get("path", "")):
-        st.success(
-            f"✅ Video ready • {video_result.get('scenes', 0)} scenes • {video_result.get('title', topic)}"
-        )
+        st.success(f"✅ Video ready • {video_result.get('provider', 'EduSolve AI')} • {video_result.get('title', topic)}")
         try:
             with open(video_result["path"], "rb") as vf:
                 video_bytes = vf.read()
             st.video(video_bytes)
             st.download_button(
-                "⬇️ Download AI Video (.mp4)",
+                "⬇️ Download Video (.mp4)",
                 data=video_bytes,
-                file_name="EduSolve_AI_Video_Lesson.mp4",
+                file_name="EduSolve_AI_Real_Teacher_Lesson.mp4",
                 mime="video/mp4",
                 use_container_width=True,
                 key="video_download"
@@ -2276,50 +2314,43 @@ elif active == "Viva":
 
 
 # ============================================================
-# PPT - EXISTING
+# PPT MAKER — VISUAL TEACHING EDITION
 # ============================================================
-
 elif active == "PPT":
-    topic = universal_input(
-        "ppt",
-        f"Topic {lang}"
+    st.markdown("## 🎨 EduSolve AI — Visual Teaching PPT Maker")
+    st.caption("Bullet-only PPT nahi: editable diagrams, process flows, comparisons, examples, code blocks and teacher explanations ke saath teaching-first deck.")
+
+    topic = universal_input("ppt", f"Topic {lang}")
+    pages = st.slider("Slides", 5, 25, 10, key="ppt_pages")
+    visual_style = st.selectbox(
+        "Presentation style",
+        ["Modern Classroom", "Tech / Engineering", "Minimal Academic", "Exam Revision", "Dark Premium"],
+        key="ppt_visual_style"
     )
+    st.info("📌 Uploaded source available ho to PPT us material ko primary factual basis banayega. Source na ho to general academic explanation use hogi.")
 
-    pages = st.slider(
-        "Slides?",
-        5,
-        25,
-        10,
-        key="ppt_pages"
-    )
+    if st.button("✨ Create Visual Teaching PPT", type="primary", use_container_width=True, key="ppt_create") and topic:
+        with st.spinner("AI storyboard, explanations aur editable diagrams generate kar raha hu... ⏳"):
+            try:
+                ppt_path = create_ppt_file(topic, pages, language=lang)
+                st.session_state.ppt_path = ppt_path
+                st.session_state.ppt_topic = topic
+            except Exception as e:
+                st.session_state.pop("ppt_path", None)
+                st.error(f"PPT generation failed: {e}")
 
-    if st.button(
-        "Create PPT",
-        type="primary",
-        use_container_width=True,
-        key="ppt_create"
-    ) and topic:
-
-        with st.spinner("PPT bana raha hu..."):
-            ppt_path = create_ppt_file(
-                topic,
-                pages,
-                language=lang
+    ppt_path = st.session_state.get("ppt_path")
+    if ppt_path and os.path.exists(ppt_path):
+        st.success("✅ Visual teaching PPT ready — editable diagrams and explanations included.")
+        with open(ppt_path, "rb") as f:
+            st.download_button(
+                "⬇️ Download EduSolve AI PPT",
+                f.read(),
+                file_name=f"EduSolve_AI_{st.session_state.get('ppt_topic','Topic')}_{lang}.pptx",
+                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                use_container_width=True,
+                key="ppt_dl"
             )
-
-        if ppt_path and os.path.exists(ppt_path):
-            with open(ppt_path, "rb") as f:
-                st.download_button(
-                    "⬇️ Download PPT",
-                    f.read(),
-                    file_name=f"{topic}_{lang}.pptx",
-                    mime=(
-                        "application/vnd.openxmlformats-"
-                        "officedocument.presentationml.presentation"
-                    ),
-                    key="ppt_dl"
-                )
-
 
 # ============================================================
 # 🧠 MY AI BRAIN
