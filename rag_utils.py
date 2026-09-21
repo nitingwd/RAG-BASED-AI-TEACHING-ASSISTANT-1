@@ -252,56 +252,234 @@ def _make_video_slide(title, bullets, scene_no, total, language_name, out_path):
 
 
 def _video_script_fallback(topic, language):
-    """Fallback lesson structure if JSON generation temporarily fails."""
+    """High-quality offline-safe lesson structure used when LLM JSON is unavailable."""
     return {
-        "title": f"{topic} — Complete Explanation",
+        "title": f"{topic} — Deep Visual Lesson",
         "scenes": [
-            {"heading": "What is it?", "narration": f"Aaj hum {topic} ko simple language me samjhenge. Pehle iska meaning, purpose aur real-world use samjhenge.", "points": [f"{topic} ka basic meaning", "Why it matters", "Real-world context"]},
-            {"heading": "Core Idea", "narration": f"Ab {topic} ka core idea samjho. Concept ko small parts me todkar dekhne se learning easy hoti hai.", "points": ["Core concept", "Main components", "Relationship between parts"]},
-            {"heading": "How it works", "narration": f"{topic} ka working step by step samjho. Har step ka purpose aur next step se connection important hai.", "points": ["Step 1", "Step 2", "Step 3", "Final result"]},
-            {"heading": "Example", "narration": f"Ek practical example se {topic} ko connect karte hain. Example ko follow karke concept ko khud explain karne ki practice karo.", "points": ["Practical example", "Observation", "Expected result"]},
-            {"heading": "Common mistakes", "narration": f"{topic} padhte waqt kuch common mistakes hoti hain. Definitions, steps aur assumptions ko mix na karo.", "points": ["Concept confusion", "Missing steps", "Wrong assumptions"]},
-            {"heading": "Quick Revision", "narration": f"Finally, {topic} ke important points revise karo. Ab tumhe definition, working, example aur application explain kar paana chahiye.", "points": ["Definition", "Working", "Example", "Applications", "Exam tip"]},
+            {"heading": "Hook: Why does this matter?", "type": "hook", "narration": f"Aaj hum {topic} ko sirf definition ki tarah nahi padhenge. Hum pehle dekhenge ki ye problem kya solve karta hai, phir concept ko simple example se samjhenge, aur uske baad actual working ko step by step visualize karenge. Goal ye hai ki lesson ke end mein aap {topic} ko apni language mein explain kar sako, kisi example par apply kar sako, aur exam mein confidently answer likh sako.", "points": ["Problem / motivation", "Real-world connection", "Learning goal"], "visual_type": "concept"},
+            {"heading": "Definition + Intuition", "type": "concept", "narration": f"Sabse pehle {topic} ka exact meaning samjho. Technical definition ko yaad karne se pehle uska simple intuition samajhna important hai. Socho ki is concept ka input kya hai, system us input ke saath kya karta hai, aur output kya milta hai. Isi input-process-output relationship se hum complex theory ko easy bana sakte hain. Ab definition ko intuition ke saath connect karo, kyunki isi connection se aage ka working samajhna bahut easy ho jayega.", "points": ["Exact definition", "Simple intuition", "Input → process → output"], "visual_type": "concept"},
+            {"heading": "Core Parts", "type": "architecture", "narration": f"Ab {topic} ko uske main parts mein break karte hain. Har part ka ek specific role hota hai aur parts ek doosre se connected hote hain. Jab aap individual components aur unke relationships ko visualize karte ho, tab pura topic ek mental model ban jata hai. Is scene mein hum main components ko identify karenge aur dekhenge ki kaunsa component kis doosre component ko information ya control deta hai.", "points": ["Main components", "Role of each part", "Connections"], "visual_type": "architecture"},
+            {"heading": "Step-by-Step Working", "type": "process", "narration": f"Ab actual working ko step by step follow karo. Pehle input ya starting condition identify karo. Phir dekho first operation kya hota hai, uske baad next decision ya transformation kya hoti hai, aur finally output kaise produce hota hai. Har step ko previous step se connect karke samjho. Agar kisi step ka reason samajh aa gaya, to ratta lagane ki zarurat bahut kam ho jati hai. Isi sequence ko ek baar khud repeat karke dekho.", "points": ["Step 1: input", "Step 2: operation", "Step 3: decision", "Step 4: output"], "visual_type": "process"},
+            {"heading": "Worked Example", "type": "example", "narration": f"Ab ek worked example ke through {topic} ko apply karte hain. Example ka purpose sirf answer dikhana nahi hai; purpose ye dekhna hai ki theory real situation mein kaise use hoti hai. Pehle given information identify karo, phir relevant rule ya method choose karo, uske baad operations perform karo aur end mein result ko check karo. Isi pattern ko new question par apply karoge to problem solving skill develop hogi.", "points": ["Given", "Method", "Work", "Result"], "visual_type": "example"},
+            {"heading": "Visual Comparison / Common Confusion", "type": "comparison", "narration": f"Students ko {topic} mein aksar kuch similar concepts ko lekar confusion hota hai. Isliye ab important differences ko side-by-side compare karte hain. Definition ke saath purpose, working, use-case aur limitation bhi dekho. Sirf wording ka difference yaad mat karo; identify karo ki actual situation mein kaunsa concept choose karna chahiye aur kyun. Ye comparison exam ke conceptual questions aur viva dono mein useful rahega.", "points": ["Similar concepts", "Key difference", "When to use which", "Common mistake"], "visual_type": "comparison"},
+            {"heading": "Practical / Code / Formula View", "type": "practical", "narration": f"Ab {topic} ko practical perspective se dekho. Agar topic programming ya IoT se related hai to logic, inputs, outputs aur implementation flow ko visualize karo. Agar mathematics ya electronics se related hai to formula, symbols aur calculation relationship ko connect karo. Theory tab strong hoti hai jab aap usse kisi practical action, calculation, code step ya system block se relate kar paate ho. Isliye is scene ko application lens se dekho.", "points": ["Practical view", "Implementation logic", "Check assumptions", "Test the result"], "visual_type": "practical"},
+            {"heading": "Recap + Self Check", "type": "recap", "narration": f"Ab {topic} ko ek final mental map mein compress karte hain. Aapko definition, main components, working sequence, example aur application explain kar paana chahiye. Agar aap kisi step ko explain nahi kar pa rahe ho, to wahi aapka revision point hai. Video ke baad khud se paanch questions poochho: ye kya hai, kyun use hota hai, kaise work karta hai, example kya hai, aur common mistake kya hai. In questions ka answer bina notes dekhe do.", "points": ["Definition", "Working", "Example", "Application", "5-question self-check"], "visual_type": "recap"},
         ],
     }
 
 
 def generate_ai_video_script(topic, language="Hinglish", style="Animated Classroom"):
-    """Generate a scene-by-scene educational video script; no source upload required."""
+    """Generate a deep, visual-first teaching script with scene instructions."""
     topic = _clean_text(topic)
     if not topic:
         raise ValueError("Topic required")
-    prompt = f"""You are EduSolve AI, an expert educational video teacher.
-Create a complete, accurate teaching video script for the topic: {topic}.
-Language: {language}.
-Style: {style}.
+    prompt = f"""You are EduSolve AI's senior educational video director and expert teacher.
+Create a DEEP, beginner-friendly but technically accurate teaching video for: {topic}
+Language: {language}
+Visual style: {style}
 
-The video should teach the whole topic, not just give a summary. Make 7 scenes: hook, definition/intution, core concepts, step-by-step working, example/application, common mistakes or misconceptions, and quick revision/exam tip.
-For each scene provide:
+The student wants to genuinely LEARN the topic, not watch a slideshow. Create 8-10 scenes and teach the complete concept from intuition to application. Each scene must feel like a teacher is actively explaining while the screen visualizes the idea.
+
+For each scene return:
 - heading: short title
-- narration: natural spoken narration, 70-130 words, educational and complete
-- points: 3-5 short on-screen points
+- type: hook|concept|architecture|process|example|comparison|practical|code|formula|recap
+- narration: natural spoken teaching, roughly 100-180 words; explain WHY as well as WHAT/HOW
+- points: 3-5 short reinforcement labels
+- visual_type: concept|process|architecture|comparison|example|code|formula|timeline|recap
+- visual_elements: 3-6 short items that should visibly appear in the animation/diagram
+- presenter_action: one short instruction such as 'point to the input', 'compare both sides', 'write the formula'
 
-For programming/electronics/IoT topics, explain practical setup and code logic when relevant. Do not use placeholders such as 'etc.', '...', 'rest of code', or 'insert image'. Do not invent specifications.
-Return ONLY valid JSON in this shape:
-{{"title":"...","scenes":[{{"heading":"...","narration":"...","points":["...","..."]}}]}}
+Teaching rules:
+- Start with a relatable hook and motivation.
+- Explain simple intuition before technical terminology.
+- Break complex ideas into small connected parts.
+- Show step-by-step working with arrows, boxes, labels, and transformations.
+- Include at least one worked example.
+- Include common misconceptions and when to use/not use the concept.
+- For programming/electronics/IoT, show architecture, signal/data flow, and code logic when relevant. Never use placeholders such as '...', 'rest of code', or 'insert image'.
+- For maths/electronics, show formula relationships and substitutions when relevant.
+- For abstract concepts, use analogies and a visual mental model.
+- End with recap and 5 self-check questions.
+- Never invent specifications or pretend a source was consulted.
+
+Return ONLY valid JSON:
+{{"title":"...","scenes":[{{"heading":"...","type":"concept","narration":"...","points":["..."],"visual_type":"process","visual_elements":["..."],"presenter_action":"..."}}]}}
 """
     try:
-        raw = _invoke_long(prompt, temperature=0.25, max_tokens=8000)
+        raw = _invoke_long(prompt, temperature=0.22, max_tokens=11000)
         data = _json_from_text(raw, default=None)
         if isinstance(data, dict) and isinstance(data.get("scenes"), list) and data.get("scenes"):
-            return data
+            # Normalize scene fields so malformed model output cannot break rendering.
+            normalized = []
+            allowed = {"concept", "process", "architecture", "comparison", "example", "code", "formula", "timeline", "recap"}
+            for i, scene in enumerate(data["scenes"][:10], 1):
+                if not isinstance(scene, dict):
+                    continue
+                points = scene.get("points", [])
+                if isinstance(points, str): points = [points]
+                visual_elements = scene.get("visual_elements", [])
+                if isinstance(visual_elements, str): visual_elements = [visual_elements]
+                normalized.append({
+                    "heading": _clean_text(scene.get("heading") or f"Scene {i}"),
+                    "type": _clean_text(scene.get("type") or "concept").lower(),
+                    "narration": str(scene.get("narration") or "").strip(),
+                    "points": [_clean_text(x) for x in points if _clean_text(x)][:6],
+                    "visual_type": _clean_text(scene.get("visual_type") or "concept").lower() if _clean_text(scene.get("visual_type") or "concept").lower() in allowed else "concept",
+                    "visual_elements": [_clean_text(x) for x in visual_elements if _clean_text(x)][:8],
+                    "presenter_action": _clean_text(scene.get("presenter_action") or "Explain the highlighted visual.")[:180],
+                })
+            if normalized:
+                data["scenes"] = normalized
+                return data
     except Exception as e:
         print(f"Video script error: {e}")
     return _video_script_fallback(topic, language)
 
 
-def create_ai_video_lesson(topic, language="Hinglish", style="Animated Classroom"):
-    """Create a narrated MP4 from an AI-generated lesson script and slides.
+def _draw_teacher(draw, x=55, y=120, scale=1.0, talking=False, language_name="English"):
+    """Draw a clean presenter-style human illustration for the offline fallback video."""
+    from PIL import ImageDraw
+    s = float(scale)
+    # soft presenter panel
+    draw.rounded_rectangle((int(x-20*s), int(y-20*s), int(x+275*s), int(y+535*s)), radius=int(28*s), fill=(15, 23, 42), outline=(71, 85, 105), width=max(2, int(2*s)))
+    cx = x + 125*s
+    head_y = y + 120*s
+    # hair / head
+    draw.ellipse((int(cx-60*s), int(head_y-60*s), int(cx+60*s), int(head_y+60*s)), fill=(245, 190, 150), outline=(120, 80, 60), width=max(1, int(2*s)))
+    draw.pieslice((int(cx-62*s), int(head_y-65*s), int(cx+62*s), int(head_y+40*s)), 180, 360, fill=(45, 35, 30))
+    # eyes
+    draw.ellipse((int(cx-28*s), int(head_y-8*s), int(cx-18*s), int(head_y+2*s)), fill=(25,25,25))
+    draw.ellipse((int(cx+18*s), int(head_y-8*s), int(cx+28*s), int(head_y+2*s)), fill=(25,25,25))
+    # mouth changes between frames to simulate speech
+    if talking:
+        draw.ellipse((int(cx-14*s), int(head_y+20*s), int(cx+14*s), int(head_y+42*s)), fill=(80, 35, 40))
+    else:
+        draw.arc((int(cx-18*s), int(head_y+18*s), int(cx+18*s), int(head_y+42*s)), 10, 170, fill=(80, 35, 40), width=max(1, int(3*s)))
+    # neck + body
+    draw.rectangle((int(cx-20*s), int(head_y+58*s), int(cx+20*s), int(head_y+105*s)), fill=(235, 170, 135))
+    draw.rounded_rectangle((int(cx-88*s), int(head_y+92*s), int(cx+88*s), int(head_y+305*s)), radius=int(28*s), fill=(37, 99, 235))
+    # arms, one pointing toward visual area
+    draw.line((int(cx+70*s), int(head_y+145*s), int(cx+155*s), int(head_y+105*s)), fill=(245, 190, 150), width=max(8, int(16*s)))
+    draw.line((int(cx-70*s), int(head_y+145*s), int(cx-125*s), int(head_y+230*s)), fill=(245, 190, 150), width=max(8, int(16*s)))
+    # talking label
+    font_path = _find_font(language_name)
+    if font_path:
+        from PIL import ImageFont
+        try:
+            f = ImageFont.truetype(font_path, max(14, int(18*s)))
+            draw.text((int(x+35*s), int(y+350*s)), "AI TEACHER", font=f, fill=(226,232,240))
+            draw.text((int(x+35*s), int(y+385*s)), "explaining…", font=f, fill=(148,163,184))
+        except Exception:
+            pass
 
-    This is an AI-generated educational video: Groq creates the lesson script,
-    gTTS creates narration, and Pillow/FFmpeg assemble narrated teaching slides.
-    It does not require a separate avatar/video-generation API.
+
+def _draw_scene_visual(img, scene, progress, frame_no, total_frames, language_name):
+    """Render an animated teaching canvas: presenter + diagrams/flows/code/formulas."""
+    from PIL import ImageDraw, ImageFont
+    draw = ImageDraw.Draw(img)
+    W, H = img.size
+    font_path = _find_font(language_name)
+    try:
+        title_font = ImageFont.truetype(font_path, 36)
+        body_font = ImageFont.truetype(font_path, 23)
+        small_font = ImageFont.truetype(font_path, 17)
+    except Exception:
+        title_font = body_font = small_font = ImageFont.load_default()
+
+    heading = _clean_text(scene.get("heading") or "Lesson")
+    vtype = _clean_text(scene.get("visual_type") or scene.get("type") or "concept").lower()
+    points = scene.get("points", []) if isinstance(scene.get("points", []), list) else [scene.get("points", "")]
+    elements = scene.get("visual_elements", []) if isinstance(scene.get("visual_elements", []), list) else [scene.get("visual_elements", "")]
+    points = [_clean_text(x) for x in points if _clean_text(x)][:5]
+    elements = [_clean_text(x) for x in elements if _clean_text(x)][:6]
+
+    img.paste((8, 15, 30), (0, 0, W, H))
+    draw.rounded_rectangle((35, 28, W-35, H-28), radius=30, fill=(15, 23, 42), outline=(51,65,85), width=2)
+    draw.text((55, 48), "EduSolve AI  •  Visual Masterclass", font=small_font, fill=(148,163,184))
+    draw.text((55, 82), heading[:68], font=title_font, fill=(248,250,252))
+    # presenter panel
+    _draw_teacher(draw, 55, 145, 0.72, talking=(frame_no % 2 == 0), language_name=language_name)
+
+    # visual board
+    bx1, by1, bx2, by2 = 350, 145, W-65, H-70
+    draw.rounded_rectangle((bx1, by1, bx2, by2), radius=24, fill=(30,41,59), outline=(71,85,105), width=2)
+    label = {"process":"PROCESS", "architecture":"SYSTEM MAP", "comparison":"COMPARE", "example":"WORKED EXAMPLE", "code":"CODE LOGIC", "formula":"FORMULA", "timeline":"TIMELINE", "recap":"RECAP"}.get(vtype, "CONCEPT")
+    draw.text((bx1+24, by1+18), label, font=small_font, fill=(56,189,248))
+
+    # Reveal more visual content as narration progresses.
+    reveal = max(1, int(round((len(elements) or len(points) or 4) * max(0.15, progress))))
+    items = (elements or points or ["Main idea", "Working", "Example", "Result"])[:6]
+    shown = items[:reveal]
+
+    def box(x, y, w, h, text, fill=(51,65,85), accent=False):
+        draw.rounded_rectangle((x, y, x+w, y+h), radius=16, fill=fill, outline=(56,189,248) if accent else (100,116,139), width=2)
+        lines = _wrap_for_slide(text, body_font, w-28, draw)[:3]
+        yy = y + 14
+        for line in lines:
+            draw.text((x+14, yy), line, font=body_font, fill=(241,245,249))
+            yy += 30
+
+    if vtype in ("process", "timeline"):
+        y = by1 + 120
+        count = len(shown)
+        for i, item in enumerate(shown):
+            x = bx1 + 25 + i * max(1, int((bx2-bx1-70)/max(1,count)))
+            box(x, y, 120, 105, item, accent=(i == count-1))
+            if i < count-1:
+                x2 = x + 122
+                draw.line((x2, y+52, x2+32, y+52), fill=(56,189,248), width=5)
+                draw.polygon([(x2+32,y+52),(x2+20,y+44),(x2+20,y+60)], fill=(56,189,248))
+    elif vtype == "comparison":
+        mid = (bx1+bx2)//2
+        box(bx1+25, by1+120, (bx2-bx1)//2-40, 245, "SIDE A\n" + "\n".join(points[:3]), fill=(38,50,70), accent=True)
+        box(mid+15, by1+120, (bx2-bx1)//2-40, 245, "SIDE B\n" + "\n".join(points[3:6] or points[:3]), fill=(38,50,70), accent=False)
+        draw.text((mid-32, by1+390), "VS", font=title_font, fill=(248,250,252))
+    elif vtype == "code":
+        code = "\n".join(points or elements or ["Input → logic → output"])
+        draw.rounded_rectangle((bx1+25, by1+105, bx2-25, by2-35), radius=16, fill=(2,6,23), outline=(71,85,105), width=2)
+        lines = code.splitlines()[:10]
+        yy = by1+130
+        for i,line in enumerate(lines):
+            draw.text((bx1+45, yy), f"{i+1:02d}  {line[:62]}", font=small_font, fill=(226,232,240))
+            yy += 30
+    elif vtype == "formula":
+        formula = elements[0] if elements else "Formula → substitution → result"
+        draw.text((bx1+55, by1+125), formula[:55], font=title_font, fill=(248,250,252))
+        y=by1+220
+        for i,item in enumerate(shown):
+            box(bx1+45, y+i*75, bx2-bx1-90, 55, item, accent=(i==len(shown)-1))
+    else:
+        # concept / architecture / example / recap: connected mental model
+        center = items[0] if items else "Main Idea"
+        cx=(bx1+bx2)//2; cy=by1+230
+        box(cx-110, cy-50, 220, 100, center, accent=True)
+        coords=[(bx1+75,by1+115),(bx2-225,by1+115),(bx1+75,by2-150),(bx2-225,by2-150)]
+        for i,item in enumerate(shown[1:5]):
+            x,y=coords[i]
+            box(x,y,150,90,item)
+            draw.line((cx,cy,x+75,y+45), fill=(100,116,139), width=3)
+
+    # progress + speech indicator
+    p = max(0.0, min(1.0, progress))
+    draw.rounded_rectangle((55, H-52, W-55, H-40), radius=5, fill=(51,65,85))
+    draw.rounded_rectangle((55, H-52, 55+int((W-110)*p), H-40), radius=5, fill=(56,189,248))
+    # animated sound bars
+    base_x = W-220
+    for j in range(8):
+        h = 10 + ((frame_no + j*3) % 7)*4 if frame_no % 2 == 0 else 12 + ((frame_no + j) % 4)*3
+        draw.rounded_rectangle((base_x+j*18, H-92-h, base_x+10+j*18, H-92), radius=4, fill=(56,189,248))
+
+
+def _silent_audio(audio_path, duration=4.0):
+    subprocess.run(["ffmpeg","-y","-f","lavfi","-i",f"anullsrc=channel_layout=mono:sample_rate=24000","-t",f"{duration:.2f}","-c:a","aac","-b:a","96k",audio_path], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def create_ai_video_lesson(topic, language="Hinglish", style="Animated Classroom"):
+    """Create a visual-first narrated MP4 without paid avatar credits.
+
+    The fallback is deliberately NOT a slideshow: it uses an illustrated teacher,
+    speech indicator, progressive diagrams, process arrows, architecture maps,
+    comparison panels, code/formula boards and scene-by-scene narration.
     """
     topic = _clean_text(topic)
     if not topic:
@@ -321,50 +499,55 @@ def create_ai_video_lesson(topic, language="Hinglish", style="Animated Classroom
         for idx, scene in enumerate(scenes, 1):
             heading = _clean_text(scene.get("heading", f"Scene {idx}")) or f"Scene {idx}"
             narration = str(scene.get("narration", "")).strip()
-            points = scene.get("points", [])
-            if isinstance(points, str):
-                points = [points]
-            points = [_clean_text(x) for x in points if _clean_text(x)]
             if not narration:
                 narration = f"Aaiye {heading} ko step by step samajhte hain."
 
             audio_path = os.path.join(workdir, f"audio_{idx}.mp3")
+            duration = 8.0
             try:
-                # Keep each scene within a practical narration size.
-                gTTS(text=_clean_text(narration)[:5000], lang=get_lang_code(language), slow=False).save(audio_path)
-            except Exception:
-                gTTS(text=_clean_text(narration)[:5000], lang="en", slow=False).save(audio_path)
+                gTTS(text=_clean_text(narration)[:6000], lang=get_lang_code(language), slow=False).save(audio_path)
+                duration_cmd = ["ffprobe","-v","error","-show_entries","format=duration","-of","default=noprint_wrappers=1:nokey=1",audio_path]
+                duration = max(6.0, min(45.0, float(subprocess.check_output(duration_cmd, text=True).strip()) + 0.25))
+            except Exception as e:
+                print(f"TTS fallback: {e}")
+                duration = max(8.0, min(30.0, 0.045 * len(_clean_text(narration)) + 2))
+                _silent_audio(audio_path, duration)
 
-            slide_path = os.path.join(workdir, f"slide_{idx}.png")
-            _make_video_slide(heading, points or [narration[:180]], idx, total, language, slide_path)
+            # Four visual keyframes make the scene feel animated instead of static.
+            frame_paths=[]
+            for k in range(4):
+                frame_path=os.path.join(workdir, f"scene_{idx}_{k}.png")
+                img=Image.new("RGB", (1280,720), (8,15,30))
+                _draw_scene_visual(img, scene, k/3.0, k, 4, language)
+                img.save(frame_path, "PNG", optimize=True)
+                frame_paths.append(frame_path)
 
-            duration_cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", audio_path]
-            duration = float(subprocess.check_output(duration_cmd, text=True).strip())
-            duration = max(1.0, duration + 0.15)
+            # Hold each keyframe for an equal portion of the narration.
+            frame_list=os.path.join(workdir, f"frames_{idx}.txt")
+            part=duration/4.0
+            with open(frame_list,"w",encoding="utf-8") as f:
+                for fp in frame_paths:
+                    f.write(f"file '{fp.replace(chr(39), chr(39)+chr(92)+chr(39)+chr(39))}'\n")
+                    f.write(f"duration {part:.3f}\n")
+                f.write(f"file '{frame_paths[-1].replace(chr(39), chr(39)+chr(92)+chr(39)+chr(39))}'\n")
 
-            segment = os.path.join(workdir, f"segment_{idx}.mp4")
-            cmd = ["ffmpeg", "-y", "-loop", "1", "-i", slide_path, "-i", audio_path, "-t", f"{duration:.2f}",
-                   "-c:v", "libx264", "-preset", "veryfast", "-tune", "stillimage", "-pix_fmt", "yuv420p",
-                   "-c:a", "aac", "-b:a", "128k", "-shortest", segment]
-            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            segments.append(segment)
+            silent_segment=os.path.join(workdir, f"video_{idx}.mp4")
+            cmd=["ffmpeg","-y","-f","concat","-safe","0","-i",frame_list,"-i",audio_path,"-t",f"{duration:.3f}","-r","24","-c:v","libx264","-preset","veryfast","-pix_fmt","yuv420p","-c:a","aac","-b:a","128k","-shortest",silent_segment]
+            subprocess.run(cmd,check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+            segments.append(silent_segment)
 
-        concat_file = os.path.join(workdir, "concat.txt")
-        with open(concat_file, "w", encoding="utf-8") as f:
+        concat_file=os.path.join(workdir,"concat.txt")
+        with open(concat_file,"w",encoding="utf-8") as f:
             for segment in segments:
-                f.write("file '" + segment.replace("'", "'\''") + "'\n")
-
-        output_path = os.path.join(workdir, "EduSolve_AI_Video_Lesson.mp4")
-        cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concat_file, "-c", "copy", output_path]
-        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        if not os.path.exists(output_path) or os.path.getsize(output_path) < 5000:
+                f.write("file '"+segment.replace("'","'\\''")+"'\n")
+        output_path=os.path.join(workdir,"EduSolve_AI_Visual_Teacher_Lesson.mp4")
+        subprocess.run(["ffmpeg","-y","-f","concat","-safe","0","-i",concat_file,"-c","copy",output_path],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        if not os.path.exists(output_path) or os.path.getsize(output_path)<5000:
             raise RuntimeError("Video file create nahi hui.")
-
-        return {"path": output_path, "title": script.get("title", topic), "scenes": total, "workdir": workdir}
+        return {"path":output_path,"title":script.get("title",topic),"scenes":total,"workdir":workdir,"provider":"EduSolve AI Visual Teacher","mode":"visual_fallback","note":"Animated teacher + progressive diagrams + narration; no paid video API required."}
     except Exception:
         shutil.rmtree(workdir, ignore_errors=True)
         raise
-
 
 
 def _heygen_key():
