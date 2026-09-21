@@ -1648,8 +1648,8 @@ elif active == "AIMode":
 # ============================================================
 # 🎬 AI VIDEO LESSON — REAL HUMAN + VISUAL TEACHER
 elif active == "VideoLesson":
-    st.markdown("## 🎬 EduSolve AI — Real AI Video Teacher")
-    st.caption("Modern presenter-led educational video: human avatar + deep explanation + dynamic visuals + diagrams. PDF/source upload is optional.")
+    st.markdown("## 🎬 EduSolve AI — AI Video Teacher")
+    st.caption("Deep topic teaching with presenter-style animation, narration, diagrams, process flows, examples and visual memory aids. PDF/source upload is optional.")
 
     topic = st.text_input(
         "📚 Topic",
@@ -1688,7 +1688,7 @@ elif active == "VideoLesson":
         )
 
     st.info(
-        f"🗣️ Language: **{lang}** • The presenter should teach the topic deeply, with animated diagrams, examples, code/equations where useful, and frequent visual changes — not a static slide deck."
+        f"🗣️ Language: **{lang}** • Real HeyGen mode uses a human avatar when credits are available. If HeyGen credits are unavailable, EduSolve AI automatically switches to the FREE Visual Teacher with animated presenter, progressive diagrams, examples, code/formula boards and narration — not a static slideshow."
     )
     if not os.getenv("HEYGEN_API_KEY"):
         st.warning("Real human-presenter mode ke liye Streamlit Secrets me `HEYGEN_API_KEY` add karo. API key ke bina ye premium video generation run nahi karega.")
@@ -1708,10 +1708,22 @@ elif active == "VideoLesson":
                     st.session_state.ai_video = result
                     log_event(user["id"], "ai_video", topic.strip()[:200], 1, f"Real human AI video • {lang}")
                 except Exception as e:
-                    st.error(f"Real AI Video generation failed: {e}")
-                    st.caption("Check HEYGEN_API_KEY, avatar/voice IDs (if supplied), and HeyGen account access/credits.")
+                    err_text = str(e)
+                    # A zero-credit HeyGen account should never make the learning feature useless.
+                    # Automatically fall back to the free local visual teacher.
+                    if "insufficient_credit" in err_text.lower() or "402" in err_text:
+                        st.warning("HeyGen credits available nahi hain. EduSolve AI ab automatically FREE Visual Teacher mode use kar raha hai — animated teacher, narration, diagrams, process flow aur examples ke saath.")
+                        try:
+                            result = create_ai_video_lesson(topic.strip(), lang, style)
+                            st.session_state.ai_video = result
+                            log_event(user["id"], "ai_video", topic.strip()[:200], 1, f"Free Visual Teacher fallback • {lang}")
+                        except Exception as fallback_error:
+                            st.error(f"Free Visual Teacher bhi generate nahi ho saka: {fallback_error}")
+                    else:
+                        st.error(f"Real AI Video generation failed: {e}")
+                        st.caption("HeyGen key/account/credits check karo, ya FREE Visual Teacher button use karo.")
     with b2:
-        if st.button("🧪 Local Preview Video", use_container_width=True, key="video_generate_local") and topic.strip():
+        if st.button("🆓 Generate FREE Visual Teacher Video", use_container_width=True, key="video_generate_local") and topic.strip():
             st.session_state.pop("ai_video", None)
             with st.spinner("Local educational preview bana raha hu... ⏳"):
                 try:
