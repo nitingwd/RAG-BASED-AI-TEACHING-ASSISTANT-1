@@ -70,12 +70,21 @@ def get_lang_code(lang_name):
     return mapping.get(lang_name, "hi")
 
 
-def _llm(temperature=0.2):
-    return ChatGroq(
-        model=MODEL_NAME,
-        groq_api_key=_require_api_key(),
-        temperature=temperature,
-    )
+def _llm(temperature=0.2, max_tokens=None):
+    kwargs = {
+        "model": MODEL_NAME,
+        "groq_api_key": _require_api_key(),
+        "temperature": temperature,
+    }
+    if max_tokens is not None:
+        kwargs["max_tokens"] = int(max_tokens)
+    try:
+        return ChatGroq(**kwargs)
+    except TypeError:
+        # Older langchain-groq versions may not expose max_tokens in the
+        # constructor. Fall back to the normal client instead of crashing.
+        kwargs.pop("max_tokens", None)
+        return ChatGroq(**kwargs)
 
 
 def _clean_text(text):
@@ -84,8 +93,17 @@ def _clean_text(text):
     return text
 
 
-def _invoke(prompt, temperature=0.2):
-    return _llm(temperature).invoke(prompt).content
+def _invoke(prompt, temperature=0.2, max_tokens=None):
+    return _llm(temperature, max_tokens=max_tokens).invoke(prompt).content
+
+
+def _invoke_long(prompt, temperature=0.25, max_tokens=7000):
+    """Long-form generation helper used for complete lessons and project code."""
+    try:
+        return str(_invoke(prompt, temperature=temperature, max_tokens=max_tokens) or "").strip()
+    except Exception:
+        # Compatibility fallback for older client/model combinations.
+        return str(_invoke(prompt, temperature=temperature) or "").strip()
 
 
 def _json_from_text(text, default=None):
@@ -287,6 +305,62 @@ def _context_for(query, k=8, per_doc=1600):
     return "\n\n".join(pieces)[:MAX_CONTEXT_CHARS], docs
 
 
+def generate_general_ai_answer(question, language="Hinglish", subject="", depth="Deep + Exam Ready"):
+    """Answer arbitrary student questions without requiring an uploaded source.
+
+    This is intentionally separate from RAG so the user can use EduSolve AI as
+    a general teaching assistant. The prompt asks for complete explanations,
+    examples, code where relevant, mistakes, exam points and a recap.
+    """
+    question = _clean_text(question)
+    if not question:
+        return "Please question type karo."
+
+    subject_hint = _clean_text(subject) or "Not specified"
+    if depth == "Standard":
+        length_instruction = "Give a clear medium-length answer with the essential reasoning and one example."
+    elif depth == "Detailed":
+        length_instruction = "Give a detailed answer with step-by-step explanation, examples and common mistakes."
+    else:
+        length_instruction = (
+            "Give a deep, long, complete student-ready answer. Do not skip important steps. "
+            "If the question asks for code, provide the COMPLETE runnable code in one or more fenced code blocks; "
+            "never use '...', 'rest of code', placeholders, or truncated sections. Explain the code line-by-line or section-by-section."
+        )
+
+    prompt = f"""You are EduSolve AI, an expert educational tutor for college and diploma students.
+
+Student language: {language}
+Optional subject: {subject_hint}
+Student question: {question}
+Answer depth: {depth}
+
+{length_instruction}
+
+Rules:
+- You do NOT need any uploaded PDF or source for this answer.
+- Answer the actual question directly and completely.
+- Be technically accurate and honest about uncertainty. Never invent citations, experiments, specifications or facts.
+- Use simple language first, then technical depth.
+- For numerical problems, show formulas, substitutions, calculations and final answer.
+- For programming/electronics/IoT questions, include assumptions, wiring/pin tables when useful, complete code when requested or clearly useful, setup steps, testing and troubleshooting.
+- For conceptual questions, include definition, intuition, working, example, advantages/limitations, applications and exam-ready points when relevant.
+- For comparison questions, use a table.
+- For 'how to' questions, give ordered steps.
+- Do not ask the student to upload a PDF just to answer a general question.
+- End with 'Quick Revision' containing 5-8 concise takeaways and 'Exam Tip' containing practical advice.
+
+Return a polished answer with clear Markdown headings.
+"""
+    try:
+        answer = _invoke_long(prompt, temperature=0.25, max_tokens=7500)
+        if answer:
+            return answer
+    except Exception as e:
+        return f"## AI Mode Error\n\n{e}"
+    return "AI answer generate nahi ho saka. Please dobara try karo."
+
+
 def ask_question(query, k=8, mode="normal", language="Hinglish"):
     vb = st.session_state.get("vectordb")
     if vb is None:
@@ -306,22 +380,7 @@ def ask_question(query, k=8, mode="normal", language="Hinglish"):
         )
     ctx = "\n\n".join(ctx_parts)[:MAX_CONTEXT_CHARS]
 
-    if mode.lower() == "socratic":
-        prompt = f"""
-You are a patient Socratic teacher.
-Language: {language}
-Student question: {query}
-
-Use ONLY the supplied study context. Do not invent facts.
-Instead of immediately giving the complete answer, guide the student with
-2-4 useful leading questions and a tiny hint. If the context is insufficient,
-say so clearly.
-
-STUDY CONTEXT:
-{ctx}
-"""
-    else:
-        prompt = f"""
+    prompt = f"""
 You are a helpful AI teaching assistant.
 Language: {language}
 Student question: {query}
@@ -599,36 +658,53 @@ CONTEXT:
 
 
 def build_project_guide(idea, budget="low", language="Hinglish"):
-    ctx, _ = _context_for(idea, k=6, per_doc=1200)
+    """Generate a complete practical project guide, with special care for IoT code.
 
-    prompt = f"""
-You are an Expert IoT Project Mentor for Indian students.
+    The old single short completion could truncate Arduino code. This version
+    allocates a long completion and explicitly forbids ellipses/placeholders.
+    """
+    idea = _clean_text(idea) or "IoT project"
+    ctx, _ = _context_for(idea, k=8, per_doc=1500)
+
+    prompt = f"""You are an expert IoT project mentor for Indian diploma/college students.
 Project idea: {idea}
 Budget: {budget}
 Language: {language}
 
-Relevant uploaded context:
-{ctx or 'No relevant context found.'}
+Relevant uploaded context (optional):
+{ctx or 'No relevant uploaded context. Use general engineering knowledge and label assumptions clearly.'}
 
-Create a practical build guide with:
-1. Project overview
-2. Components table: component, quantity, purpose, approximate INR range
-3. ESP32 wiring/pin table
-4. Full Arduino code where appropriate
-5. App/Blynk setup if applicable
-6. Assembly steps
-7. Testing checklist
-8. Troubleshooting
-9. Total budget estimate
-10. Future enhancements
+Create a COMPLETE build guide. It must be practical enough for a student to build and test the project.
 
-Do not invent exact hardware details that are not established; clearly label
-reasonable examples as examples.
+Required sections:
+1. Project overview and working principle
+2. Components table — exact component, quantity, purpose, and approximate INR range
+3. Complete wiring/pin table — board pin, component pin, power, ground, notes
+4. POWER PLAN — voltage/current considerations and safe wiring
+5. COMPLETE FIRMWARE CODE — if ESP32/Arduino/microcontroller is involved, provide the ENTIRE code in one or more fenced code blocks.
+   - Never write '...', 'rest of code', 'same as above', 'add your code here', or omit functions.
+   - Include all imports/includes, definitions, setup, loop, helper functions and configuration.
+   - Code must be internally consistent with the wiring table.
+6. Software/app setup — Arduino IDE, libraries, Blynk or other app if applicable
+7. Step-by-step assembly
+8. Testing procedure with expected results
+9. Troubleshooting table
+10. Total budget estimate
+11. Viva questions and answers
+12. Future enhancements
+
+For uncertain hardware details, state the assumption and give a safe example instead of pretending it is exact.
+For Blynk projects, include template/device setup, virtual pins and dashboard controls when relevant.
+For ESP32 projects, prefer GPIO numbers and explain board-label equivalents only when known.
+Do not shorten the answer merely to save space.
 """
     try:
-        return _invoke(prompt, temperature=0.5)
+        answer = _invoke_long(prompt, temperature=0.35, max_tokens=8000)
+        if answer:
+            return answer
     except Exception as e:
-        return f"AI error: {e}"
+        return f"## Project Guide Error\n\n{e}"
+    return "Complete project guide generate nahi ho saka. Please dobara try karo."
 
 
 def generate_podcast_script(topic, language="Hinglish"):
@@ -1064,7 +1140,7 @@ def images_to_pdf(image_files):
 
 def images_to_docx(image_files):
     doc = Document()
-    doc.add_heading("RAG Based AI Teaching Assistant", 0)
+    doc.add_heading("EduSolve AI", 0)
     doc.add_paragraph(f"Total Images: {len(image_files)}")
 
     for idx, img_file in enumerate(image_files):
@@ -1257,40 +1333,87 @@ SOURCE CONTEXT:\n{context}"""
 
 
 def generate_mind_map(topic, language="Hinglish"):
-    if not _has_source_material():
-        return {"topic": topic, "branches": [], "message": "Please upload study material first."}
+    topic = _clean_text(topic) or "General Topic"
+    has_source = _has_source_material()
+    if has_source:
+        context = _source_context(topic, k=12)
+        mode_instruction = "Use the supplied source context as the primary factual basis. Do not add source-specific facts that are not supported."
+    else:
+        context = "No uploaded source is available. Use your general academic knowledge and clearly keep the map conceptual."
+        mode_instruction = "No source is available, so create a general educational concept map."
 
-    context = _source_context(topic, k=10)
     fallback = {
         "topic": topic,
-        "branches": [{"name": "Key Concepts", "children": ["Review source material"]}],
+        "branches": [
+            {"name": "Definition / Meaning", "children": [f"Understand what {topic} means"]},
+            {"name": "Core Concepts", "children": ["Main ideas", "Key terms", "Important relationships"]},
+            {"name": "Working / Process", "children": ["Step-by-step flow", "Inputs and outputs"]},
+            {"name": "Examples / Applications", "children": ["Practical example", "Real-world use"]},
+            {"name": "Exam & Revision", "children": ["Important points", "Common mistakes"]},
+        ],
+        "message": "General concept map generated." if not has_source else "Source-grounded concept map generated.",
     }
-    prompt = f"""Build a source-grounded mind map for {topic} in {language}.
-Return ONLY JSON: {{"topic":"...","branches":[{{"name":"...","children":["..."]}}]}}
-Use only the supplied material; do not invent unsupported concepts.
-SOURCE CONTEXT:\n{context}"""
+
+    prompt = f"""Create a high-quality educational mind map for: {topic}
+Language: {language}
+{mode_instruction}
+
+Return ONLY valid JSON with exactly this shape:
+{{
+  "topic": "{topic}",
+  "branches": [
+    {{"name": "branch name", "children": ["child 1", "child 2", "child 3"]}}
+  ]
+}}
+
+Requirements:
+- 5 to 8 meaningful branches.
+- 2 to 6 short children per branch.
+- Cover definition, core concepts, working/process, examples/applications, comparison/relationships when relevant, mistakes and revision/exam points.
+- No markdown, no code fences, no commentary outside JSON.
+- Keep each child concise but informative.
+
+SOURCE/KNOWLEDGE CONTEXT:
+{context[:MAX_CONTEXT_CHARS]}"""
     data = _studio_json(prompt, fallback)
     if not isinstance(data, dict):
         return fallback
 
     branches = data.get("branches", [])
+    if isinstance(branches, dict):
+        branches = [branches]
     normalized = []
     if isinstance(branches, list):
         for branch in branches:
+            if isinstance(branch, str):
+                normalized.append({"name": branch, "children": []})
+                continue
             if not isinstance(branch, dict):
                 continue
-            children = branch.get("children", [])
+            children = branch.get("children", branch.get("items", []))
             if isinstance(children, str):
                 children = [children]
             if not isinstance(children, list):
                 children = []
-            normalized.append(
-                {
-                    "name": str(branch.get("name") or "Key Concept"),
-                    "children": [str(x) for x in children if str(x).strip()],
-                }
-            )
-    return {"topic": str(data.get("topic") or topic), "branches": normalized or fallback["branches"]}
+            clean_children = []
+            for child in children:
+                if isinstance(child, dict):
+                    child = child.get("name") or child.get("text") or child.get("point") or ""
+                text = _clean_text(child)
+                if text:
+                    clean_children.append(text)
+            normalized.append({
+                "name": _clean_text(branch.get("name") or branch.get("title") or "Key Concept") or "Key Concept",
+                "children": clean_children[:8],
+            })
+    normalized = [b for b in normalized if b.get("name")]
+    if not normalized:
+        return fallback
+    return {
+        "topic": _clean_text(data.get("topic") or topic) or topic,
+        "branches": normalized[:10],
+        "message": "Source-grounded concept map generated." if has_source else "General AI concept map generated — no source required.",
+    }
 
 
 def generate_exam_paper(topic="all material", num_questions=10, difficulty="Mixed", language="Hinglish"):
@@ -1443,7 +1566,7 @@ def build_study_pack(topic="all material", language="Hinglish"):
     guide = generate_study_guide(topic, language)
     cards = generate_flashcards(topic, 12, language)
     doc = Document()
-    doc.add_heading("RAG AI Teaching Assistant — Study Pack", 0)
+    doc.add_heading("EduSolve AI — Study Pack", 0)
     doc.add_paragraph(f"Topic: {topic}")
     doc.add_heading("Source Brief", level=1)
     doc.add_paragraph(str(brief))
