@@ -3,6 +3,8 @@ import re
 import json
 import io
 import tempfile
+import subprocess
+import shutil
 from typing import Optional, List
 
 import streamlit as st
@@ -155,6 +157,211 @@ def text_to_audio_file(text, language_name="Hinglish"):
     except Exception as e:
         print(f"TTS Error: {e}")
         return None
+
+
+# ============================================================
+# AI VIDEO LESSON GENERATOR
+# ============================================================
+
+def _find_font(language_name="English", bold=False):
+    """Find a Unicode font that works on Streamlit Cloud/Linux."""
+    candidates = []
+    lang = str(language_name or "English").lower()
+    if "gujar" in lang:
+        candidates += ["/usr/share/fonts/truetype/noto/NotoSansGujarati-Regular.ttf",
+                       "/usr/share/fonts/opentype/noto/NotoSansGujarati-Regular.ttf"]
+    elif any(x in lang for x in ["hindi", "marathi"]):
+        candidates += ["/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf",
+                       "/usr/share/fonts/opentype/noto/NotoSansDevanagari-Regular.ttf"]
+    candidates += [
+        "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return None
+
+
+def _wrap_for_slide(text, font, max_width, draw):
+    words = str(text or "").split()
+    lines, current = [], ""
+    for word in words:
+        trial = word if not current else current + " " + word
+        try:
+            width = draw.textbbox((0, 0), trial, font=font)[2]
+        except Exception:
+            width = len(trial) * 16
+        if width <= max_width or not current:
+            current = trial
+        else:
+            lines.append(current)
+            current = word
+    if current:
+        lines.append(current)
+    return lines
+
+
+def _make_video_slide(title, bullets, scene_no, total, language_name, out_path):
+    """Create a clean 16:9 educational slide using Pillow."""
+    from PIL import ImageDraw, ImageFont
+
+    W, H = 1280, 720
+    img = Image.new("RGB", (W, H), (15, 23, 42))
+    draw = ImageDraw.Draw(img)
+    regular_path = _find_font(language_name)
+    if not regular_path:
+        raise RuntimeError("Unicode font not available for video slides")
+
+    try:
+        title_font = ImageFont.truetype(regular_path, 42)
+        body_font = ImageFont.truetype(regular_path, 27)
+        small_font = ImageFont.truetype(regular_path, 20)
+    except Exception:
+        title_font = ImageFont.load_default()
+        body_font = ImageFont.load_default()
+        small_font = ImageFont.load_default()
+
+    # Simple classroom-style cards; no external images are required.
+    draw.rounded_rectangle((55, 45, W - 55, H - 45), radius=28, fill=(30, 41, 59), outline=(71, 85, 105), width=2)
+    draw.text((85, 72), "EduSolve AI  •  AI Video Lesson", font=small_font, fill=(148, 163, 184))
+    draw.text((85, 112), str(title)[:70], font=title_font, fill=(248, 250, 252))
+
+    y = 205
+    for bullet in bullets[:6]:
+        lines = _wrap_for_slide(bullet, body_font, 1030, draw)
+        if not lines:
+            continue
+        draw.ellipse((92, y + 10, 106, y + 24), fill=(56, 189, 248))
+        draw.text((125, y), lines[0], font=body_font, fill=(226, 232, 240))
+        y += 48
+        for line in lines[1:3]:
+            draw.text((125, y), line, font=body_font, fill=(203, 213, 225))
+            y += 40
+        y += 10
+        if y > 610:
+            break
+
+    progress = max(1, min(total, scene_no)) / max(1, total)
+    draw.rounded_rectangle((85, 665, 1195, 676), radius=6, fill=(51, 65, 85))
+    draw.rounded_rectangle((85, 665, 85 + int(1110 * progress), 676), radius=6, fill=(56, 189, 248))
+    draw.text((1100, 620), f"{scene_no}/{total}", font=small_font, fill=(148, 163, 184))
+    img.save(out_path, "PNG")
+
+
+def _video_script_fallback(topic, language):
+    """Fallback lesson structure if JSON generation temporarily fails."""
+    return {
+        "title": f"{topic} — Complete Explanation",
+        "scenes": [
+            {"heading": "What is it?", "narration": f"Aaj hum {topic} ko simple language me samjhenge. Pehle iska meaning, purpose aur real-world use samjhenge.", "points": [f"{topic} ka basic meaning", "Why it matters", "Real-world context"]},
+            {"heading": "Core Idea", "narration": f"Ab {topic} ka core idea samjho. Concept ko small parts me todkar dekhne se learning easy hoti hai.", "points": ["Core concept", "Main components", "Relationship between parts"]},
+            {"heading": "How it works", "narration": f"{topic} ka working step by step samjho. Har step ka purpose aur next step se connection important hai.", "points": ["Step 1", "Step 2", "Step 3", "Final result"]},
+            {"heading": "Example", "narration": f"Ek practical example se {topic} ko connect karte hain. Example ko follow karke concept ko khud explain karne ki practice karo.", "points": ["Practical example", "Observation", "Expected result"]},
+            {"heading": "Common mistakes", "narration": f"{topic} padhte waqt kuch common mistakes hoti hain. Definitions, steps aur assumptions ko mix na karo.", "points": ["Concept confusion", "Missing steps", "Wrong assumptions"]},
+            {"heading": "Quick Revision", "narration": f"Finally, {topic} ke important points revise karo. Ab tumhe definition, working, example aur application explain kar paana chahiye.", "points": ["Definition", "Working", "Example", "Applications", "Exam tip"]},
+        ],
+    }
+
+
+def generate_ai_video_script(topic, language="Hinglish", style="Animated Classroom"):
+    """Generate a scene-by-scene educational video script; no source upload required."""
+    topic = _clean_text(topic)
+    if not topic:
+        raise ValueError("Topic required")
+    prompt = f"""You are EduSolve AI, an expert educational video teacher.
+Create a complete, accurate teaching video script for the topic: {topic}.
+Language: {language}.
+Style: {style}.
+
+The video should teach the whole topic, not just give a summary. Make 7 scenes: hook, definition/intution, core concepts, step-by-step working, example/application, common mistakes or misconceptions, and quick revision/exam tip.
+For each scene provide:
+- heading: short title
+- narration: natural spoken narration, 70-130 words, educational and complete
+- points: 3-5 short on-screen points
+
+For programming/electronics/IoT topics, explain practical setup and code logic when relevant. Do not use placeholders such as 'etc.', '...', 'rest of code', or 'insert image'. Do not invent specifications.
+Return ONLY valid JSON in this shape:
+{{"title":"...","scenes":[{{"heading":"...","narration":"...","points":["...","..."]}}]}}
+"""
+    try:
+        raw = _invoke_long(prompt, temperature=0.25, max_tokens=8000)
+        data = _json_from_text(raw, default=None)
+        if isinstance(data, dict) and isinstance(data.get("scenes"), list) and data.get("scenes"):
+            return data
+    except Exception as e:
+        print(f"Video script error: {e}")
+    return _video_script_fallback(topic, language)
+
+
+def create_ai_video_lesson(topic, language="Hinglish", style="Animated Classroom"):
+    """Create a narrated MP4 from an AI-generated lesson script and slides.
+
+    This is an AI-generated educational video: Groq creates the lesson script,
+    gTTS creates narration, and Pillow/FFmpeg assemble narrated teaching slides.
+    It does not require a separate avatar/video-generation API.
+    """
+    topic = _clean_text(topic)
+    if not topic:
+        raise ValueError("Topic required")
+    if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
+        raise RuntimeError("FFmpeg/FFprobe is not available. Add 'ffmpeg' to packages.txt and redeploy.")
+
+    script = generate_ai_video_script(topic, language, style)
+    scenes = script.get("scenes", []) if isinstance(script, dict) else []
+    if not scenes:
+        raise RuntimeError("AI video script me scenes nahi mile.")
+
+    workdir = tempfile.mkdtemp(prefix="edusolve_video_")
+    segments = []
+    try:
+        total = len(scenes)
+        for idx, scene in enumerate(scenes, 1):
+            heading = _clean_text(scene.get("heading", f"Scene {idx}")) or f"Scene {idx}"
+            narration = str(scene.get("narration", "")).strip()
+            points = scene.get("points", [])
+            if isinstance(points, str):
+                points = [points]
+            points = [_clean_text(x) for x in points if _clean_text(x)]
+            if not narration:
+                narration = f"Aaiye {heading} ko step by step samajhte hain."
+
+            audio_path = os.path.join(workdir, f"audio_{idx}.mp3")
+            try:
+                # Keep each scene within a practical narration size.
+                gTTS(text=_clean_text(narration)[:5000], lang=get_lang_code(language), slow=False).save(audio_path)
+            except Exception:
+                gTTS(text=_clean_text(narration)[:5000], lang="en", slow=False).save(audio_path)
+
+            slide_path = os.path.join(workdir, f"slide_{idx}.png")
+            _make_video_slide(heading, points or [narration[:180]], idx, total, language, slide_path)
+
+            duration_cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", audio_path]
+            duration = float(subprocess.check_output(duration_cmd, text=True).strip())
+            duration = max(1.0, duration + 0.15)
+
+            segment = os.path.join(workdir, f"segment_{idx}.mp4")
+            cmd = ["ffmpeg", "-y", "-loop", "1", "-i", slide_path, "-i", audio_path, "-t", f"{duration:.2f}",
+                   "-c:v", "libx264", "-preset", "veryfast", "-tune", "stillimage", "-pix_fmt", "yuv420p",
+                   "-c:a", "aac", "-b:a", "128k", "-shortest", segment]
+            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            segments.append(segment)
+
+        concat_file = os.path.join(workdir, "concat.txt")
+        with open(concat_file, "w", encoding="utf-8") as f:
+            for segment in segments:
+                f.write("file '" + segment.replace("'", "'\''") + "'\n")
+
+        output_path = os.path.join(workdir, "EduSolve_AI_Video_Lesson.mp4")
+        cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concat_file, "-c", "copy", output_path]
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if not os.path.exists(output_path) or os.path.getsize(output_path) < 5000:
+            raise RuntimeError("Video file create nahi hui.")
+
+        return {"path": output_path, "title": script.get("title", topic), "scenes": total, "workdir": workdir}
+    except Exception:
+        shutil.rmtree(workdir, ignore_errors=True)
+        raise
 
 
 def transcribe_audio(api_key, audio_path):
