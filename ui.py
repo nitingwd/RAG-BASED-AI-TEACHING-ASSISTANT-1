@@ -246,6 +246,39 @@ def update_profile(user_id, name, email, bio, photo_file=None):
         _supabase_request("PATCH","users",payload=data,params={"id":f"eq.{user_id}"}); return True
     conn=get_conn(); conn.execute("UPDATE users SET name=?, email=?, bio=?" + (", photo=?" if photo_path else "") + " WHERE id=?", tuple([name,email,bio] + ([photo_path] if photo_path else []) + [user_id])); conn.commit(); conn.close(); return True
 
+def save_conversation(user_id, query, answer, mode="Ask"):
+    conn = get_conn()
+    conn.execute(
+        """INSERT INTO conversations
+           (user_id, query, answer, mode, timestamp)
+           VALUES (?,?,?,?,?)""",
+        (
+            user_id,
+            query,
+            answer,
+            mode,
+            datetime.now().isoformat()
+        )
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_user_conversations(user_id):
+    conn = get_conn()
+    c = conn.cursor()
+    c.execute(
+        """SELECT id, query, answer, mode, timestamp
+           FROM conversations
+           WHERE user_id=?
+           ORDER BY id DESC""",
+        (user_id,)
+    )
+    rows = c.fetchall()
+    conn.close()
+    return rows
+
+
 def log_event(user_id, event_type, topic="", score=0, details=""):
     try:
         conn = get_conn()
