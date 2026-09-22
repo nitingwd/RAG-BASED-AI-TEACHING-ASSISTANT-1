@@ -17,3 +17,4 @@ Pillow>=10.0.0
 streamlit-cookies-manager>=0.2.0
 
 requests>=2.32.0
+matplotlib>=3.9.0
