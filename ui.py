@@ -6,6 +6,7 @@ import sqlite3
 import hashlib
 import base64
 import json
+import secrets
 from datetime import datetime, date, timedelta
 from PIL import Image
 from docx import Document
@@ -106,6 +107,13 @@ def init_db():
         )
     """)
 
+    # Persistent-login fields; additive migration for existing databases.
+    for col, typ in (("remember_token_hash", "TEXT"), ("remember_token_created", "TEXT")):
+        try:
+            c.execute(f"ALTER TABLE users ADD COLUMN {col} {typ}")
+        except Exception:
+            pass
+
     conn.commit()
     conn.close()
 
@@ -125,147 +133,118 @@ def get_conn():
     return sqlite3.connect(DB_PATH, check_same_thread=False)
 
 
+
+def _supabase_config():
+    try:
+        url = str(st.secrets.get("SUPABASE_URL", "")).strip()
+        key = str(st.secrets.get("SUPABASE_SERVICE_ROLE_KEY", "")).strip()
+    except Exception:
+        url = os.getenv("SUPABASE_URL", "").strip()
+        key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    return url.rstrip("/"), key
+
+
+def _supabase_enabled():
+    url, key = _supabase_config()
+    return bool(url and key)
+
+
+def _supabase_request(method, path, payload=None, params=None):
+    import requests
+    url, key = _supabase_config()
+    if not url or not key:
+        raise RuntimeError("Supabase persistence is not configured")
+    headers = {
+        "apikey": key,
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+    }
+    r = requests.request(method, f"{url}/rest/v1/{path}", headers=headers, json=payload, params=params, timeout=20)
+    if r.status_code >= 400:
+        try: detail = r.json()
+        except Exception: detail = r.text[:500]
+        raise RuntimeError(f"Supabase {r.status_code}: {detail}")
+    try: return r.json()
+    except Exception: return []
+
+
+def _user_dict(row):
+    if not row: return None
+    return {"id":row.get("id"),"username":row.get("username"),"name":row.get("name"),"email":row.get("email"),"photo":row.get("photo","") or "","bio":row.get("bio","") or ""}
+
 def signup_user(username, password, name, email):
+    username = username.lower().strip()
+    if _supabase_enabled():
+        try:
+            rows = _supabase_request("GET", "users", params={"select":"id", "username":f"eq.{username}", "limit":"1"})
+            if rows: return False, "Username pehle se hai!"
+            _supabase_request("POST", "users", payload={"username":username,"password":hash_pwd(password),"name":name.strip(),"email":email.strip(),"photo":"","bio":"","created_at":datetime.now().isoformat()})
+            return True, "Account permanently cloud database me save ho gaya!"
+        except Exception as e:
+            return False, f"Cloud account save failed: {e}"
     try:
         conn = get_conn()
-        conn.execute(
-            """INSERT INTO users
-               (username, password, name, email, photo, bio, created_at)
-               VALUES (?,?,?,?,?,?,?)""",
-            (
-                username.lower().strip(),
-                hash_pwd(password),
-                name,
-                email,
-                "",
-                "",
-                datetime.now().isoformat()
-            )
-        )
-        conn.commit()
-        conn.close()
+        conn.execute("""INSERT INTO users (username,password,name,email,photo,bio,created_at) VALUES (?,?,?,?,?,?,?)""", (username,hash_pwd(password),name,email,"","",datetime.now().isoformat()))
+        conn.commit(); conn.close()
         return True, "Account ban gaya!"
     except sqlite3.IntegrityError:
         return False, "Username pehle se hai!"
     except Exception as e:
         return False, str(e)
 
-
 def login_user(username, password):
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute(
-        """SELECT id, username, name, email, photo, bio
-           FROM users WHERE username=? AND password=?""",
-        (username.lower().strip(), hash_pwd(password))
-    )
-    u = c.fetchone()
-    conn.close()
+    username = username.lower().strip()
+    hashed = hash_pwd(password)
+    if _supabase_enabled():
+        rows = _supabase_request("GET", "users", params={"select":"id,username,name,email,photo,bio", "username":f"eq.{username}", "password":f"eq.{hashed}", "limit":"1"})
+        return _user_dict(rows[0]) if rows else None
+    conn = get_conn(); c = conn.cursor()
+    c.execute("SELECT id, username, name, email, photo, bio FROM users WHERE username=? AND password=?", (username, hashed))
+    u = c.fetchone(); conn.close()
+    return {"id":u[0],"username":u[1],"name":u[2],"email":u[3],"photo":u[4],"bio":u[5]} if u else None
 
-    if u:
-        return {
-            "id": u[0],
-            "username": u[1],
-            "name": u[2],
-            "email": u[3],
-            "photo": u[4],
-            "bio": u[5]
-        }
-    return None
 
+def issue_remember_token(user_id):
+    token = secrets.token_urlsafe(48)
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    if _supabase_enabled():
+        _supabase_request("PATCH", "users", payload={"remember_token_hash":token_hash,"remember_token_created":datetime.now().isoformat()}, params={"id":f"eq.{user_id}"})
+    else:
+        conn=get_conn(); conn.execute("UPDATE users SET remember_token_hash=?, remember_token_created=? WHERE id=?", (token_hash,datetime.now().isoformat(),user_id)); conn.commit(); conn.close()
+    return token
+
+def get_user_by_remember_token(token):
+    if not token: return None
+    h=hashlib.sha256(str(token).encode()).hexdigest()
+    if _supabase_enabled():
+        rows=_supabase_request("GET","users",params={"select":"id,username,name,email,photo,bio","remember_token_hash":f"eq.{h}","limit":"1"})
+        return _user_dict(rows[0]) if rows else None
+    conn=get_conn(); c=conn.cursor(); c.execute("SELECT id, username, name, email, photo, bio FROM users WHERE remember_token_hash=?", (h,)); u=c.fetchone(); conn.close()
+    return {"id":u[0],"username":u[1],"name":u[2],"email":u[3],"photo":u[4],"bio":u[5]} if u else None
 
 def get_user_by_id(user_id):
     try:
-        conn = get_conn()
-        c = conn.cursor()
-        c.execute(
-            """SELECT id, username, name, email, photo, bio
-               FROM users WHERE id=?""",
-            (user_id,)
-        )
-        u = c.fetchone()
-        conn.close()
-
-        if u:
-            return {
-                "id": u[0],
-                "username": u[1],
-                "name": u[2],
-                "email": u[3],
-                "photo": u[4],
-                "bio": u[5]
-            }
+        if _supabase_enabled():
+            rows=_supabase_request("GET","users",params={"select":"id,username,name,email,photo,bio","id":f"eq.{user_id}","limit":"1"})
+            return _user_dict(rows[0]) if rows else None
+        conn = get_conn(); c = conn.cursor(); c.execute("SELECT id, username, name, email, photo, bio FROM users WHERE id=?", (user_id,)); u=c.fetchone(); conn.close()
+        if u: return {"id":u[0],"username":u[1],"name":u[2],"email":u[3],"photo":u[4],"bio":u[5]}
     except Exception:
         return None
-
     return None
 
 
 def update_profile(user_id, name, email, bio, photo_file=None):
     photo_path = None
-
     if photo_file:
-        ext = photo_file.name.split(".")[-1].lower()
-        photo_path = f"{PICS_PATH}/{user_id}_{int(datetime.now().timestamp())}.{ext}"
-        with open(photo_path, "wb") as f:
-            f.write(photo_file.getbuffer())
-
-    conn = get_conn()
-
-    if photo_path:
-        conn.execute(
-            """UPDATE users SET name=?, email=?, bio=?, photo=?
-               WHERE id=?""",
-            (name, email, bio, photo_path, user_id)
-        )
-    else:
-        conn.execute(
-            """UPDATE users SET name=?, email=?, bio=?
-               WHERE id=?""",
-            (name, email, bio, user_id)
-        )
-
-    conn.commit()
-    conn.close()
-    return True
-
-
-def save_conversation(user_id, query, answer, mode="Ask"):
-    conn = get_conn()
-    conn.execute(
-        """INSERT INTO conversations
-           (user_id, query, answer, mode, timestamp)
-           VALUES (?,?,?,?,?)""",
-        (
-            user_id,
-            query,
-            answer,
-            mode,
-            datetime.now().isoformat()
-        )
-    )
-    conn.commit()
-    conn.close()
-
-
-def get_user_conversations(user_id):
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute(
-        """SELECT id, query, answer, mode, timestamp
-           FROM conversations
-           WHERE user_id=?
-           ORDER BY id DESC""",
-        (user_id,)
-    )
-    rows = c.fetchall()
-    conn.close()
-    return rows
-
-
-# ============================================================
-# LEARNING DATABASE HELPERS
-# ============================================================
+        ext = photo_file.name.split(".")[-1].lower(); photo_path = f"{PICS_PATH}/{user_id}_{int(datetime.now().timestamp())}.{ext}"
+        with open(photo_path,"wb") as f: f.write(photo_file.getbuffer())
+    data={"name":name,"email":email,"bio":bio}
+    if photo_path: data["photo"]=photo_path
+    if _supabase_enabled():
+        _supabase_request("PATCH","users",payload=data,params={"id":f"eq.{user_id}"}); return True
+    conn=get_conn(); conn.execute("UPDATE users SET name=?, email=?, bio=?" + (", photo=?" if photo_path else "") + " WHERE id=?", tuple([name,email,bio] + ([photo_path] if photo_path else []) + [user_id])); conn.commit(); conn.close(); return True
 
 def log_event(user_id, event_type, topic="", score=0, details=""):
     try:
@@ -558,19 +537,19 @@ def auth_ui():
         return True, cookies
 
     if COOKIE_OK and cookies:
-        uid_val = cookies.get("uid")
-
-        if uid_val:
-            try:
-                uid = int(uid_val)
-                u = get_user_by_id(uid)
-
-                if u:
-                    st.session_state.logged_in = True
-                    st.session_state.user = u
-                    return True, cookies
-            except Exception:
-                pass
+        token_val = cookies.get("auth_token")
+        u = get_user_by_remember_token(token_val) if token_val else None
+        if not u:
+            uid_val = cookies.get("uid")
+            if uid_val:
+                try:
+                    u = get_user_by_id(int(uid_val))
+                except Exception:
+                    u = None
+        if u:
+            st.session_state.logged_in = True
+            st.session_state.user = u
+            return True, cookies
 
     st.markdown("""
     <style>
@@ -638,10 +617,10 @@ def auth_ui():
         <div class="login-card">
             <div style="font-size:52px; margin-bottom:8px;">🎓</div>
             <div class="login-title">
-                RAG Based AI<br>Teaching Assistant
+                EduSolve AI
             </div>
             <div class="login-sub">
-                One-time login, 30 days tak yaad rahega
+                Ek baar login karo — EduSolve AI tumhe yaad rakhega
             </div>
             <div style="margin-top:14px;">
                 <span class="pill">💬 Q&A</span>
@@ -657,7 +636,7 @@ def auth_ui():
         with t1:
             username = st.text_input(
                 "Username",
-                placeholder="naresh123",
+                placeholder="Naresh123",
                 key="l_user"
             )
 
@@ -681,6 +660,7 @@ def auth_ui():
 
                     if COOKIE_OK:
                         cookies["uid"] = str(u["id"])
+                        cookies["auth_token"] = issue_remember_token(u["id"])
                         cookies.save()
 
                     st.rerun()
@@ -691,13 +671,13 @@ def auth_ui():
             name = st.text_input(
                 "Full Name",
                 key="s_name",
-                placeholder="Kadiya Naresh"
+                placeholder="Naresh Kumar"
             )
 
             username = st.text_input(
                 "Username",
                 key="s_user",
-                placeholder="naresh123"
+                placeholder="Naresh123"
             )
 
             email = st.text_input(
@@ -746,6 +726,7 @@ user = get_user_by_id(st.session_state.user["id"])
 if not user:
     if COOKIE_OK and cookies:
         cookies["uid"] = ""
+        cookies["auth_token"] = ""
         cookies.save()
 
     st.session_state.clear()
@@ -769,7 +750,8 @@ from rag_utils import (
     text_to_audio_file, images_to_pdf, images_to_docx,
     get_source_inventory, generate_source_brief, generate_flashcards,
     generate_mind_map, generate_exam_paper, compare_source_topics,
-    generate_study_guide, build_study_pack, create_ai_video_lesson, create_real_ai_video
+    generate_study_guide, build_study_pack, create_ai_video_lesson, create_real_ai_video,
+    generate_answer_visual, render_answer_visual
 )
 
 
@@ -866,6 +848,20 @@ section.main div[data-testid="stButton"] > button {
     transition:all 0.32s cubic-bezier(0.34,1.56,0.64,1)!important;
 }
 
+
+/* Premium feature hover / lift interaction */
+section.main button:hover, .stButton > button:hover {
+    transform: translateY(-5px) scale(1.015);
+    box-shadow: 0 14px 30px rgba(79,70,229,0.22);
+    transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
+    filter: brightness(1.03);
+}
+section.main button, .stButton > button {
+    transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
+}
+section.main button:active, .stButton > button:active {
+    transform: translateY(-1px) scale(.995);
+}
 section.main div[data-testid="stButton"] > button:hover {
     transform:translateY(-7px) scale(1.05)!important;
     box-shadow:0 20px 40px rgba(0,0,0,0.20)!important;
@@ -1172,6 +1168,11 @@ st.markdown(hero_html, unsafe_allow_html=True)
 
 if "active" not in st.session_state:
     st.session_state.active = "Ask"
+
+if "last_ask_visual" not in st.session_state:
+    st.session_state.last_ask_visual = None
+if "ai_mode_visual" not in st.session_state:
+    st.session_state.ai_mode_visual = None
 
 if "viva_qs" not in st.session_state:
     st.session_state.viva_qs = []
@@ -1634,12 +1635,22 @@ elif active == "AIMode":
                 st.session_state.ai_mode_answer = str(answer or "Answer generate nahi ho saka.")
                 save_conversation(user["id"], ai_q.strip(), st.session_state.ai_mode_answer, "AI Mode")
                 log_event(user["id"], "ai_mode", ai_topic.strip() or "General", 1, ai_q.strip())
+                try:
+                    spec = generate_answer_visual(ai_q.strip(), st.session_state.ai_mode_answer, lang, "")
+                    st.session_state.ai_mode_visual = render_answer_visual(ai_q.strip(), spec)
+                except Exception as vis_err:
+                    st.session_state.ai_mode_visual = None
+                    print(f"AI Mode visual error: {vis_err}")
             except Exception as e:
                 st.session_state.ai_mode_answer = f"## ⚠️ Temporary AI Error\n\n`{e}`\n\nGROQ_API_KEY aur model settings check karke dobara try karo."
 
     if st.session_state.get("ai_mode_answer"):
         st.markdown("---")
         st.markdown(st.session_state.ai_mode_answer)
+        if st.session_state.get("ai_mode_visual") and os.path.exists(st.session_state.ai_mode_visual):
+            with st.expander("🖼️ Visual Explanation / Diagram", expanded=True):
+                st.image(st.session_state.ai_mode_visual, use_container_width=True)
+                st.caption("Visual is generated from the exact answer; no unsupported numeric data is invented.")
         try:
             play_audio_block(st.session_state.ai_mode_answer, lang, "ai_mode_answer")
         except Exception:
@@ -1779,6 +1790,12 @@ elif active == "Ask":
             )
 
         st.session_state.last_ask = ans
+        try:
+            spec = generate_answer_visual(q, ans, lang, str(src or ""))
+            st.session_state.last_ask_visual = render_answer_visual(q, spec)
+        except Exception as vis_err:
+            st.session_state.last_ask_visual = None
+            print(f"Ask Q&A visual error: {vis_err}")
 
         save_conversation(
             user["id"],
@@ -1796,6 +1813,10 @@ elif active == "Ask":
         )
 
         st.markdown(ans)
+        if st.session_state.get("last_ask_visual") and os.path.exists(st.session_state.last_ask_visual):
+            with st.expander("🖼️ Diagram / Graph / Visual Explanation", expanded=True):
+                st.image(st.session_state.last_ask_visual, use_container_width=True)
+                st.caption("Visual is constrained by the answer and source context.")
 
         with st.expander("📚 Sources"):
             st.write(src)
