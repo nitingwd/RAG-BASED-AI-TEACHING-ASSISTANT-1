@@ -616,10 +616,21 @@ def create_real_ai_video(topic, language="Hinglish", style="Cinematic Classroom"
         "English": "clear natural English",
     }.get(language, language)
 
+    if re.search(r"\besp32\b", topic, re.I):
+        topic_lock = (
+            "ESP32 TOPIC LOCK: If the topic is ESP32, cover only ESP32 and explicitly "
+            "distinguish ESP32 from ESP8266, Arduino UNO and other boards. Cover what it is, "
+            "architecture, GPIO, ADC/DAC, PWM, serial protocols, Wi-Fi/Bluetooth, programming, "
+            "IoT example, applications, limitations and recap. Never substitute another controller. "
+            "If a specification depends on the exact ESP32 variant, say so rather than guessing."
+        )
+    else:
+        topic_lock = f"TOPIC LOCK: Stay exactly on {topic}. Do not drift to adjacent topics."
+
     prompt = f"""
 Create a premium educational explainer video about EXACTLY this topic: {topic}
 
-{("ESP32 TOPIC LOCK: If the topic is ESP32, cover only ESP32 and explicitly distinguish ESP32 from ESP8266, Arduino UNO and other boards. Cover what it is, architecture, GPIO, ADC/DAC, PWM, serial protocols, Wi-Fi/Bluetooth, programming, IoT example, applications, limitations and recap. Never substitute another controller. If a specification depends on the exact ESP32 variant, say so rather than guessing.") if re.search(r"\besp32\b", topic, re.I) else (f"TOPIC LOCK: Stay exactly on {topic}. Do not drift to adjacent topics.")}
+{topic_lock}
 
 Audience: college/university students.
 Language: {lang_instruction}.
