@@ -273,8 +273,14 @@ def generate_ai_video_script(topic, language="Hinglish", style="Animated Classro
     topic = _clean_text(topic)
     if not topic:
         raise ValueError("Topic required")
+    if re.search(r"\besp32\b", topic, re.I):
+        topic_lock = """ESP32 TOPIC LOCK: The lesson must be ONLY about ESP32. Cover what ESP32 is; family/board context without inventing board-specific specifications; high-level architecture; GPIO; ADC/DAC where applicable; PWM; UART/I2C/SPI; Wi-Fi and Bluetooth/BLE; memory at a high level; power considerations; programming/toolchain; a simple ESP32 program; an IoT sensor example; applications; limitations/safety; and recap. Explicitly say when a feature depends on the exact ESP32 variant/board. Never replace ESP32 with Arduino UNO, Raspberry Pi, NodeMCU/ESP8266, or another controller."""
+    else:
+        topic_lock = f"TOPIC LOCK: Every scene must directly teach '{topic}'. Do not drift into a related product, framework, or neighboring topic unless it is explicitly introduced only as a comparison."
+
     prompt = f"""You are EduSolve AI's senior educational video director and expert teacher.
 Create a DEEP, beginner-friendly but technically accurate teaching video for: {topic}
+{topic_lock}
 Language: {language}
 Visual style: {style}
 
@@ -611,7 +617,9 @@ def create_real_ai_video(topic, language="Hinglish", style="Cinematic Classroom"
     }.get(language, language)
 
     prompt = f"""
-Create a premium educational explainer video about: {topic}
+Create a premium educational explainer video about EXACTLY this topic: {topic}
+
+{("ESP32 TOPIC LOCK: If the topic is ESP32, cover only ESP32 and explicitly distinguish ESP32 from ESP8266, Arduino UNO and other boards. Cover what it is, architecture, GPIO, ADC/DAC, PWM, serial protocols, Wi-Fi/Bluetooth, programming, IoT example, applications, limitations and recap. Never substitute another controller. If a specification depends on the exact ESP32 variant, say so rather than guessing.") if re.search(r"\besp32\b", topic, re.I) else (f"TOPIC LOCK: Stay exactly on {topic}. Do not drift to adjacent topics.")}
 
 Audience: college/university students.
 Language: {lang_instruction}.
@@ -872,6 +880,119 @@ def _context_for(query, k=8, per_doc=1600):
         )
     return "\n\n".join(pieces)[:MAX_CONTEXT_CHARS], docs
 
+
+
+def generate_answer_visual(question, answer, language="Hinglish", source_context=""):
+    """Create a factual visual plan for an answer.
+
+    Returns a normalized JSON-like dict. The renderer only draws relationships/data
+    explicitly returned by the model, so it does not invent graph points or wiring.
+    """
+    q = _clean_text(question)
+    a = str(answer or "")[:12000]
+    ctx = str(source_context or "")[:9000]
+    fallback = {"kind": "none", "title": "", "caption": ""}
+    prompt = f"""You are EduSolve AI's visual reasoning engine. Create ONE useful visual aid for this exact student question.\nQuestion: {q}\nLanguage: {language}\nAnswer: {a}\nSource context (if present): {ctx or 'None'}\n\nReturn ONLY JSON. Choose kind from: concept, flow, architecture, comparison, timeline, graph, table, none.\nRules:\n- The visual MUST explain the exact question; do not drift to a related topic.\n- For a graph, include ONLY explicit numeric points supplied by the answer/context or universally defined by a stated equation. If there is not enough numeric data, choose another kind.\n- For diagrams, provide short nodes and explicit edges.\n- For comparisons, provide aligned columns/rows.\n- For technical/IoT questions, show only components/links explicitly supported by the answer/context.\n- Do not invent pin numbers, specifications, measurements, values, or facts.\nSchema:\n{{\"kind\":\"flow\",\"title\":\"...\",\"nodes\":[\"...\"],\"edges\":[[0,1]],\"steps\":[\"...\"],\"columns\":[\"...\"],\"rows\":[[\"...\",\"...\"]],\"points\":[[0,0]],\"x_label\":\"...\",\"y_label\":\"...\",\"caption\":\"...\"}}\nUse empty arrays for unused fields."""
+    try:
+        data = _json_from_text(_invoke(prompt, temperature=0.15, max_tokens=2500), default=None)
+        if not isinstance(data, dict):
+            return fallback
+        kind = str(data.get("kind") or "none").lower().strip()
+        if kind not in {"concept","flow","architecture","comparison","timeline","graph","table","none"}:
+            kind = "none"
+        data["kind"] = kind
+        data["title"] = _clean_text(data.get("title") or q[:90])
+        data["caption"] = _clean_text(data.get("caption") or "")
+        for key in ("nodes","steps","columns"):
+            v=data.get(key,[]); data[key]=v if isinstance(v,list) else []
+            data[key]=[_clean_text(x) for x in data[key]][:12]
+        rows=data.get("rows",[]); data["rows"]=rows if isinstance(rows,list) else []
+        data["rows"]=[([_clean_text(x) for x in r] if isinstance(r,list) else []) for r in data["rows"][:12]]
+        edges=data.get("edges",[]); data["edges"]=edges if isinstance(edges,list) else []
+        clean_edges=[]
+        for e in data["edges"][:20]:
+            if isinstance(e,list) and len(e)>=2:
+                try: clean_edges.append([int(e[0]),int(e[1])])
+                except Exception: pass
+        data["edges"]=clean_edges
+        pts=data.get("points",[]); data["points"]=pts if isinstance(pts,list) else []
+        clean_pts=[]
+        for pt in data["points"][:40]:
+            if isinstance(pt,(list,tuple)) and len(pt)>=2:
+                try: clean_pts.append([float(pt[0]),float(pt[1])])
+                except Exception: pass
+        data["points"]=clean_pts
+        return data
+    except Exception as e:
+        print(f"Answer visual generation error: {e}")
+        return fallback
+
+
+def render_answer_visual(question, visual, out_dir=None):
+    """Render an answer visual to a PNG using only the supplied visual specification."""
+    if not isinstance(visual, dict) or visual.get("kind") == "none":
+        return None
+    from PIL import ImageDraw, ImageFont
+    out_dir = out_dir or tempfile.mkdtemp(prefix="edusolve_visual_")
+    os.makedirs(out_dir, exist_ok=True)
+    path=os.path.join(out_dir,"answer_visual.png")
+    W,H=1500,900
+    img=Image.new("RGB",(W,H),(248,250,252)); d=ImageDraw.Draw(img)
+    font_path=_find_font("English")
+    def font(sz):
+        try: return ImageFont.truetype(font_path,sz) if font_path else ImageFont.load_default()
+        except Exception: return ImageFont.load_default()
+    title=font(42); body=font(25); small=font(20)
+    d.rounded_rectangle((35,35,W-35,H-35),30,fill=(255,255,255),outline=(203,213,225),width=3)
+    d.text((70,65),"EduSolve AI • Visual Explanation",font=small,fill=(79,70,229))
+    d.text((70,105),str(visual.get("title") or question)[:70],font=title,fill=(15,23,42))
+    kind=visual.get("kind")
+    if kind=="graph":
+        try:
+            import matplotlib.pyplot as plt
+            pts=visual.get("points",[])
+            if not pts: return None
+            fig,ax=plt.subplots(figsize=(12,6),dpi=120)
+            xs=[p[0] for p in pts]; ys=[p[1] for p in pts]
+            ax.plot(xs,ys,marker="o",linewidth=2.5)
+            ax.set_xlabel(visual.get("x_label") or "x"); ax.set_ylabel(visual.get("y_label") or "y")
+            ax.set_title(visual.get("title") or question); ax.grid(True,alpha=.25)
+            fig.tight_layout(); fig.savefig(path,bbox_inches="tight"); plt.close(fig); return path
+        except Exception: return None
+    if kind in {"comparison","table"}:
+        cols=visual.get("columns",[]) or ["Point","Explanation"]
+        rows=visual.get("rows",[])
+        x0,y0=70,190; colw=min(1350/max(1,len(cols)),420); rh=78
+        for j,c in enumerate(cols):
+            x=x0+j*colw; d.rounded_rectangle((x,y0,x+colw-10,y0+rh),12,fill=(79,70,229)); d.text((x+12,y0+22),str(c)[:28],font=small,fill=(255,255,255))
+        for i,row in enumerate(rows[:7]):
+            for j,c in enumerate(row[:len(cols)]):
+                x=x0+j*colw; y=y0+(i+1)*rh; d.rounded_rectangle((x,y,x+colw-10,y+rh-8),10,fill=(248,250,252),outline=(226,232,240)); d.text((x+12,y+17),str(c)[:34],font=small,fill=(30,41,59))
+    else:
+        nodes=visual.get("nodes",[]) or visual.get("steps",[])
+        nodes=[str(x) for x in nodes[:8]]
+        if not nodes: return None
+        cols=2 if len(nodes)>4 else 1; rows=(len(nodes)+cols-1)//cols
+        positions=[]
+        for i,n in enumerate(nodes):
+            c=i%cols; r=i//cols; x=110+c*690; y=200+r*145; positions.append((x,y))
+            d.rounded_rectangle((x,y,x+570,y+100),22,fill=(239,246,255),outline=(59,130,246),width=3)
+            # wrap
+            words=n.split(); lines=[]; cur=""
+            for w in words:
+                t=(cur+" "+w).strip()
+                if len(t)>38 and cur: lines.append(cur); cur=w
+                else: cur=t
+            if cur: lines.append(cur)
+            for k,line in enumerate(lines[:3]): d.text((x+25,y+18+k*27),line,font=body,fill=(15,23,42))
+        edges=visual.get("edges",[])
+        for e in edges:
+            if len(e)>=2 and 0<=e[0]<len(positions) and 0<=e[1]<len(positions):
+                x1,y1=positions[e[0]]; x2,y2=positions[e[1]]; d.line((x1+285,y1+100,x2+285,y2),fill=(99,102,241),width=5)
+    cap=visual.get("caption")
+    if cap: d.text((70,H-100),str(cap)[:120],font=small,fill=(71,85,105))
+    img.save(path,quality=95)
+    return path
 
 def generate_general_ai_answer(question, language="Hinglish", subject="", depth="Deep + Exam Ready"):
     """Answer arbitrary student questions without requiring an uploaded source.
