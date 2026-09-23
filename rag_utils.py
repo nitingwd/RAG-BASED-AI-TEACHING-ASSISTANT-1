@@ -252,21 +252,24 @@ def _make_video_slide(title, bullets, scene_no, total, language_name, out_path):
 
 
 def _video_script_fallback(topic, language):
-    """High-quality offline-safe lesson structure used when LLM JSON is unavailable."""
+    """Robust offline-safe lesson plan that still teaches a topic end-to-end."""
     return {
-        "title": f"{topic} — Deep Visual Lesson",
+        "title": f"{topic} — Complete Visual Lesson",
         "scenes": [
-            {"heading": "Hook: Why does this matter?", "type": "hook", "narration": f"Aaj hum {topic} ko sirf definition ki tarah nahi padhenge. Hum pehle dekhenge ki ye problem kya solve karta hai, phir concept ko simple example se samjhenge, aur uske baad actual working ko step by step visualize karenge. Goal ye hai ki lesson ke end mein aap {topic} ko apni language mein explain kar sako, kisi example par apply kar sako, aur exam mein confidently answer likh sako.", "points": ["Problem / motivation", "Real-world connection", "Learning goal"], "visual_type": "concept"},
-            {"heading": "Definition + Intuition", "type": "concept", "narration": f"Sabse pehle {topic} ka exact meaning samjho. Technical definition ko yaad karne se pehle uska simple intuition samajhna important hai. Socho ki is concept ka input kya hai, system us input ke saath kya karta hai, aur output kya milta hai. Isi input-process-output relationship se hum complex theory ko easy bana sakte hain. Ab definition ko intuition ke saath connect karo, kyunki isi connection se aage ka working samajhna bahut easy ho jayega.", "points": ["Exact definition", "Simple intuition", "Input → process → output"], "visual_type": "concept"},
-            {"heading": "Core Parts", "type": "architecture", "narration": f"Ab {topic} ko uske main parts mein break karte hain. Har part ka ek specific role hota hai aur parts ek doosre se connected hote hain. Jab aap individual components aur unke relationships ko visualize karte ho, tab pura topic ek mental model ban jata hai. Is scene mein hum main components ko identify karenge aur dekhenge ki kaunsa component kis doosre component ko information ya control deta hai.", "points": ["Main components", "Role of each part", "Connections"], "visual_type": "architecture"},
-            {"heading": "Step-by-Step Working", "type": "process", "narration": f"Ab actual working ko step by step follow karo. Pehle input ya starting condition identify karo. Phir dekho first operation kya hota hai, uske baad next decision ya transformation kya hoti hai, aur finally output kaise produce hota hai. Har step ko previous step se connect karke samjho. Agar kisi step ka reason samajh aa gaya, to ratta lagane ki zarurat bahut kam ho jati hai. Isi sequence ko ek baar khud repeat karke dekho.", "points": ["Step 1: input", "Step 2: operation", "Step 3: decision", "Step 4: output"], "visual_type": "process"},
-            {"heading": "Worked Example", "type": "example", "narration": f"Ab ek worked example ke through {topic} ko apply karte hain. Example ka purpose sirf answer dikhana nahi hai; purpose ye dekhna hai ki theory real situation mein kaise use hoti hai. Pehle given information identify karo, phir relevant rule ya method choose karo, uske baad operations perform karo aur end mein result ko check karo. Isi pattern ko new question par apply karoge to problem solving skill develop hogi.", "points": ["Given", "Method", "Work", "Result"], "visual_type": "example"},
-            {"heading": "Visual Comparison / Common Confusion", "type": "comparison", "narration": f"Students ko {topic} mein aksar kuch similar concepts ko lekar confusion hota hai. Isliye ab important differences ko side-by-side compare karte hain. Definition ke saath purpose, working, use-case aur limitation bhi dekho. Sirf wording ka difference yaad mat karo; identify karo ki actual situation mein kaunsa concept choose karna chahiye aur kyun. Ye comparison exam ke conceptual questions aur viva dono mein useful rahega.", "points": ["Similar concepts", "Key difference", "When to use which", "Common mistake"], "visual_type": "comparison"},
-            {"heading": "Practical / Code / Formula View", "type": "practical", "narration": f"Ab {topic} ko practical perspective se dekho. Agar topic programming ya IoT se related hai to logic, inputs, outputs aur implementation flow ko visualize karo. Agar mathematics ya electronics se related hai to formula, symbols aur calculation relationship ko connect karo. Theory tab strong hoti hai jab aap usse kisi practical action, calculation, code step ya system block se relate kar paate ho. Isliye is scene ko application lens se dekho.", "points": ["Practical view", "Implementation logic", "Check assumptions", "Test the result"], "visual_type": "practical"},
-            {"heading": "Recap + Self Check", "type": "recap", "narration": f"Ab {topic} ko ek final mental map mein compress karte hain. Aapko definition, main components, working sequence, example aur application explain kar paana chahiye. Agar aap kisi step ko explain nahi kar pa rahe ho, to wahi aapka revision point hai. Video ke baad khud se paanch questions poochho: ye kya hai, kyun use hota hai, kaise work karta hai, example kya hai, aur common mistake kya hai. In questions ka answer bina notes dekhe do.", "points": ["Definition", "Working", "Example", "Application", "5-question self-check"], "visual_type": "recap"},
+            {"heading":"1. Hook & Learning Goal","type":"hook","narration":f"Aaj hum {topic} ko sirf ek definition ke roop mein nahi, balki ek complete concept ke roop mein samjhenge. Sabse pehle dekhenge ki problem kya hai aur ye topic important kyun hai. Phir exact definition aur intuition, main parts, working, ek detailed example, practical use, common mistakes aur final recap cover karenge. Lesson ka goal hai ki aap video ke end mein {topic} ko apni language mein explain kar saken, uska working sequence bata saken aur ek new question par apply kar saken.","points":["Why this topic matters","Problem being solved","Learning goal"],"visual_type":"concept"},
+            {"heading":"2. Exact Definition & Intuition","type":"concept","narration":f"Ab {topic} ki exact definition samjho. Pehle simple language mein meaning samjhenge aur phir technical wording se connect karenge. Kisi bhi concept ko samajhne ke liye teen cheezein identify karo: input kya hai, process ya rule kya hai, aur output kya milta hai. Is mental model se difficult terminology bhi easy ho jati hai. Definition ko real-life intuition ke saath connect karo, kyunki sirf definition yaad karne ke bajay uska meaning samajhna long-term learning ke liye important hai.","points":["Exact meaning","Simple intuition","Input → process → output"],"visual_type":"concept"},
+            {"heading":"3. Main Components","type":"architecture","narration":f"Ab {topic} ko uske essential components mein break karte hain. Har component ka naam, role aur doosre components ke saath relationship samjho. Ek component ko isolated fact ki tarah yaad mat karo; dekho information ya control kis direction mein move hota hai. Is visual map se aapko topic ka structure ek mental picture ki tarah yaad rahega. Agar kisi component ko remove kar diya jaye to system ya method par kya effect padega, is question se bhi understanding check kar sakte hain.","points":["Components","Role of each part","Relationships","Information flow"],"visual_type":"architecture"},
+            {"heading":"4. How It Works — Step by Step","type":"process","narration":f"Ab {topic} ka actual working sequence follow karo. Starting input se begin karo, phir har operation, decision, transformation aur output ko order mein dekho. Har step ke saath do questions poochho: ye step kya karta hai aur ye step kyun zaroori hai? Isse ratta lagane ke bajay cause-and-effect samajh aayega. Agar process mein conditions, branches, iterations ya stages hain, to unhe clearly distinguish karo. End mein poora flow beginning se output tak ek baar mentally repeat karo.","points":["Input","Operation","Decision / transformation","Output"],"visual_type":"process"},
+            {"heading":"5. Detailed Worked Example","type":"example","narration":f"Ab {topic} ko ek concrete worked example par apply karte hain. Pehle given information identify karo, phir relevant rule, method ya component choose karo. Uske baad har intermediate step ko explain karte hue result tak pahunchte hain. Sirf final answer dekhna enough nahi hai; important ye hai ki har step previous step se logically kaise connected hai. Isi example ko thoda change karke socho aur dekho ki method ka behavior kaise badalta hai. Ye transfer of learning exam aur practical problem solving dono mein useful hai.","points":["Given","Method","Intermediate steps","Final result"],"visual_type":"example"},
+            {"heading":"6. Visual / Formula / Code View","type":"practical","narration":f"Ab topic ko us representation mein dekho jo uske liye sabse useful hai. Programming topic mein input, logic, important code blocks aur output ka relation samjho. Mathematics ya electronics mein symbols, equations, substitutions aur result ko connect karo. Architecture-based topic mein blocks aur data flow dekho. Is scene ka purpose theory ko visible banana hai, taaki aap abstract explanation ko actual implementation, calculation ya system behavior se connect kar saken.","points":["Representation","Logic / formula","Implementation","Result"],"visual_type":"practical"},
+            {"heading":"7. Second Example / Edge Case","type":"example","narration":f"Ek second example ya edge case se {topic} ki understanding ko test karte hain. Is baar situation mein ek important change hoga. Pehle predict karo ki output ya behavior kya hoga, phir step by step verify karo. Edge cases samajhne se pata chalta hai ki concept sirf ideal example ke liye nahi hai. Agar result expected se different ho, to identify karo ki kaunsa assumption change hua. Isi habit se conceptual clarity aur problem-solving accuracy improve hoti hai.","points":["New situation","Prediction","Verification","Edge case"],"visual_type":"example"},
+            {"heading":"8. Comparison & Common Confusion","type":"comparison","narration":f"Students ko {topic} samajhte waqt similar terms, methods ya components ke beech confusion ho sakta hai. Isliye ab relevant comparison dekho: purpose, working, input, output, use-case aur limitation ke basis par difference identify karo. Sirf terminology ka difference yaad mat karo. Practical situation mein kaunsa option kab use hoga aur kyun, ye samajhna zyada important hai. Common misconception ko bhi identify karo aur correct mental model ke saath replace karo.","points":["Similar concepts","Key differences","When to use","Common mistake"],"visual_type":"comparison"},
+            {"heading":"9. Applications & Limitations","type":"practical","narration":f"Ab {topic} ke real-world applications dekho. Concept ka use kahan hota hai, kis type ki problem solve karta hai aur practical system mein iska role kya hota hai, ye samjho. Saath hi limitations ko ignore mat karo. Har method ya technology ke assumptions, constraints, cost, performance, accuracy ya hardware/software dependencies ho sakti hain. Application ko limitation ke saath samajhne se aapko pata chalega ki concept kab appropriate hai aur kab alternative approach consider karni chahiye.","points":["Applications","Benefits","Limitations","Selection criteria"],"visual_type":"concept"},
+            {"heading":"10. Exam / Viva Focus","type":"recap","narration":f"Exam aur viva ke point of view se {topic} ko compress karte hain. Aapko minimum ye explain kar pana chahiye: definition kya hai, problem kya solve karta hai, main components kaun se hain, working ka sequence kya hai, example kaise solve hota hai, applications kya hain aur limitations kya hain. Agar diagram, algorithm, formula ya code relevant hai to uska purpose bhi explain karo. Kisi bhi short-answer question ke liye definition plus key working, aur long-answer ke liye diagram plus detailed example ka structure useful rahega.","points":["Definition","Diagram / working","Example","Applications","Limitations"],"visual_type":"recap"},
+            {"heading":"11. Complete Mental Map","type":"architecture","narration":f"Ab poore {topic} ko ek single mental map mein connect karo. Problem se start karo, definition tak jao, definition ko components se connect karo, components ko working flow se, working ko example se aur example ko application se. Phir limitation aur common confusion ko attach karo. Jab ye chain clear ho jaye, to topic disconnected facts ka collection nahi rehta; ek connected system ban jata hai. Video ke baad bina notes dekhe isi chain ko khud bolkar reproduce karna best self-test hai.","points":["Problem → concept","Components → working","Example → application","Limitation → decision"],"visual_type":"architecture"},
+            {"heading":"12. Final Recap & Self Check","type":"recap","narration":f"Final recap mein {topic} ko paanch questions se test karo. Pehla: ye kya hai aur exact definition kya hai? Doosra: iski need kyun hai? Teesra: ye step by step kaise work karta hai? Chautha: ek practical example mein ise kaise apply karoge? Paanchva: common mistake, limitation ya edge case kya hai? Agar aap in paanch questions ka answer bina video dekhe de sakte hain, to topic ki core understanding strong hai. Agar kisi answer mein gap hai, wahi aapka revision point hai.","points":["What?","Why?","How?","Example?","Limitation / mistake?"],"visual_type":"recap"}
         ],
     }
-
 
 def generate_ai_video_script(topic, language="Hinglish", style="Animated Classroom"):
     """Generate a deep, visual-first teaching script with scene instructions."""
@@ -279,46 +282,70 @@ def generate_ai_video_script(topic, language="Hinglish", style="Animated Classro
         topic_lock = f"TOPIC LOCK: Every scene must directly teach '{topic}'. Do not drift into a related product, framework, or neighboring topic unless it is explicitly introduced only as a comparison."
 
     prompt = f"""You are EduSolve AI's senior educational video director and expert teacher.
-Create a DEEP, beginner-friendly but technically accurate teaching video for: {topic}
+Create a COMPLETE, self-contained educational video lesson for EXACTLY this topic: {topic}
 {topic_lock}
 Language: {language}
 Visual style: {style}
 
-The student wants to genuinely LEARN the topic, not watch a slideshow. Create 8-10 scenes and teach the complete concept from intuition to application. Each scene must feel like a teacher is actively explaining while the screen visualizes the idea.
+The student has specifically complained that short AI videos mention a topic but do not actually explain it. Therefore this lesson MUST teach the requested topic completely enough for a college student to understand it without needing a second video. Do not produce a generic template with the topic name inserted.
+
+FIRST classify the topic internally (algorithm, programming, AI/ML, DBMS, networking, OS, compiler, electronics/IoT, mathematics, science, business, etc.) and then cover the canonical concepts normally required to understand THAT exact topic. Do not add unrelated syllabus topics.
+
+Create 10-14 coherent scenes. The sequence should normally be:
+1) hook/problem and learning goal,
+2) exact definition,
+3) intuition/analogy,
+4) components or prerequisites,
+5) core working step-by-step,
+6) diagram/architecture or formula/code representation when relevant,
+7) detailed worked example,
+8) second example or edge case,
+9) comparison/common misconceptions,
+10) applications and limitations,
+11) exam/viva/practical takeaways,
+12) connected recap + self-check; add extra scenes whenever the topic genuinely requires them.
 
 For each scene return:
-- heading: short title
+- heading: short but specific title
 - type: hook|concept|architecture|process|example|comparison|practical|code|formula|recap
-- narration: natural spoken teaching, roughly 100-180 words; explain WHY as well as WHAT/HOW
-- points: 3-5 short reinforcement labels
+- narration: natural spoken teaching, roughly 150-230 words; explain WHAT, WHY and HOW, not just bullet points
+- points: 3-6 short reinforcement labels
 - visual_type: concept|process|architecture|comparison|example|code|formula|timeline|recap
-- visual_elements: 3-6 short items that should visibly appear in the animation/diagram
-- presenter_action: one short instruction such as 'point to the input', 'compare both sides', 'write the formula'
+- visual_elements: 3-8 concrete things that should visibly appear
+- presenter_action: one short action such as pointing, writing, comparing, tracing a flow, or demonstrating
 
-Teaching rules:
-- Start with a relatable hook and motivation.
-- Explain simple intuition before technical terminology.
-- Break complex ideas into small connected parts.
-- Show step-by-step working with arrows, boxes, labels, and transformations.
-- Include at least one worked example.
-- Include common misconceptions and when to use/not use the concept.
-- For programming/electronics/IoT, show architecture, signal/data flow, and code logic when relevant. Never use placeholders such as '...', 'rest of code', or 'insert image'.
-- For maths/electronics, show formula relationships and substitutions when relevant.
-- For abstract concepts, use analogies and a visual mental model.
-- End with recap and 5 self-check questions.
-- Never invent specifications or pretend a source was consulted.
+NON-NEGOTIABLE TEACHING RULES:
+- Never merely list facts. Explain the relationship between ideas.
+- Define every important technical term before relying on it.
+- If the topic has an algorithm, show every major step, a worked input, intermediate states, output, and time/space complexity when applicable.
+- If it has architecture, show every important block and the direction/purpose of data flow.
+- If it has a formula, define symbols, show substitution and interpretation of the result.
+- If it has programming, show complete relevant code (no '...', 'rest of code', or placeholders) and explain the important lines/blocks.
+- If it has electronics/IoT, explain components, connections, signals/data flow and practical operation without inventing board-specific specifications.
+- If it has comparisons, explain meaningful criteria rather than superficial wording differences.
+- Include at least TWO concrete examples whenever the topic permits.
+- Include common mistakes, edge cases, limitations, applications, and when the concept should or should not be used when applicable.
+- Use analogies only when they clarify the concept; always connect the analogy back to the technical explanation.
+- Keep the topic tightly locked. Do not silently substitute a related topic.
+- End with a concise connected recap and 5 self-check questions with their purpose clear from the narration.
+- Never invent facts, specifications, citations, datasets, or sources.
+
+The final video should feel like a patient expert teacher teaching the student from zero to confident understanding, not like an AI reading slides.
+
+Return ONLY valid JSON:
+{{"title":"...","scenes":[{{"heading":"...","type":"concept","narration":"...","points":["..."],"visual_type":"process","visual_elements":["..."],"presenter_action":"..."}}]}}
 
 Return ONLY valid JSON:
 {{"title":"...","scenes":[{{"heading":"...","type":"concept","narration":"...","points":["..."],"visual_type":"process","visual_elements":["..."],"presenter_action":"..."}}]}}
 """
     try:
-        raw = _invoke_long(prompt, temperature=0.22, max_tokens=11000)
+        raw = _invoke_long(prompt, temperature=0.22, max_tokens=16000)
         data = _json_from_text(raw, default=None)
         if isinstance(data, dict) and isinstance(data.get("scenes"), list) and data.get("scenes"):
             # Normalize scene fields so malformed model output cannot break rendering.
             normalized = []
             allowed = {"concept", "process", "architecture", "comparison", "example", "code", "formula", "timeline", "recap"}
-            for i, scene in enumerate(data["scenes"][:10], 1):
+            for i, scene in enumerate(data["scenes"][:14], 1):
                 if not isinstance(scene, dict):
                     continue
                 points = scene.get("points", [])
@@ -642,31 +669,36 @@ modern AI educational YouTube masterclass with a realistic human presenter/teach
 who is visibly speaking and explaining. The presenter should appear throughout the
 lesson, use natural gestures and camera changes, and interact with the visuals.
 
-TEACHING DEPTH:
-- Start with a strong intuitive hook: why the topic matters.
-- Teach the definition and intuition in simple language.
-- Build the concept step by step from basics to advanced points.
-- Use at least 2 concrete examples and explain every step.
-- For algorithms, show animated step-by-step state changes, inputs/outputs and complexity.
-- For DBMS/computer science, show architecture, flow, tables, relationships and examples.
-- For electronics/IoT, show component-level diagrams, signal/data flow, wiring concepts,
-  controller/sensor interaction and practical operation.
-- For programming, show readable complete code sections and explain what each important
-  block does; never say 'rest of code' or use ellipses as a substitute for code.
-- For mathematics, show equations and transformations visually.
-- Include common misconceptions, exam traps, practical applications and a final recap.
+TEACHING DEPTH — COMPLETE LESSON CONTRACT:
+The student needs the topic actually explained, not merely introduced. First classify the exact
+topic and teach its canonical core concepts without drifting into unrelated topics. Build the
+lesson from zero to confident understanding. Use 10-14 logical teaching beats/scenes as needed.
+
+Cover, when applicable: why/problem and learning goal; exact definition; intuition/analogy;
+prerequisites; main components; complete step-by-step working; architecture/data flow;
+formula/code/algorithm representation; at least two concrete worked examples; edge cases;
+comparison and common misconceptions; applications; limitations; exam/viva/practical
+takeaways; and a final connected recap with 5 self-check questions.
+
+Explain WHAT, WHY and HOW. Define technical terms before using them. Do not simply read
+bullet points. For algorithms show intermediate states and complexity when applicable. For
+programming show complete relevant code and explain important blocks. For mathematics show
+symbols, substitution and interpretation. For electronics/IoT show components, connections
+and signal/data flow. Never use '...', 'rest of code', 'insert image', or other placeholders.
 
 VISUALIZATION RULES:
 - Use dynamic diagrams, arrows, labels, callouts, highlighted objects, simple animations,
-  charts/tables, code overlays, and contextual visual examples whenever useful.
+  charts/tables, code overlays, formulas and contextual visual examples whenever useful.
 - Change visual composition regularly; do not keep one background slide on screen.
 - Keep the human presenter visible while the visual explanation is happening.
-- Use on-screen text as reinforcement, not as the entire lesson.
-- Never invent technical specifications or facts.
-- End with a concise recap and 5 self-check questions.
+- On-screen text must reinforce the explanation, not replace it.
+- Keep the exact requested topic locked throughout the video.
+- Never invent technical specifications, facts, sources or citations.
+- The final scene must connect the entire lesson into one mental model and ask 5 self-check questions.
 
-Produce a polished, coherent, fact-focused educational video. The presenter should teach,
-not merely read bullet points.
+Produce a polished, coherent, fact-focused masterclass. The presenter should teach like a
+patient expert, not merely read a script.
+
 """.strip()
 
     payload = {
